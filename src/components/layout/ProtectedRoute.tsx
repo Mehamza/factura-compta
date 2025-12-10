@@ -1,9 +1,9 @@
 import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
-import Dashboard from '@/pages/Dashboard';
+import { DashboardLayout } from './DashboardLayout';
 
-const Index = () => {
+export function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
   const navigate = useNavigate();
 
@@ -25,7 +25,5 @@ const Index = () => {
     return null;
   }
 
-  return <Dashboard />;
-};
-
-export default Index;
+  return <DashboardLayout>{children}</DashboardLayout>;
+}
