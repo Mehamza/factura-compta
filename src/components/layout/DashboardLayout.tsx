@@ -1,4 +1,4 @@
-import { ReactNode } from 'react';
+import { ReactNode, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
@@ -10,9 +10,9 @@ import {
   FileText,
   LogOut,
   Menu,
-  X
+  X,
+  Shield
 } from 'lucide-react';
-import { useState } from 'react';
 
 const navigation = [
   { name: 'Dashboard', href: '/', icon: LayoutDashboard },
@@ -21,8 +21,12 @@ const navigation = [
   { name: 'Factures', href: '/invoices', icon: FileText },
 ];
 
+const adminNavigation = [
+  { name: 'Utilisateurs', href: '/users', icon: Shield },
+];
+
 export function DashboardLayout({ children }: { children: ReactNode }) {
-  const { user, signOut } = useAuth();
+  const { user, role, signOut } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -84,6 +88,32 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
               </Link>
             );
           })}
+          
+          {role === 'admin' && (
+            <>
+              <div className="my-2 border-t" />
+              <p className="px-3 py-1 text-xs font-semibold text-muted-foreground uppercase">Administration</p>
+              {adminNavigation.map((item) => {
+                const isActive = location.pathname === item.href;
+                return (
+                  <Link
+                    key={item.name}
+                    to={item.href}
+                    onClick={() => setSidebarOpen(false)}
+                    className={cn(
+                      "flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors",
+                      isActive
+                        ? "bg-primary text-primary-foreground"
+                        : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+                    )}
+                  >
+                    <item.icon className="h-5 w-5" />
+                    {item.name}
+                  </Link>
+                );
+              })}
+            </>
+          )}
         </nav>
 
         <div className="absolute bottom-0 left-0 right-0 p-4 border-t">
