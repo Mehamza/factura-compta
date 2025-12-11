@@ -22,7 +22,7 @@ const navigation = [
 ];
 
 const adminNavigation = [
-  { name: 'Utilisateurs', href: '/users', icon: Shield },
+  { name: 'Utilisateurs', href: '/mohamedhamzaallagui', icon: Shield },
 ];
 
 export function DashboardLayout({ children }: { children: ReactNode }) {
