@@ -432,14 +432,14 @@ export default function Documents() {
                 <div className="space-y-2">
                   <Label>Associer à une facture (optionnel)</Label>
                   <Select
-                    value={newDoc.invoice_id}
-                    onValueChange={(value) => setNewDoc({ ...newDoc, invoice_id: value })}
+                    value={newDoc.invoice_id || 'none'}
+                    onValueChange={(value) => setNewDoc({ ...newDoc, invoice_id: value === 'none' ? '' : value })}
                   >
                     <SelectTrigger>
                       <SelectValue placeholder="Sélectionner une facture" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">Aucune</SelectItem>
+                      <SelectItem value="none">Aucune</SelectItem>
                       {invoices.map((inv) => (
                         <SelectItem key={inv.id} value={inv.id}>
                           {inv.invoice_number}
@@ -452,14 +452,14 @@ export default function Documents() {
                 <div className="space-y-2">
                   <Label>Associer à un client (optionnel)</Label>
                   <Select
-                    value={newDoc.client_id}
-                    onValueChange={(value) => setNewDoc({ ...newDoc, client_id: value })}
+                    value={newDoc.client_id || 'none'}
+                    onValueChange={(value) => setNewDoc({ ...newDoc, client_id: value === 'none' ? '' : value })}
                   >
                     <SelectTrigger>
                       <SelectValue placeholder="Sélectionner un client" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">Aucun</SelectItem>
+                      <SelectItem value="none">Aucun</SelectItem>
                       {clients.map((client) => (
                         <SelectItem key={client.id} value={client.id}>
                           {client.name}
@@ -472,14 +472,14 @@ export default function Documents() {
                 <div className="space-y-2">
                   <Label>Associer à un fournisseur (optionnel)</Label>
                   <Select
-                    value={newDoc.supplier_id}
-                    onValueChange={(value) => setNewDoc({ ...newDoc, supplier_id: value })}
+                    value={newDoc.supplier_id || 'none'}
+                    onValueChange={(value) => setNewDoc({ ...newDoc, supplier_id: value === 'none' ? '' : value })}
                   >
                     <SelectTrigger>
                       <SelectValue placeholder="Sélectionner un fournisseur" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">Aucun</SelectItem>
+                      <SelectItem value="none">Aucun</SelectItem>
                       {suppliers.map((supplier) => (
                         <SelectItem key={supplier.id} value={supplier.id}>
                           {supplier.name}
