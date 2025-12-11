@@ -11,7 +11,8 @@ import {
   LogOut,
   Menu,
   X,
-  Shield
+  Shield,
+  Settings
 } from 'lucide-react';
 
 const navigation = [
@@ -19,6 +20,7 @@ const navigation = [
   { name: 'Clients', href: '/clients', icon: Users },
   { name: 'Fournisseurs', href: '/suppliers', icon: Truck },
   { name: 'Factures', href: '/invoices', icon: FileText },
+  { name: 'Paramètres', href: '/settings', icon: Settings },
 ];
 
 const adminNavigation = [
