@@ -12,7 +12,8 @@ import {
   Menu,
   X,
   Shield,
-  Settings
+  Settings,
+  FolderOpen
 } from 'lucide-react';
 
 const navigation = [
@@ -20,6 +21,7 @@ const navigation = [
   { name: 'Clients', href: '/clients', icon: Users },
   { name: 'Fournisseurs', href: '/suppliers', icon: Truck },
   { name: 'Factures', href: '/invoices', icon: FileText },
+  { name: 'Documents', href: '/documents', icon: FolderOpen },
   { name: 'Paramètres', href: '/settings', icon: Settings },
 ];
 

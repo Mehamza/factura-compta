@@ -134,6 +134,76 @@ export type Database = {
         }
         Relationships: []
       }
+      documents: {
+        Row: {
+          category: string
+          client_id: string | null
+          created_at: string
+          description: string | null
+          file_name: string
+          file_path: string
+          file_size: number
+          file_type: string
+          id: string
+          invoice_id: string | null
+          supplier_id: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          category?: string
+          client_id?: string | null
+          created_at?: string
+          description?: string | null
+          file_name: string
+          file_path: string
+          file_size: number
+          file_type: string
+          id?: string
+          invoice_id?: string | null
+          supplier_id?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          category?: string
+          client_id?: string | null
+          created_at?: string
+          description?: string | null
+          file_name?: string
+          file_path?: string
+          file_size?: number
+          file_type?: string
+          id?: string
+          invoice_id?: string | null
+          supplier_id?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "documents_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "documents_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "invoices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "documents_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       invoice_items: {
         Row: {
           created_at: string
