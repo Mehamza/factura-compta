@@ -62,6 +62,78 @@ export type Database = {
         }
         Relationships: []
       }
+      company_settings: {
+        Row: {
+          company_address: string | null
+          company_city: string | null
+          company_country: string | null
+          company_email: string | null
+          company_logo_url: string | null
+          company_name: string | null
+          company_phone: string | null
+          company_postal_code: string | null
+          company_tax_id: string | null
+          company_trade_register: string | null
+          company_vat_number: string | null
+          created_at: string
+          default_vat_rate: number | null
+          id: string
+          invoice_format: string | null
+          invoice_next_number: number | null
+          invoice_number_padding: number | null
+          invoice_prefix: string | null
+          updated_at: string
+          user_id: string
+          vat_rates: Json | null
+        }
+        Insert: {
+          company_address?: string | null
+          company_city?: string | null
+          company_country?: string | null
+          company_email?: string | null
+          company_logo_url?: string | null
+          company_name?: string | null
+          company_phone?: string | null
+          company_postal_code?: string | null
+          company_tax_id?: string | null
+          company_trade_register?: string | null
+          company_vat_number?: string | null
+          created_at?: string
+          default_vat_rate?: number | null
+          id?: string
+          invoice_format?: string | null
+          invoice_next_number?: number | null
+          invoice_number_padding?: number | null
+          invoice_prefix?: string | null
+          updated_at?: string
+          user_id: string
+          vat_rates?: Json | null
+        }
+        Update: {
+          company_address?: string | null
+          company_city?: string | null
+          company_country?: string | null
+          company_email?: string | null
+          company_logo_url?: string | null
+          company_name?: string | null
+          company_phone?: string | null
+          company_postal_code?: string | null
+          company_tax_id?: string | null
+          company_trade_register?: string | null
+          company_vat_number?: string | null
+          created_at?: string
+          default_vat_rate?: number | null
+          id?: string
+          invoice_format?: string | null
+          invoice_next_number?: number | null
+          invoice_number_padding?: number | null
+          invoice_prefix?: string | null
+          updated_at?: string
+          user_id?: string
+          vat_rates?: Json | null
+        }
+        Relationships: []
+      }
       invoice_items: {
         Row: {
           created_at: string
