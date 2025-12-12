@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -8,7 +8,8 @@ import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
-import { Building2, Receipt, FileText, Plus, Trash2, Save } from 'lucide-react';
+import { Building2, Receipt, FileText, Plus, Trash2, Save, Upload, Image } from 'lucide-react';
+import { currencies } from '@/lib/numberToWords';
 
 interface VatRate {
   rate: number;
@@ -28,6 +29,9 @@ interface CompanySettings {
   company_vat_number: string;
   company_tax_id: string;
   company_trade_register: string;
+  company_logo_url: string;
+  default_currency: string;
+  activity: string;
   default_vat_rate: number;
   vat_rates: VatRate[];
   invoice_prefix: string;
@@ -47,6 +51,9 @@ const defaultSettings: Omit<CompanySettings, 'user_id'> = {
   company_vat_number: '',
   company_tax_id: '',
   company_trade_register: '',
+  company_logo_url: '',
+  default_currency: 'TND',
+  activity: '',
   default_vat_rate: 19,
   vat_rates: [
     { rate: 0, label: 'Exonéré' },
@@ -64,8 +71,10 @@ export default function Settings() {
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [uploadingLogo, setUploadingLogo] = useState(false);
   const [settings, setSettings] = useState<CompanySettings | null>(null);
   const [newVatRate, setNewVatRate] = useState({ rate: 0, label: '' });
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (user) {
@@ -86,6 +95,9 @@ export default function Settings() {
       if (data) {
         setSettings({
           ...data,
+          company_logo_url: data.company_logo_url || '',
+          default_currency: data.default_currency || 'TND',
+          activity: data.activity || '',
           vat_rates: (data.vat_rates as unknown as VatRate[]) || defaultSettings.vat_rates
         });
       } else {
@@ -100,6 +112,51 @@ export default function Settings() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleLogoUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file || !user) return;
+
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      toast.error('Veuillez sélectionner une image');
+      return;
+    }
+
+    // Validate file size (max 2MB)
+    if (file.size > 2 * 1024 * 1024) {
+      toast.error('L\'image ne doit pas dépasser 2 Mo');
+      return;
+    }
+
+    setUploadingLogo(true);
+    try {
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${user.id}/logo-${Date.now()}.${fileExt}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('documents')
+        .upload(fileName, file, { upsert: true });
+
+      if (uploadError) throw uploadError;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('documents')
+        .getPublicUrl(fileName);
+
+      setSettings(prev => prev ? { ...prev, company_logo_url: publicUrl } : null);
+      toast.success('Logo téléchargé avec succès');
+    } catch (error) {
+      console.error('Erreur upload logo:', error);
+      toast.error('Erreur lors du téléchargement du logo');
+    } finally {
+      setUploadingLogo(false);
+    }
+  };
+
+  const removeLogo = () => {
+    setSettings(prev => prev ? { ...prev, company_logo_url: '' } : null);
   };
 
   const saveSettings = async () => {
@@ -222,12 +279,62 @@ export default function Settings() {
         <TabsContent value="company">
           <Card>
             <CardHeader>
-              <CardTitle>Données fiscales de l'entreprise</CardTitle>
+              <CardTitle>Informations de la société</CardTitle>
               <CardDescription>
                 Ces informations apparaîtront sur vos factures
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
+              {/* Logo de l'entreprise */}
+              <div className="space-y-3">
+                <Label>Logo de l'entreprise</Label>
+                <div className="flex items-center gap-4">
+                  {settings.company_logo_url ? (
+                    <div className="relative">
+                      <img
+                        src={settings.company_logo_url}
+                        alt="Logo entreprise"
+                        className="h-20 w-20 object-contain rounded-lg border bg-background"
+                      />
+                      <Button
+                        type="button"
+                        variant="destructive"
+                        size="icon"
+                        className="absolute -top-2 -right-2 h-6 w-6"
+                        onClick={removeLogo}
+                      >
+                        <Trash2 className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="h-20 w-20 rounded-lg border-2 border-dashed border-muted-foreground/25 flex items-center justify-center">
+                      <Image className="h-8 w-8 text-muted-foreground/50" />
+                    </div>
+                  )}
+                  <div>
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="image/*"
+                      onChange={handleLogoUpload}
+                      className="hidden"
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => fileInputRef.current?.click()}
+                      disabled={uploadingLogo}
+                    >
+                      <Upload className="h-4 w-4 mr-2" />
+                      {uploadingLogo ? 'Téléchargement...' : 'Télécharger un logo'}
+                    </Button>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Format: JPG, PNG. Taille max: 2 Mo
+                    </p>
+                  </div>
+                </div>
+              </div>
+
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="company_name">Raison sociale</Label>
@@ -239,6 +346,18 @@ export default function Settings() {
                   />
                 </div>
                 <div className="space-y-2">
+                  <Label htmlFor="activity">Activité</Label>
+                  <Input
+                    id="activity"
+                    value={settings.activity}
+                    onChange={(e) => setSettings({ ...settings, activity: e.target.value })}
+                    placeholder="Ex: Commerce de détail, Services informatiques..."
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
                   <Label htmlFor="company_email">Email</Label>
                   <Input
                     id="company_email"
@@ -247,6 +366,24 @@ export default function Settings() {
                     onChange={(e) => setSettings({ ...settings, company_email: e.target.value })}
                     placeholder="contact@entreprise.tn"
                   />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="default_currency">Devise par défaut</Label>
+                  <Select
+                    value={settings.default_currency}
+                    onValueChange={(value) => setSettings({ ...settings, default_currency: value })}
+                  >
+                    <SelectTrigger id="default_currency">
+                      <SelectValue placeholder="Sélectionner une devise" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {Object.entries(currencies).map(([code, info]) => (
+                        <SelectItem key={code} value={code}>
+                          {info.symbol} - {info.name.charAt(0).toUpperCase() + info.name.slice(1)} ({code})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
 

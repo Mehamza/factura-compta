@@ -64,6 +64,7 @@ export type Database = {
       }
       company_settings: {
         Row: {
+          activity: string | null
           company_address: string | null
           company_city: string | null
           company_country: string | null
@@ -76,6 +77,7 @@ export type Database = {
           company_trade_register: string | null
           company_vat_number: string | null
           created_at: string
+          default_currency: string | null
           default_vat_rate: number | null
           id: string
           invoice_format: string | null
@@ -87,6 +89,7 @@ export type Database = {
           vat_rates: Json | null
         }
         Insert: {
+          activity?: string | null
           company_address?: string | null
           company_city?: string | null
           company_country?: string | null
@@ -99,6 +102,7 @@ export type Database = {
           company_trade_register?: string | null
           company_vat_number?: string | null
           created_at?: string
+          default_currency?: string | null
           default_vat_rate?: number | null
           id?: string
           invoice_format?: string | null
@@ -110,6 +114,7 @@ export type Database = {
           vat_rates?: Json | null
         }
         Update: {
+          activity?: string | null
           company_address?: string | null
           company_city?: string | null
           company_country?: string | null
@@ -122,6 +127,7 @@ export type Database = {
           company_trade_register?: string | null
           company_vat_number?: string | null
           created_at?: string
+          default_currency?: string | null
           default_vat_rate?: number | null
           id?: string
           invoice_format?: string | null
@@ -246,6 +252,8 @@ export type Database = {
         Row: {
           client_id: string | null
           created_at: string
+          created_by_user_id: string | null
+          currency: string | null
           due_date: string
           id: string
           invoice_number: string
@@ -255,6 +263,7 @@ export type Database = {
           subtotal: number
           tax_amount: number
           tax_rate: number
+          template_type: string | null
           total: number
           updated_at: string
           user_id: string
@@ -262,6 +271,8 @@ export type Database = {
         Insert: {
           client_id?: string | null
           created_at?: string
+          created_by_user_id?: string | null
+          currency?: string | null
           due_date: string
           id?: string
           invoice_number: string
@@ -271,6 +282,7 @@ export type Database = {
           subtotal?: number
           tax_amount?: number
           tax_rate?: number
+          template_type?: string | null
           total?: number
           updated_at?: string
           user_id: string
@@ -278,6 +290,8 @@ export type Database = {
         Update: {
           client_id?: string | null
           created_at?: string
+          created_by_user_id?: string | null
+          currency?: string | null
           due_date?: string
           id?: string
           invoice_number?: string
@@ -287,6 +301,7 @@ export type Database = {
           subtotal?: number
           tax_amount?: number
           tax_rate?: number
+          template_type?: string | null
           total?: number
           updated_at?: string
           user_id?: string
