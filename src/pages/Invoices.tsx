@@ -30,8 +30,15 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { useToast } from '@/hooks/use-toast';
-import { Plus, Search, Download, Trash2, Eye } from 'lucide-react';
-import { generateInvoicePDF } from '@/lib/generateInvoicePDF';
+import { Plus, Search, Download, Trash2, Eye, FileText } from 'lucide-react';
+import { 
+  generateInvoiceWithTemplate, 
+  templateLabels, 
+  templateDescriptions,
+  type TemplateType,
+  type InvoiceTemplateData 
+} from '@/lib/invoiceTemplates';
+import { formatCurrency, currencies } from '@/lib/numberToWords';
 
 interface Client {
   id: string;
@@ -64,7 +71,35 @@ interface Invoice {
   tax_amount: number;
   total: number;
   notes: string | null;
+  currency: string;
+  template_type: string;
+  created_by_user_id: string | null;
   clients?: Client;
+}
+
+interface CompanySettings {
+  company_name: string | null;
+  company_address: string | null;
+  company_city: string | null;
+  company_postal_code: string | null;
+  company_country: string | null;
+  company_phone: string | null;
+  company_email: string | null;
+  company_vat_number: string | null;
+  company_tax_id: string | null;
+  company_trade_register: string | null;
+  company_logo_url: string | null;
+  activity: string | null;
+  default_currency: string | null;
+  default_vat_rate: number | null;
+}
+
+interface UserProfile {
+  full_name: string | null;
+}
+
+interface UserRole {
+  role: string;
 }
 
 const statusColors: Record<string, string> = {
@@ -83,11 +118,22 @@ const statusLabels: Record<string, string> = {
   cancelled: 'Annulée',
 };
 
+const roleLabels: Record<string, string> = {
+  admin: 'Administrateur',
+  user: 'Utilisateur',
+  comptable: 'Comptable',
+  gerant: 'Gérant',
+  caissier: 'Caissier',
+};
+
 export default function Invoices() {
   const { user } = useAuth();
   const { toast } = useToast();
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
+  const [companySettings, setCompanySettings] = useState<CompanySettings | null>(null);
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
+  const [userRole, setUserRole] = useState<string>('user');
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -99,9 +145,11 @@ export default function Invoices() {
     client_id: '',
     issue_date: new Date().toISOString().split('T')[0],
     due_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-    tax_rate: 20,
+    tax_rate: 19,
     notes: '',
     status: 'draft',
+    currency: 'TND',
+    template_type: 'classic' as TemplateType,
   });
   const [items, setItems] = useState<InvoiceItem[]>([{ description: '', quantity: 1, unit_price: 0, total: 0 }]);
 
@@ -109,6 +157,8 @@ export default function Invoices() {
     if (user) {
       fetchInvoices();
       fetchClients();
+      fetchCompanySettings();
+      fetchUserInfo();
     }
   }, [user]);
 
@@ -121,7 +171,11 @@ export default function Invoices() {
     if (error) {
       toast({ variant: 'destructive', title: 'Erreur', description: error.message });
     } else {
-      setInvoices(data || []);
+      setInvoices((data || []).map(inv => ({
+        ...inv,
+        currency: inv.currency || 'TND',
+        template_type: inv.template_type || 'classic',
+      })));
     }
     setLoading(false);
   };
@@ -129,6 +183,48 @@ export default function Invoices() {
   const fetchClients = async () => {
     const { data } = await supabase.from('clients').select('*').order('name');
     setClients(data || []);
+  };
+
+  const fetchCompanySettings = async () => {
+    const { data } = await supabase
+      .from('company_settings')
+      .select('company_name, company_address, company_city, company_postal_code, company_country, company_phone, company_email, company_vat_number, company_tax_id, company_trade_register, company_logo_url, activity, default_currency, default_vat_rate')
+      .eq('user_id', user?.id)
+      .maybeSingle();
+    
+    if (data) {
+      setCompanySettings(data);
+      // Apply default settings to form
+      setFormData(prev => ({
+        ...prev,
+        currency: data.default_currency || 'TND',
+        tax_rate: data.default_vat_rate || 19,
+      }));
+    }
+  };
+
+  const fetchUserInfo = async () => {
+    // Fetch profile
+    const { data: profileData } = await supabase
+      .from('profiles')
+      .select('full_name')
+      .eq('user_id', user?.id)
+      .maybeSingle();
+    
+    if (profileData) {
+      setUserProfile(profileData);
+    }
+
+    // Fetch role
+    const { data: roleData } = await supabase
+      .from('user_roles')
+      .select('role')
+      .eq('user_id', user?.id)
+      .maybeSingle();
+    
+    if (roleData) {
+      setUserRole(roleData.role);
+    }
   };
 
   const generateInvoiceNumber = () => {
@@ -185,6 +281,9 @@ export default function Invoices() {
         tax_amount: taxAmount,
         total,
         notes: formData.notes || null,
+        currency: formData.currency,
+        template_type: formData.template_type,
+        created_by_user_id: user?.id,
       })
       .select()
       .single();
@@ -242,26 +341,53 @@ export default function Invoices() {
       .select('*')
       .eq('invoice_id', invoice.id);
     
-    generateInvoicePDF(
-      {
-        invoice_number: invoice.invoice_number,
-        issue_date: invoice.issue_date,
-        due_date: invoice.due_date,
-        subtotal: Number(invoice.subtotal),
-        tax_rate: Number(invoice.tax_rate),
-        tax_amount: Number(invoice.tax_amount),
-        total: Number(invoice.total),
-        notes: invoice.notes || undefined,
-        client: invoice.clients ? {
-          name: invoice.clients.name,
-          address: invoice.clients.address || undefined,
-          city: invoice.clients.city || undefined,
-          postal_code: invoice.clients.postal_code || undefined,
-          email: invoice.clients.email || undefined,
-          siret: invoice.clients.siret || undefined,
-          vat_number: invoice.clients.vat_number || undefined,
-        } : undefined,
+    // Get creator info if available
+    let creatorName = userProfile?.full_name || user?.email || 'Utilisateur';
+    let creatorRole = roleLabels[userRole] || 'Utilisateur';
+    
+    const invoiceData: InvoiceTemplateData = {
+      invoice_number: invoice.invoice_number,
+      issue_date: invoice.issue_date,
+      due_date: invoice.due_date,
+      subtotal: Number(invoice.subtotal),
+      tax_rate: Number(invoice.tax_rate),
+      tax_amount: Number(invoice.tax_amount),
+      total: Number(invoice.total),
+      notes: invoice.notes || undefined,
+      currency: invoice.currency || 'TND',
+      template_type: invoice.template_type || 'classic',
+      client: invoice.clients ? {
+        name: invoice.clients.name,
+        address: invoice.clients.address || undefined,
+        city: invoice.clients.city || undefined,
+        postal_code: invoice.clients.postal_code || undefined,
+        email: invoice.clients.email || undefined,
+        siret: invoice.clients.siret || undefined,
+        vat_number: invoice.clients.vat_number || undefined,
+      } : undefined,
+      company: companySettings ? {
+        name: companySettings.company_name || undefined,
+        address: companySettings.company_address || undefined,
+        city: companySettings.company_city || undefined,
+        postal_code: companySettings.company_postal_code || undefined,
+        country: companySettings.company_country || undefined,
+        phone: companySettings.company_phone || undefined,
+        email: companySettings.company_email || undefined,
+        vat_number: companySettings.company_vat_number || undefined,
+        tax_id: companySettings.company_tax_id || undefined,
+        trade_register: companySettings.company_trade_register || undefined,
+        logo_url: companySettings.company_logo_url || undefined,
+        activity: companySettings.activity || undefined,
+      } : undefined,
+      created_by: {
+        name: creatorName,
+        role: creatorRole,
+        created_at: new Date().toISOString(),
       },
+    };
+    
+    generateInvoiceWithTemplate(
+      invoiceData,
       (items || []).map(i => ({
         description: i.description,
         quantity: Number(i.quantity),
@@ -277,9 +403,11 @@ export default function Invoices() {
       client_id: '',
       issue_date: new Date().toISOString().split('T')[0],
       due_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-      tax_rate: 20,
+      tax_rate: companySettings?.default_vat_rate || 19,
       notes: '',
       status: 'draft',
+      currency: companySettings?.default_currency || 'TND',
+      template_type: 'classic',
     });
     setItems([{ description: '', quantity: 1, unit_price: 0, total: 0 }]);
   };
@@ -306,17 +434,42 @@ export default function Invoices() {
           <DialogTrigger asChild>
             <Button><Plus className="h-4 w-4 mr-2" />Nouvelle facture</Button>
           </DialogTrigger>
-          <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Nouvelle facture</DialogTitle>
             </DialogHeader>
             <form onSubmit={handleSubmit} className="space-y-6">
+              {/* Template selection */}
+              <div className="space-y-3">
+                <Label>Modèle de facture</Label>
+                <div className="grid grid-cols-3 gap-3">
+                  {(Object.keys(templateLabels) as TemplateType[]).map((template) => (
+                    <div
+                      key={template}
+                      className={`p-4 border rounded-lg cursor-pointer transition-all ${
+                        formData.template_type === template
+                          ? 'border-primary bg-primary/5 ring-2 ring-primary'
+                          : 'border-border hover:border-primary/50'
+                      }`}
+                      onClick={() => setFormData({ ...formData, template_type: template })}
+                    >
+                      <div className="flex items-center gap-2 mb-2">
+                        <FileText className="h-5 w-5 text-primary" />
+                        <span className="font-medium">{templateLabels[template]}</span>
+                      </div>
+                      <p className="text-xs text-muted-foreground">{templateDescriptions[template]}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <Label>Client</Label>
-                  <Select value={formData.client_id} onValueChange={v => setFormData({ ...formData, client_id: v })}>
+                  <Select value={formData.client_id || 'none'} onValueChange={v => setFormData({ ...formData, client_id: v === 'none' ? '' : v })}>
                     <SelectTrigger><SelectValue placeholder="Sélectionner un client" /></SelectTrigger>
                     <SelectContent>
+                      <SelectItem value="none">Aucun client</SelectItem>
                       {clients.map(c => (
                         <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
                       ))}
@@ -345,6 +498,19 @@ export default function Invoices() {
                 <div>
                   <Label>Taux TVA (%)</Label>
                   <Input type="number" value={formData.tax_rate} onChange={e => setFormData({ ...formData, tax_rate: Number(e.target.value) })} />
+                </div>
+                <div>
+                  <Label>Devise</Label>
+                  <Select value={formData.currency} onValueChange={v => setFormData({ ...formData, currency: v })}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {Object.entries(currencies).map(([code, info]) => (
+                        <SelectItem key={code} value={code}>
+                          {info.symbol} {code} - {info.name.charAt(0).toUpperCase() + info.name.slice(1)}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
 
@@ -376,7 +542,9 @@ export default function Invoices() {
                         onChange={e => updateItemTotal(index, 'unit_price', Number(e.target.value))}
                         step="0.01"
                       />
-                      <div className="col-span-2 text-right font-medium">{item.total.toFixed(2)} €</div>
+                      <div className="col-span-2 text-right font-medium text-sm">
+                        {formatCurrency(item.total, formData.currency)}
+                      </div>
                       <Button type="button" variant="ghost" size="icon" onClick={() => removeItem(index)} className="col-span-1">
                         <Trash2 className="h-4 w-4" />
                       </Button>
@@ -389,9 +557,9 @@ export default function Invoices() {
               </div>
 
               <div className="bg-muted p-4 rounded-lg space-y-1 text-right">
-                <p>Sous-total HT: <span className="font-medium">{subtotal.toFixed(2)} €</span></p>
-                <p>TVA ({formData.tax_rate}%): <span className="font-medium">{taxAmount.toFixed(2)} €</span></p>
-                <p className="text-lg font-bold">Total TTC: {total.toFixed(2)} €</p>
+                <p>Sous-total HT: <span className="font-medium">{formatCurrency(subtotal, formData.currency)}</span></p>
+                <p>TVA ({formData.tax_rate}%): <span className="font-medium">{formatCurrency(taxAmount, formData.currency)}</span></p>
+                <p className="text-lg font-bold">Total TTC: {formatCurrency(total, formData.currency)}</p>
               </div>
 
               <div>
@@ -420,13 +588,14 @@ export default function Invoices() {
                 <TableHead>Client</TableHead>
                 <TableHead>Date</TableHead>
                 <TableHead>Statut</TableHead>
+                <TableHead>Devise</TableHead>
                 <TableHead className="text-right">Total</TableHead>
                 <TableHead className="w-32">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {filteredInvoices.length === 0 ? (
-                <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground">Aucune facture</TableCell></TableRow>
+                <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground">Aucune facture</TableCell></TableRow>
               ) : (
                 filteredInvoices.map(invoice => (
                   <TableRow key={invoice.id}>
@@ -436,7 +605,12 @@ export default function Invoices() {
                     <TableCell>
                       <Badge className={statusColors[invoice.status]}>{statusLabels[invoice.status]}</Badge>
                     </TableCell>
-                    <TableCell className="text-right font-medium">{Number(invoice.total).toFixed(2)} €</TableCell>
+                    <TableCell>
+                      <Badge variant="outline">{invoice.currency}</Badge>
+                    </TableCell>
+                    <TableCell className="text-right font-medium">
+                      {formatCurrency(Number(invoice.total), invoice.currency)}
+                    </TableCell>
                     <TableCell>
                       <div className="flex gap-1">
                         <Button variant="ghost" size="icon" onClick={() => viewInvoice(invoice)}><Eye className="h-4 w-4" /></Button>
@@ -476,37 +650,56 @@ export default function Invoices() {
                   <p className="text-muted-foreground">Date d'échéance</p>
                   <p className="font-medium">{new Date(selectedInvoice.due_date).toLocaleDateString('fr-FR')}</p>
                 </div>
+                <div>
+                  <p className="text-muted-foreground">Devise</p>
+                  <p className="font-medium">{selectedInvoice.currency}</p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground">Modèle</p>
+                  <p className="font-medium">{templateLabels[selectedInvoice.template_type as TemplateType] || 'Classique'}</p>
+                </div>
               </div>
-              
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Description</TableHead>
-                    <TableHead>Qté</TableHead>
-                    <TableHead>Prix unit.</TableHead>
-                    <TableHead className="text-right">Total</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {selectedInvoiceItems.map((item, i) => (
-                    <TableRow key={i}>
-                      <TableCell>{item.description}</TableCell>
-                      <TableCell>{item.quantity}</TableCell>
-                      <TableCell>{Number(item.unit_price).toFixed(2)} €</TableCell>
-                      <TableCell className="text-right">{Number(item.total).toFixed(2)} €</TableCell>
+
+              <div>
+                <p className="text-muted-foreground mb-2">Articles</p>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Description</TableHead>
+                      <TableHead>Qté</TableHead>
+                      <TableHead>Prix unit.</TableHead>
+                      <TableHead className="text-right">Total</TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-              
-              <div className="bg-muted p-4 rounded-lg space-y-1 text-right">
-                <p>Sous-total HT: <span className="font-medium">{Number(selectedInvoice.subtotal).toFixed(2)} €</span></p>
-                <p>TVA ({selectedInvoice.tax_rate}%): <span className="font-medium">{Number(selectedInvoice.tax_amount).toFixed(2)} €</span></p>
-                <p className="text-lg font-bold">Total TTC: {Number(selectedInvoice.total).toFixed(2)} €</p>
+                  </TableHeader>
+                  <TableBody>
+                    {selectedInvoiceItems.map((item, index) => (
+                      <TableRow key={index}>
+                        <TableCell>{item.description}</TableCell>
+                        <TableCell>{item.quantity}</TableCell>
+                        <TableCell>{formatCurrency(Number(item.unit_price), selectedInvoice.currency)}</TableCell>
+                        <TableCell className="text-right">{formatCurrency(Number(item.total), selectedInvoice.currency)}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
               </div>
-              
-              <Button className="w-full" onClick={() => downloadPDF(selectedInvoice)}>
-                <Download className="h-4 w-4 mr-2" />Télécharger PDF
+
+              <div className="bg-muted p-4 rounded-lg space-y-1 text-right">
+                <p>Sous-total HT: <span className="font-medium">{formatCurrency(Number(selectedInvoice.subtotal), selectedInvoice.currency)}</span></p>
+                <p>TVA ({selectedInvoice.tax_rate}%): <span className="font-medium">{formatCurrency(Number(selectedInvoice.tax_amount), selectedInvoice.currency)}</span></p>
+                <p className="text-lg font-bold">Total TTC: {formatCurrency(Number(selectedInvoice.total), selectedInvoice.currency)}</p>
+              </div>
+
+              {selectedInvoice.notes && (
+                <div>
+                  <p className="text-muted-foreground">Notes</p>
+                  <p className="text-sm">{selectedInvoice.notes}</p>
+                </div>
+              )}
+
+              <Button onClick={() => downloadPDF(selectedInvoice)} className="w-full">
+                <Download className="h-4 w-4 mr-2" />
+                Télécharger le PDF
               </Button>
             </div>
           )}
