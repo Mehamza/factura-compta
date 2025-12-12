@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Users, Truck, FileText, Euro, TrendingUp, Clock, CheckCircle, AlertTriangle } from 'lucide-react';
+import { Users, Truck, FileText, BadgeDollarSign, TrendingUp, Clock, CheckCircle, AlertTriangle } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar } from 'recharts';
 import { format, startOfMonth, endOfMonth, startOfYear, endOfYear, subMonths, parseISO } from 'date-fns';
 import { fr } from 'date-fns/locale';
@@ -150,13 +150,13 @@ export default function Dashboard() {
     { title: 'Clients', value: stats.totalClients, icon: Users, color: 'text-primary', bgColor: 'bg-primary/10' },
     { title: 'Fournisseurs', value: stats.totalSuppliers, icon: Truck, color: 'text-primary', bgColor: 'bg-primary/10' },
     { title: 'Factures', value: stats.totalInvoices, icon: FileText, color: 'text-primary', bgColor: 'bg-primary/10' },
-    { title: 'CA Total', value: `${stats.totalRevenue.toLocaleString('fr-FR')} €`, icon: Euro, color: 'text-primary', bgColor: 'bg-primary/10' },
+    { title: 'CA Total', value: `${stats.totalRevenue.toLocaleString('fr-FR')} DT`, icon: BadgeDollarSign, color: 'text-primary', bgColor: 'bg-primary/10' },
   ];
 
   const revenueCards = [
-    { title: "CA Aujourd'hui", value: `${stats.revenueToday.toLocaleString('fr-FR')} €` },
-    { title: 'CA ce mois', value: `${stats.revenueMonth.toLocaleString('fr-FR')} €` },
-    { title: 'CA cette année', value: `${stats.revenueYear.toLocaleString('fr-FR')} €` },
+    { title: "CA Aujourd'hui", value: `${stats.revenueToday.toLocaleString('fr-FR')} DT` },
+    { title: 'CA ce mois', value: `${stats.revenueMonth.toLocaleString('fr-FR')} DT` },
+    { title: 'CA cette année', value: `${stats.revenueYear.toLocaleString('fr-FR')} DT` },
   ];
 
   const invoiceStats = [
@@ -246,7 +246,7 @@ export default function Dashboard() {
                   <XAxis dataKey="month" className="text-xs" />
                   <YAxis className="text-xs" tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} />
                   <Tooltip
-                    formatter={(value: number) => [`${value.toLocaleString('fr-FR')} €`, 'CA']}
+                    formatter={(value: number) => [`${value.toLocaleString('fr-FR')} DT`, 'CA']}
                     contentStyle={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))' }}
                   />
                   <Line type="monotone" dataKey="revenue" stroke="hsl(var(--primary))" strokeWidth={2} dot={{ fill: 'hsl(var(--primary))' }} />
@@ -269,10 +269,10 @@ export default function Dashboard() {
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={topClients} layout="vertical">
                     <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
-                    <XAxis type="number" tickFormatter={(v) => `${(v / 1000).toFixed(0)}k €`} className="text-xs" />
+                    <XAxis type="number" tickFormatter={(v) => `${(v / 1000).toFixed(0)}k DT`} className="text-xs" />
                     <YAxis type="category" dataKey="name" width={100} className="text-xs" />
                     <Tooltip
-                      formatter={(value: number) => [`${value.toLocaleString('fr-FR')} €`, 'CA']}
+                      formatter={(value: number) => [`${value.toLocaleString('fr-FR')} DT`, 'CA']}
                       contentStyle={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))' }}
                     />
                     <Bar dataKey="total" fill="hsl(var(--primary))" radius={[0, 4, 4, 0]} />

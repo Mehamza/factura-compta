@@ -8,6 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
 import { FileText, Loader2 } from 'lucide-react';
+import LandingHeader from "@/components/landing/LandingHeader";
 
 export default function Auth() {
   const [email, setEmail] = useState('');
@@ -20,7 +21,7 @@ export default function Auth() {
 
   useEffect(() => {
     if (user) {
-      navigate('/');
+      navigate('/dashboard');
     }
   }, [user, navigate]);
 
@@ -39,7 +40,7 @@ export default function Auth() {
           : error.message
       });
     } else {
-      navigate('/');
+      navigate('/dashboard');
     }
     setIsLoading(false);
   };
@@ -84,7 +85,9 @@ export default function Auth() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background p-4">
+    <>
+      <LandingHeader />
+      <div className="min-h-screen flex items-center justify-center bg-background p-4">
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
           <div className="flex justify-center mb-4">
@@ -140,7 +143,7 @@ export default function Auth() {
                   <Input
                     id="register-name"
                     type="text"
-                    placeholder="Jean Dupont"
+                    placeholder="Foulan Ben Foulan"
                     value={fullName}
                     onChange={(e) => setFullName(e.target.value)}
                     required
@@ -151,7 +154,7 @@ export default function Auth() {
                   <Input
                     id="register-email"
                     type="email"
-                    placeholder="votre@email.com"
+                    placeholder="foulen.benfoulen@gmail.com"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     required
@@ -177,6 +180,7 @@ export default function Auth() {
           </Tabs>
         </CardContent>
       </Card>
-    </div>
+      </div>
+    </>
   );
 }

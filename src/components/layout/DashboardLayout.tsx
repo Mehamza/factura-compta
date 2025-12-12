@@ -13,16 +13,23 @@ import {
   X,
   Shield,
   Settings,
-  FolderOpen
+  FolderOpen,
+  CreditCard,
+  BookOpen,
+  Landmark,
+  BarChart3,
 } from 'lucide-react';
 
 const navigation = [
-  { name: 'Dashboard', href: '/', icon: LayoutDashboard },
+  { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
   { name: 'Clients', href: '/clients', icon: Users },
   { name: 'Fournisseurs', href: '/suppliers', icon: Truck },
   { name: 'Factures', href: '/invoices', icon: FileText },
   { name: 'Documents', href: '/documents', icon: FolderOpen },
-  { name: 'Paramètres', href: '/settings', icon: Settings },
+  { name: 'Paiements', href: '/payments', icon: CreditCard },
+  { name: 'Journal', href: '/journal', icon: BookOpen },
+  { name: 'Comptes', href: '/accounts', icon: Landmark },
+  { name: 'Rapports', href: '/reports', icon: BarChart3 },
 ];
 
 const adminNavigation = [
@@ -120,7 +127,24 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
           )}
         </nav>
 
+         
+
         <div className="absolute bottom-0 left-0 right-0 p-4 border-t">
+
+          <Link
+            to="/settings"
+            onClick={() => setSidebarOpen(false)}
+            className={cn(
+              "flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors mb-2",
+              location.pathname === "/settings"
+                ? "bg-primary text-primary-foreground"
+                : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+            )}
+          >
+            <Settings className="h-5 w-5" />
+            Paramètres
+          </Link>
+
           <div className="flex items-center gap-3 mb-3 px-3">
             <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
               <span className="text-sm font-medium text-primary">
@@ -131,6 +155,7 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
               <p className="text-sm font-medium truncate">{user?.email}</p>
             </div>
           </div>
+         
           <Button
             variant="ghost"
             className="w-full justify-start text-muted-foreground"

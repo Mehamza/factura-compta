@@ -81,8 +81,8 @@ export function generateInvoicePDF(invoice: Invoice, items: InvoiceItem[]): void
   items.forEach(item => {
     doc.text(item.description.substring(0, 40), 22, y);
     doc.text(item.quantity.toString(), 120, y);
-    doc.text(`${item.unit_price.toFixed(2)} €`, 140, y);
-    doc.text(`${item.total.toFixed(2)} €`, 170, y);
+    doc.text(`${item.unit_price.toFixed(2)} DT`, 140, y);
+    doc.text(`${item.total.toFixed(2)} DT`, 170, y);
     y += 8;
   });
   
@@ -93,14 +93,14 @@ export function generateInvoicePDF(invoice: Invoice, items: InvoiceItem[]): void
   // Totals
   y += 12;
   doc.text('Sous-total HT:', 130, y);
-  doc.text(`${invoice.subtotal.toFixed(2)} €`, 170, y);
+  doc.text(`${invoice.subtotal.toFixed(2)} DT`, 170, y);
   y += 8;
   doc.text(`TVA (${invoice.tax_rate}%):`, 130, y);
-  doc.text(`${invoice.tax_amount.toFixed(2)} €`, 170, y);
+  doc.text(`${invoice.tax_amount.toFixed(2)} DT`, 170, y);
   y += 8;
   doc.setFont('helvetica', 'bold');
   doc.text('Total TTC:', 130, y);
-  doc.text(`${invoice.total.toFixed(2)} €`, 170, y);
+  doc.text(`${invoice.total.toFixed(2)} DT`, 170, y);
   
   // Notes
   if (invoice.notes) {

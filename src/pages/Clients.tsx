@@ -387,7 +387,7 @@ export default function Clients() {
                         <TableRow key={inv.id}>
                           <TableCell className="font-medium">{inv.invoice_number}</TableCell>
                           <TableCell>{new Date(inv.issue_date).toLocaleDateString('fr-FR')}</TableCell>
-                          <TableCell>{Number(inv.total).toLocaleString('fr-FR')} €</TableCell>
+                          <TableCell>{Number(inv.total).toLocaleString('fr-FR')} DT</TableCell>
                           <TableCell>
                             <Badge variant="outline">{statusLabels[inv.status] || inv.status}</Badge>
                           </TableCell>
