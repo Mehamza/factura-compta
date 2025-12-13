@@ -9,26 +9,20 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
+import type { Tables } from '@/integrations/supabase/types';
 
-interface Product { id: string; name: string; sku: string }
-interface Movement {
-  id: string;
-  product_id: string;
-  movement_type: 'entry' | 'exit' | 'adjust';
-  quantity: number;
-  note: string | null;
-  created_at: string;
-}
+type Product = Tables<'products'>;
+type StockMovement = Tables<'stock_movements'>;
 
 export default function StockMovements() {
   const { user, role } = useAuth();
   const { toast } = useToast();
   const [products, setProducts] = useState<Product[]>([]);
-  const [movements, setMovements] = useState<Movement[]>([]);
+  const [movements, setMovements] = useState<StockMovement[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [form, setForm] = useState({ product_id: '', movement_type: 'entry', quantity: '', note: '' });
-  const [typeFilter, setTypeFilter] = useState<'all' | 'entry' | 'exit' | 'adjust'>('all');
+  const [typeFilter, setTypeFilter] = useState<string>('all');
   const [productFilter, setProductFilter] = useState('all');
 
   useEffect(() => { if (user) load(); }, [user]);
@@ -36,7 +30,7 @@ export default function StockMovements() {
   const load = async () => {
     setLoading(true);
     const [prodRes, movRes] = await Promise.all([
-      supabase.from('products').select('id,name,sku').order('name'),
+      supabase.from('products').select('*').order('name'),
       supabase.from('stock_movements').select('*').order('created_at', { ascending: false }).limit(200),
     ]);
     setProducts(prodRes.data || []);
@@ -50,7 +44,7 @@ export default function StockMovements() {
     const qty = Number(form.quantity);
     if (isNaN(qty) || qty <= 0) { toast({ variant: 'destructive', title: 'Erreur', description: 'La quantité doit être supérieure à 0.' }); return; }
     const payload = {
-      user_id: user?.id,
+      user_id: user?.id!,
       product_id: form.product_id,
       movement_type: form.movement_type,
       quantity: qty,
@@ -70,6 +64,8 @@ export default function StockMovements() {
 
   const productLabel = (id: string) => products.find(p => p.id === id)?.name || '—';
 
+  const canManage = role === 'admin' || role === 'manager';
+
   if (loading) {
     return (<div className="flex items-center justify-center h-64"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div></div>);
   }
@@ -82,14 +78,14 @@ export default function StockMovements() {
           <p className="text-muted-foreground">Historique et enregistrement des mouvements de stock.</p>
         </div>
         <div className="flex gap-2">
-          {(role === 'admin' || role === 'gerant') && <Button onClick={() => setDialogOpen(true)}>Nouveau mouvement</Button>}
+          {canManage && <Button onClick={() => setDialogOpen(true)}>Nouveau mouvement</Button>}
         </div>
       </div>
 
       <Card>
         <CardHeader>
           <div className="flex flex-col md:flex-row gap-4">
-            <Select value={typeFilter} onValueChange={(v) => setTypeFilter(v as any)}>
+            <Select value={typeFilter} onValueChange={setTypeFilter}>
               <SelectTrigger className="w-48"><SelectValue placeholder="Type" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Tous</SelectItem>
@@ -152,7 +148,7 @@ export default function StockMovements() {
             </div>
             <div>
               <Label>Type</Label>
-              <Select value={form.movement_type} onValueChange={(v) => setForm({ ...form, movement_type: v as any })}>
+              <Select value={form.movement_type} onValueChange={(v) => setForm({ ...form, movement_type: v })}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="entry">Entrée</SelectItem>

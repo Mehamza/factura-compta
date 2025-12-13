@@ -6,10 +6,11 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import type { Tables } from '@/integrations/supabase/types';
 
-interface Account { id: string; code: string; name: string; type: string }
-interface JournalEntry { id: string; entry_date: string; reference: string | null; description: string | null }
-interface JournalLine { id: string; entry_id: string; account_id: string; debit: number; credit: number }
+type Account = Tables<'accounts'>;
+type JournalEntry = Tables<'journal_entries'>;
+type JournalLine = Tables<'journal_lines'>;
 
 export default function Journal() {
   const { user } = useAuth();
@@ -26,15 +27,15 @@ export default function Journal() {
 
   const load = async () => {
     setLoading(true);
-    const accRes = await supabase.from('accounts' as any).select('*').order('code');
-    const entRes = await supabase.from('journal_entries' as any).select('*').order('entry_date', { ascending: false });
-    setAccounts((accRes.data as Account[]) || []);
-    setEntries((entRes.data as JournalEntry[]) || []);
+    const accRes = await supabase.from('accounts').select('*').order('code');
+    const entRes = await supabase.from('journal_entries').select('*').order('entry_date', { ascending: false });
+    setAccounts(accRes.data || []);
+    setEntries(entRes.data || []);
     // Load lines per entry
     const linesByEntry: Record<string, JournalLine[]> = {};
-    for (const e of (entRes.data as JournalEntry[]) || []) {
-      const lr = await supabase.from('journal_lines' as any).select('*').eq('entry_id', e.id);
-      linesByEntry[e.id] = (lr.data as JournalLine[]) || [];
+    for (const e of entRes.data || []) {
+      const lr = await supabase.from('journal_lines').select('*').eq('entry_id', e.id);
+      linesByEntry[e.id] = lr.data || [];
     }
     setLines(linesByEntry);
     setLoading(false);
@@ -42,10 +43,10 @@ export default function Journal() {
 
   const createEntry = async (e: React.FormEvent) => {
     e.preventDefault();
-    const { data, error } = await supabase.from('journal_entries' as any).insert({
-      user_id: user?.id,
+    const { data, error } = await supabase.from('journal_entries').insert({
+      user_id: user?.id!,
       entry_date: newEntry.date,
-      reference: newEntry.reference || null,
+      reference: newEntry.reference || 'REF-' + Date.now(),
       description: newEntry.description || null,
       created_by_user_id: user?.id,
     }).select().single();
@@ -58,7 +59,7 @@ export default function Journal() {
   const addLine = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!currentEntryId) return;
-    const { error } = await supabase.from('journal_lines' as any).insert({
+    const { error } = await supabase.from('journal_lines').insert({
       entry_id: currentEntryId,
       account_id: newLine.account_id,
       debit: Number(newLine.debit || 0),
