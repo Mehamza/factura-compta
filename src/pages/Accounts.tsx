@@ -18,11 +18,11 @@ export default function Accounts() {
   useEffect(() => { if (user) load(); }, [user]);
 
   const load = async () => {
-    const accRes = await supabase.from('accounts').select('*').order('code');
-    setAccounts(accRes.data || []);
+    const accRes = await supabase.from('accounts' as any).select('*').order('code');
+    setAccounts((accRes.data as Account[]) || []);
     // load lines for period (simple: all lines)
-    const lr = await supabase.from('journal_lines').select('account_id,debit,credit');
-    setLines(lr.data || []);
+    const lr = await supabase.from('journal_lines' as any).select('account_id,debit,credit');
+    setLines((lr.data as Line[]) || []);
   };
 
   const balances = useMemo(() => {

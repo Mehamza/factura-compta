@@ -26,15 +26,15 @@ export default function Journal() {
 
   const load = async () => {
     setLoading(true);
-    const accRes = await supabase.from('accounts').select('*').order('code');
-    const entRes = await supabase.from('journal_entries').select('*').order('entry_date', { ascending: false });
-    setAccounts(accRes.data || []);
-    setEntries(entRes.data || []);
+    const accRes = await supabase.from('accounts' as any).select('*').order('code');
+    const entRes = await supabase.from('journal_entries' as any).select('*').order('entry_date', { ascending: false });
+    setAccounts((accRes.data as Account[]) || []);
+    setEntries((entRes.data as JournalEntry[]) || []);
     // Load lines per entry
     const linesByEntry: Record<string, JournalLine[]> = {};
-    for (const e of entRes.data || []) {
-      const lr = await supabase.from('journal_lines').select('*').eq('entry_id', e.id);
-      linesByEntry[e.id] = lr.data || [];
+    for (const e of (entRes.data as JournalEntry[]) || []) {
+      const lr = await supabase.from('journal_lines' as any).select('*').eq('entry_id', e.id);
+      linesByEntry[e.id] = (lr.data as JournalLine[]) || [];
     }
     setLines(linesByEntry);
     setLoading(false);
@@ -42,7 +42,7 @@ export default function Journal() {
 
   const createEntry = async (e: React.FormEvent) => {
     e.preventDefault();
-    const { data, error } = await supabase.from('journal_entries').insert({
+    const { data, error } = await supabase.from('journal_entries' as any).insert({
       user_id: user?.id,
       entry_date: newEntry.date,
       reference: newEntry.reference || null,
@@ -58,7 +58,7 @@ export default function Journal() {
   const addLine = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!currentEntryId) return;
-    const { error } = await supabase.from('journal_lines').insert({
+    const { error } = await supabase.from('journal_lines' as any).insert({
       entry_id: currentEntryId,
       account_id: newLine.account_id,
       debit: Number(newLine.debit || 0),
