@@ -1,4 +1,4 @@
-import { ReactNode, useState } from 'react';
+import { ReactNode, useEffect, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
@@ -18,7 +18,11 @@ import {
   BookOpen,
   Landmark,
   BarChart3,
+  Boxes,
+  MoveUpRight,
+  ChevronDown,
 } from 'lucide-react';
+// Collapsible removed for reliability; static sections used
 
 const navigation = [
   { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
@@ -30,6 +34,8 @@ const navigation = [
   { name: 'Journal', href: '/journal', icon: BookOpen },
   { name: 'Comptes', href: '/accounts', icon: Landmark },
   { name: 'Rapports', href: '/reports', icon: BarChart3 },
+  { name: 'Produits', href: '/stock/produits', icon: Boxes },
+  { name: 'Mouvements', href: '/stock/mouvements', icon: MoveUpRight },
 ];
 
 const adminNavigation = [
@@ -41,6 +47,7 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
   const location = useLocation();
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  // Collapsible state removed
 
   const handleSignOut = async () => {
     await signOut();
@@ -64,42 +71,126 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
           sidebarOpen ? "translate-x-0" : "-translate-x-full"
         )}
       >
-        <div className="flex h-16 items-center justify-between px-6 border-b">
-          <Link to="/" className="flex items-center gap-2 font-semibold text-lg">
-            <FileText className="h-6 w-6 text-primary" />
-            <span>Facture Pro</span>
-          </Link>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="lg:hidden"
-            onClick={() => setSidebarOpen(false)}
-          >
-            <X className="h-5 w-5" />
-          </Button>
-        </div>
+        {/* Sidebar wrapper: header + scrollable nav + footer */}
+        <div className="flex h-full flex-col">
+          <div className="flex h-16 items-center justify-between px-6 border-b">
+            <Link to="/" className="flex items-center gap-2 font-semibold text-lg">
+                <FileText className="h-6 w-6 text-primary" />
+                <span>Facture Pro</span>
+            </Link>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="lg:hidden"
+              onClick={() => setSidebarOpen(false)}
+            >
+              <X className="h-5 w-5" />
+            </Button>
+          </div>
+            {/* Scrollable menu; add bottom padding so footer doesn't overlap */}
+            <nav className="flex-1 flex flex-col gap-1 p-4 overflow-y-auto pb-24">
+              {navigation
+                .filter(n => !n.href.startsWith('/stock/'))
+                .map((item) => {
+                  const isActive = location.pathname === item.href;
+                  return (
+                    <Link
+                      key={item.name}
+                      to={item.href}
+                      onClick={() => setSidebarOpen(false)}
+                      className={cn(
+                        "flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors",
+                        isActive
+                          ? "bg-primary text-primary-foreground"
+                          : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+                      )}
+                    >
+                      <item.icon className="h-4 w-4" />
+                      {item.name}
+                    </Link>
+                  );
+                })}
+          {/* Section: Stock */}
+          <div className="my-2 border-t" />
+          <p className="px-3 py-1 text-xs font-semibold text-muted-foreground uppercase">Stock</p>
+          {navigation
+            .filter(n => n.href.startsWith('/stock/'))
+            .map((item) => {
+              const isActive = location.pathname === item.href;
+              return (
+                <Link
+                  key={item.name}
+                  to={item.href}
+                  onClick={() => setSidebarOpen(false)}
+                  className={cn(
+                    "flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors",
+                    isActive
+                      ? "bg-primary text-primary-foreground"
+                      : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+                  )}
+                >
+                  <item.icon className="h-4 w-4" />
+                  {item.name}
+                </Link>
+              );
+            })}
 
-        <nav className="flex flex-col gap-1 p-4">
-          {navigation.map((item) => {
-            const isActive = location.pathname === item.href;
-            return (
-              <Link
-                key={item.name}
-                to={item.href}
-                onClick={() => setSidebarOpen(false)}
-                className={cn(
-                  "flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors",
-                  isActive
-                    ? "bg-primary text-primary-foreground"
-                    : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
-                )}
-              >
-                <item.icon className="h-5 w-5" />
-                {item.name}
-              </Link>
-            );
-          })}
-          
+          {/* Section: Ajouter */}
+          <div className="my-2 border-t" />
+          <p className="px-3 py-1 text-xs font-semibold text-muted-foreground uppercase">Ajouter</p>
+          <Link
+            to="/invoices"
+            onClick={() => setSidebarOpen(false)}
+            className={cn(
+              "flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors",
+              location.pathname === "/invoices"
+                ? "bg-primary text-primary-foreground"
+                : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+            )}
+          >
+            <FileText className="h-4 w-4" />
+            Facture
+          </Link>
+          <Link
+            to="/stock/produits"
+            onClick={() => setSidebarOpen(false)}
+            className={cn(
+              "flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors",
+              location.pathname === "/stock/produits"
+                ? "bg-primary text-primary-foreground"
+                : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+            )}
+          >
+            <Boxes className="h-4 w-4" />
+            Produit
+          </Link>
+          <Link
+            to="/clients"
+            onClick={() => setSidebarOpen(false)}
+            className={cn(
+              "flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors",
+              location.pathname === "/clients"
+                ? "bg-primary text-primary-foreground"
+                : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+            )}
+          >
+            <Users className="h-4 w-4" />
+            Client
+          </Link>
+          <Link
+            to="/suppliers"
+            onClick={() => setSidebarOpen(false)}
+            className={cn(
+              "flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors",
+              location.pathname === "/suppliers"
+                ? "bg-primary text-primary-foreground"
+                : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+            )}
+          >
+            <Truck className="h-4 w-4" />
+            Fournisseur
+          </Link>
+
           {role === 'admin' && (
             <>
               <div className="my-2 border-t" />
@@ -118,7 +209,7 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
                         : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
                     )}
                   >
-                    <item.icon className="h-5 w-5" />
+                    <item.icon className="h-4 w-4" />
                     {item.name}
                   </Link>
                 );
@@ -126,10 +217,8 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
             </>
           )}
         </nav>
-
-         
-
-        <div className="absolute bottom-0 left-0 right-0 p-4 border-t">
+        {/* Footer area (static inside flow to avoid overlapping items) */}
+        <div className="p-4 border-t bg-card">
 
           <Link
             to="/settings"
@@ -141,7 +230,7 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
                 : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
             )}
           >
-            <Settings className="h-5 w-5" />
+            <Settings className="h-4 w-4" />
             Paramètres
           </Link>
 
@@ -161,16 +250,17 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
             className="w-full justify-start text-muted-foreground"
             onClick={handleSignOut}
           >
-            <LogOut className="h-5 w-5 mr-3" />
+            <LogOut className="h-4 w-4 mr-3" />
             Déconnexion
           </Button>
+        </div>
         </div>
       </aside>
 
       {/* Main content */}
       <div className="lg:pl-64">
         {/* Mobile header */}
-        <header className="sticky top-0 z-30 flex h-16 items-center gap-4 border-b bg-background px-4 lg:hidden">
+        <header className="sticky top-0 z-30 flex h-12 items-center gap-4 bg-background px-4 lg:hidden">
           <Button
             variant="ghost"
             size="icon"
@@ -181,7 +271,8 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
           <span className="font-semibold">Facture Pro</span>
         </header>
 
-        <main className="p-6">{children}</main>
+        {/* Remove extra whitespace so content fills the page */}
+        <main className="p-0">{children}</main>
       </div>
     </div>
   );

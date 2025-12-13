@@ -30,6 +30,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { useToast } from '@/hooks/use-toast';
+import { Select as UiSelect, SelectContent as UiSelectContent, SelectItem as UiSelectItem, SelectTrigger as UiSelectTrigger, SelectValue as UiSelectValue } from '@/components/ui/select';
 import { Plus, Search, Download, Trash2, Eye, FileText } from 'lucide-react';
 import { 
   generateInvoiceWithTemplate, 
@@ -131,6 +132,7 @@ export default function Invoices() {
   const { toast } = useToast();
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
+  const [products, setProducts] = useState<{id:string; name:string; sku:string; quantity:number; min_stock:number}[]>([]);
   const [companySettings, setCompanySettings] = useState<CompanySettings | null>(null);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [userRole, setUserRole] = useState<string>('user');
@@ -152,11 +154,14 @@ export default function Invoices() {
     template_type: 'classic' as TemplateType,
   });
   const [items, setItems] = useState<InvoiceItem[]>([{ description: '', quantity: 1, unit_price: 0, total: 0 }]);
+  const [itemProductMap, setItemProductMap] = useState<Record<number, string>>({});
+  const [documentType, setDocumentType] = useState<'sale' | 'purchase'>('sale');
 
   useEffect(() => {
     if (user) {
       fetchInvoices();
       fetchClients();
+      fetchProducts();
       fetchCompanySettings();
       fetchUserInfo();
     }
@@ -201,6 +206,11 @@ export default function Invoices() {
         tax_rate: data.default_vat_rate || 19,
       }));
     }
+  };
+
+  const fetchProducts = async () => {
+    const { data, error } = await supabase.from('products').select('id,name,sku,quantity,min_stock').order('name');
+    if (!error) setProducts(data || []);
   };
 
   const fetchUserInfo = async () => {
@@ -307,6 +317,46 @@ export default function Invoices() {
       toast({ variant: 'destructive', title: 'Erreur', description: itemsError.message });
     } else {
       toast({ title: 'Succès', description: 'Facture créée' });
+      // Auto-création des mouvements de stock selon type document (vente → sortie, achat → entrée)
+      try {
+        // Build movements for lines with a product selected
+        const selectedMovements = items.map((item, idx) => ({ idx, product_id: itemProductMap[idx], quantity: item.quantity }))
+          .filter(m => m.product_id);
+        if (selectedMovements.length > 0) {
+          // Check stock availability
+          const ids = selectedMovements.map(m => m.product_id!);
+          const { data: prodData } = await supabase.from('products').select('id,quantity,min_stock').in('id', ids);
+          const prodMap = Object.fromEntries((prodData || []).map(p => [p.id, p]));
+          // Only check insufficiency for sales (exits)
+          const insufficient = documentType === 'sale'
+            ? selectedMovements.filter(m => (prodMap[m.product_id!]?.quantity ?? 0) < Number(m.quantity))
+            : [];
+          if (insufficient.length > 0) {
+            toast({ variant: 'destructive', title: 'Stock insuffisant', description: `${insufficient.length} ligne(s) dépassent le stock disponible.` });
+          } else {
+            const inserts = selectedMovements.map(m => ({
+              user_id: user?.id,
+              product_id: m.product_id!,
+              movement_type: documentType === 'sale' ? 'exit' : 'entry',
+              quantity: Number(m.quantity),
+              note: `Facture ${invoiceNumber}`,
+            }));
+            const { error: movErr } = await supabase.from('stock_movements').insert(inserts);
+            if (movErr) {
+              toast({ variant: 'destructive', title: 'Erreur', description: movErr.message });
+            } else {
+              const { data: updated } = await supabase.from('products').select('id,quantity,min_stock').in('id', ids);
+              const low = (updated || []).filter(p => Number(p.quantity) <= Number(p.min_stock));
+              if (low.length > 0) {
+                toast({ title: 'Stock faible', description: `${low.length} produit(s) ont atteint un niveau bas après la facture.` });
+              }
+              toast({ title: 'Succès', description: `Mouvements de stock générés (${documentType === 'sale' ? 'sorties' : 'entrées'}).` });
+            }
+          }
+        }
+      } catch (err: any) {
+        toast({ variant: 'destructive', title: 'Erreur', description: err?.message || 'Problème lors de la génération des mouvements de stock' });
+      }
       fetchInvoices();
       closeDialog();
     }
@@ -517,6 +567,17 @@ export default function Invoices() {
               <div>
                 <Label className="mb-2 block">Lignes de facture</Label>
                 <div className="space-y-2">
+                  <div className="grid grid-cols-12 gap-2 items-center">
+                    <UiSelect value={documentType} onValueChange={(v) => setDocumentType(v as 'sale' | 'purchase')}>
+                      <UiSelectTrigger className="col-span-4">
+                        <UiSelectValue placeholder="Type de document" />
+                      </UiSelectTrigger>
+                      <UiSelectContent>
+                        <UiSelectItem value="sale">Vente</UiSelectItem>
+                        <UiSelectItem value="purchase">Achat</UiSelectItem>
+                      </UiSelectContent>
+                    </UiSelect>
+                  </div>
                   {items.map((item, index) => (
                     <div key={index} className="grid grid-cols-12 gap-2 items-center">
                       <Input
@@ -542,6 +603,16 @@ export default function Invoices() {
                         onChange={e => updateItemTotal(index, 'unit_price', Number(e.target.value))}
                         step="0.01"
                       />
+                      <UiSelect value={itemProductMap[index] || ''} onValueChange={(v) => setItemProductMap(prev => ({ ...prev, [index]: v }))}>
+                        <UiSelectTrigger className="col-span-2"><UiSelectValue placeholder="Produit" /></UiSelectTrigger>
+                        <UiSelectContent>
+                          {products.map(p => (
+                            <UiSelectItem key={p.id} value={p.id}>
+                              {p.name} ({p.sku}) — Stock: {p.quantity}
+                            </UiSelectItem>
+                          ))}
+                        </UiSelectContent>
+                      </UiSelect>
                       <div className="col-span-2 text-right font-medium text-sm">
                         {formatCurrency(item.total, formData.currency)}
                       </div>
