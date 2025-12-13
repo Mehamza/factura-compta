@@ -39,7 +39,7 @@ const navigation = [
 ];
 
 const adminNavigation = [
-  { name: 'Utilisateurs', href: '/mohamedhamzaallagui', icon: Shield },
+  { name: 'Utilisateurs', href: '/users', icon: Shield },
 ];
 
 export function DashboardLayout({ children }: { children: ReactNode }) {
@@ -135,62 +135,6 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
               );
             })}
 
-          {/* Section: Ajouter */}
-          <div className="my-2 border-t" />
-          <p className="px-3 py-1 text-xs font-semibold text-muted-foreground uppercase">Ajouter</p>
-          <Link
-            to="/invoices"
-            onClick={() => setSidebarOpen(false)}
-            className={cn(
-              "flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors",
-              location.pathname === "/invoices"
-                ? "bg-primary text-primary-foreground"
-                : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
-            )}
-          >
-            <FileText className="h-4 w-4" />
-            Facture
-          </Link>
-          <Link
-            to="/stock/produits"
-            onClick={() => setSidebarOpen(false)}
-            className={cn(
-              "flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors",
-              location.pathname === "/stock/produits"
-                ? "bg-primary text-primary-foreground"
-                : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
-            )}
-          >
-            <Boxes className="h-4 w-4" />
-            Produit
-          </Link>
-          <Link
-            to="/clients"
-            onClick={() => setSidebarOpen(false)}
-            className={cn(
-              "flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors",
-              location.pathname === "/clients"
-                ? "bg-primary text-primary-foreground"
-                : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
-            )}
-          >
-            <Users className="h-4 w-4" />
-            Client
-          </Link>
-          <Link
-            to="/suppliers"
-            onClick={() => setSidebarOpen(false)}
-            className={cn(
-              "flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors",
-              location.pathname === "/suppliers"
-                ? "bg-primary text-primary-foreground"
-                : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
-            )}
-          >
-            <Truck className="h-4 w-4" />
-            Fournisseur
-          </Link>
-
           {role === 'admin' && (
             <>
               <div className="my-2 border-t" />
@@ -271,8 +215,7 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
           <span className="font-semibold">Facture Pro</span>
         </header>
 
-        {/* Remove extra whitespace so content fills the page */}
-        <main className="p-0">{children}</main>
+        <main className="p-6">{children}</main>
       </div>
     </div>
   );
