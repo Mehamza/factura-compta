@@ -5,8 +5,11 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import type { Tables } from '@/integrations/supabase/types';
 
-interface Account { id: string; code: string; name: string; type: string }
+type Account = Tables<'accounts'>;
+type JournalLine = Tables<'journal_lines'>;
+
 interface Line { account_id: string; debit: number; credit: number }
 
 export default function Accounts() {
@@ -18,11 +21,10 @@ export default function Accounts() {
   useEffect(() => { if (user) load(); }, [user]);
 
   const load = async () => {
-    const accRes = await supabase.from('accounts' as any).select('*').order('code');
-    setAccounts((accRes.data as Account[]) || []);
-    // load lines for period (simple: all lines)
-    const lr = await supabase.from('journal_lines' as any).select('account_id,debit,credit');
-    setLines((lr.data as Line[]) || []);
+    const accRes = await supabase.from('accounts').select('*').order('code');
+    setAccounts(accRes.data || []);
+    const lr = await supabase.from('journal_lines').select('account_id,debit,credit');
+    setLines((lr.data || []) as Line[]);
   };
 
   const balances = useMemo(() => {
