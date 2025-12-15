@@ -59,6 +59,8 @@ This project is built with:
 - React
 - shadcn-ui
 - Tailwind CSS
+ - Framer Motion
+ - Supabase (Auth, DB, Edge Functions)
 
 ## How can I deploy this project?
 
@@ -71,3 +73,25 @@ Yes, you can!
 To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
 
 Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+
+## Animations & UI Patterns
+
+- Page transitions: implemented with `framer-motion` in `src/App.tsx` (`AnimatePresence` + `motion.div`).
+- Buttons: subtle hover/tap scale; optional ripple via `ripple` prop on `Button` (requires keyframes in `src/index.css`).
+- Cards/Rows/Alerts: entrance fade/slide via `framer-motion` in `ui` components.
+- Forms: error messages shake; inputs highlight error/success using `aria-invalid`/`data-valid`.
+- Loading: `Loader`, `LoadingOverlay`, and `TableSkeleton` components for consistent UX.
+- Charts: `recharts` with `isAnimationActive` and eased durations.
+- Reduced Motion: global `MotionConfig` set to `reducedMotion="user"`.
+
+## Secure CSV Export (Admin)
+
+An Edge Function `export_data` enforces Admin-only exports on the server.
+
+Deploy:
+
+```bash
+supabase functions deploy export_data
+```
+
+Frontend usage falls back to client-side CSV if the function is unavailable.

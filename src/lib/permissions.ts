@@ -52,3 +52,7 @@ export function canDeleteUser(actor: AppRole, targetRole: Exclude<AppRole, null 
 }
 
 export const NO_ACCESS_MSG = "Vous n’avez pas l’autorisation d’accéder à cette section.";
+
+export function canExportData(role: AppRole): boolean {
+  return role === 'admin';
+}

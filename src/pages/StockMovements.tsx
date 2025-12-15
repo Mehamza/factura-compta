@@ -2,10 +2,15 @@ import { useEffect, useMemo, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
+import { downloadCSV, mapStockMovementsToCSV, exportServerCSV } from '@/lib/export';
+import { canExportData } from '@/lib/permissions';
 import { Button } from '@/components/ui/button';
+import { Plus, Download } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { TableSkeleton } from '@/components/ui/table-skeleton';
+import { LoadingOverlay } from '@/components/ui/loader';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
@@ -24,6 +29,21 @@ export default function StockMovements() {
   const [form, setForm] = useState({ product_id: '', movement_type: 'entry', quantity: '', note: '' });
   const [typeFilter, setTypeFilter] = useState<string>('all');
   const [productFilter, setProductFilter] = useState('all');
+  const canExport = canExportData(role);
+  const onExportCSV = async () => {
+    if (!canExport) {
+      toast({ variant: 'destructive', title: 'Permission refusée', description: 'Vous n’avez pas l’autorisation d’exporter ces données.' });
+      return;
+    }
+    try {
+      await exportServerCSV('stock_movements');
+      toast({ title: 'Export serveur', description: 'Le téléchargement va démarrer.' });
+    } catch (e) {
+      const rows = mapStockMovementsToCSV(movements);
+      downloadCSV('mouvements_stock', rows);
+      toast({ title: 'Export CSV (local)', description: `${rows.length} ligne(s)` });
+    }
+  };
 
   useEffect(() => { if (user) load(); }, [user]);
 
@@ -78,7 +98,10 @@ export default function StockMovements() {
           <p className="text-muted-foreground">Historique et enregistrement des mouvements de stock.</p>
         </div>
         <div className="flex gap-2">
-          {canManage && <Button onClick={() => setDialogOpen(true)}>Nouveau mouvement</Button>}
+          {canManage && <Button ripple onClick={() => setDialogOpen(true)}><Plus className="h-4 w-4" /> Nouveau</Button>}
+          {canExport && (
+            <Button variant="outline" onClick={onExportCSV}><Download className="h-4 w-4" /> Exporter</Button>
+          )}
         </div>
       </div>
 
@@ -104,30 +127,37 @@ export default function StockMovements() {
           </div>
         </CardHeader>
         <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Produit</TableHead>
-                <TableHead>Type</TableHead>
-                <TableHead>Quantité</TableHead>
-                <TableHead>Note</TableHead>
-                <TableHead>Date</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filtered.length === 0 ? (
-                <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground">Aucun mouvement</TableCell></TableRow>
-              ) : filtered.map(m => (
-                <TableRow key={m.id}>
-                  <TableCell className="font-medium">{productLabel(m.product_id)}</TableCell>
-                  <TableCell>{m.movement_type === 'entry' ? 'Entrée' : m.movement_type === 'exit' ? 'Sortie' : 'Ajustement'}</TableCell>
-                  <TableCell>{Number(m.quantity).toLocaleString('fr-FR')}</TableCell>
-                  <TableCell>{m.note || '—'}</TableCell>
-                  <TableCell>{new Date(m.created_at).toLocaleString('fr-FR')}</TableCell>
+          {loading ? (
+            <div className="py-4">
+              <LoadingOverlay label="Chargement des mouvements..." />
+              <div className="mt-4">
+                <TableSkeleton rows={6} />
+              </div>
+            </div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Produit</TableHead>
+                  <TableHead>Type</TableHead>
+                  <TableHead>Qté</TableHead>
+                  <TableHead>Note</TableHead>
+                  <TableHead>Date</TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+              </TableHeader>
+              <TableBody>
+                {filtered.map(m => (
+                  <TableRow key={m.id}>
+                    <TableCell>{productLabel(m.product_id)}</TableCell>
+                    <TableCell>{m.movement_type === 'entry' ? 'Entrée' : m.movement_type === 'exit' ? 'Sortie' : 'Ajustement'}</TableCell>
+                    <TableCell>{Number(m.quantity).toLocaleString('fr-FR')}</TableCell>
+                    <TableCell>{m.note || '—'}</TableCell>
+                    <TableCell>{new Date(m.created_at!).toLocaleString()}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
         </CardContent>
       </Card>
 

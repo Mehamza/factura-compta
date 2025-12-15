@@ -249,7 +249,7 @@ export default function Dashboard() {
                     formatter={(value: number) => [`${value.toLocaleString('fr-FR')} DT`, 'CA']}
                     contentStyle={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))' }}
                   />
-                  <Line type="monotone" dataKey="revenue" stroke="hsl(var(--primary))" strokeWidth={2} dot={{ fill: 'hsl(var(--primary))' }} />
+                  <Line type="monotone" dataKey="revenue" stroke="hsl(var(--primary))" strokeWidth={2} dot={{ fill: 'hsl(var(--primary))' }} isAnimationActive animationDuration={600} animationEasing="ease-out" />
                 </LineChart>
               </ResponsiveContainer>
             </div>
@@ -275,7 +275,7 @@ export default function Dashboard() {
                       formatter={(value: number) => [`${value.toLocaleString('fr-FR')} DT`, 'CA']}
                       contentStyle={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))' }}
                     />
-                    <Bar dataKey="total" fill="hsl(var(--primary))" radius={[0, 4, 4, 0]} />
+                    <Bar dataKey="total" fill="hsl(var(--primary))" radius={[0, 4, 4, 0]} isAnimationActive animationDuration={600} animationEasing="ease-out" />
                   </BarChart>
                 </ResponsiveContainer>
               </div>

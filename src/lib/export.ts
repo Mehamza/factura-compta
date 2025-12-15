@@ -35,6 +35,7 @@ export function mapInvoicesToCSV(invoices: any[]) {
     sous_total: i.subtotal,
     tva: i.tax_amount,
     total: i.total,
+    devise: i.currency || 'TND',
   }));
 }
 
@@ -67,4 +68,48 @@ export function mapJournalToCSV(entries: any[], linesByEntry: Record<string, any
     }
   }
   return rows;
+}
+
+export function mapProductsToCSV(products: any[]) {
+  return products.map((p: any) => ({
+    nom: p.name,
+    sku: p.sku || '',
+    quantite: p.quantity,
+    stock_min: p.min_stock,
+    prix_unitaire: p.unit_price,
+    devise: p.currency || 'TND',
+  }));
+}
+
+export function mapStockMovementsToCSV(movs: any[]) {
+  return movs.map((m: any) => ({
+    type: m.type,
+    produit: m.products?.name || m.product_name || '',
+    quantite: m.quantity,
+    date: m.created_at,
+    note: m.note || '',
+  }));
+}
+
+// Server-side CSV export via Supabase Edge Function (admin-only)
+export async function exportServerCSV(resource: 'invoices' | 'products' | 'stock_movements') {
+  const { supabase } = await import('@/integrations/supabase/client');
+  // @ts-ignore Vite env var
+  const baseUrl: string = import.meta.env.VITE_SUPABASE_URL as string;
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session?.access_token) throw new Error('Session invalide');
+
+  const url = `${baseUrl}/functions/v1/export_data?resource=${resource}`;
+  const res = await fetch(url, { headers: { Authorization: `Bearer ${session.access_token}` } });
+  if (!res.ok) {
+    const msg = await res.text();
+    throw new Error(msg || 'Échec export serveur');
+  }
+  const blob = await res.blob();
+  const a = document.createElement('a');
+  const dlUrl = URL.createObjectURL(blob);
+  a.href = dlUrl;
+  a.download = `${resource}.csv`;
+  a.click();
+  URL.revokeObjectURL(dlUrl);
 }

@@ -9,6 +9,8 @@ export interface InvoiceTemplateData {
   tax_rate: number;
   tax_amount: number;
   total: number;
+  stamp_included?: boolean;
+  stamp_amount?: number;
   notes?: string;
   currency: string;
   template_type: string;
@@ -191,6 +193,11 @@ export function generateClassicPDF(invoice: InvoiceTemplateData, items: InvoiceI
   y += 7;
   doc.text(`TVA (${invoice.tax_rate}%):`, 130, y);
   doc.text(formatCurrency(invoice.tax_amount, invoice.currency), 170, y);
+  if (invoice.stamp_included) {
+    y += 7;
+    doc.text('Timbre fiscal:', 130, y);
+    doc.text(formatCurrency(invoice.stamp_amount || 0, invoice.currency), 170, y);
+  }
   y += 7;
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(12);
@@ -354,6 +361,10 @@ export function generateModernPDF(invoice: InvoiceTemplateData, items: InvoiceIt
   doc.text(formatCurrency(invoice.subtotal, invoice.currency), 185, y + 5, { align: 'right' });
   doc.text(`TVA (${invoice.tax_rate}%):`, 125, y + 13);
   doc.text(formatCurrency(invoice.tax_amount, invoice.currency), 185, y + 13, { align: 'right' });
+  if (invoice.stamp_included) {
+    doc.text('Timbre fiscal:', 125, y + 21);
+    doc.text(formatCurrency(invoice.stamp_amount || 0, invoice.currency), 185, y + 21, { align: 'right' });
+  }
   
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(12);
@@ -521,6 +532,13 @@ export function generateMinimalPDF(invoice: InvoiceTemplateData, items: InvoiceI
   doc.text(`TVA ${invoice.tax_rate}%`, 140, y);
   doc.setTextColor(0, 0, 0);
   doc.text(formatCurrency(invoice.tax_amount, invoice.currency), pageWidth - 20, y, { align: 'right' });
+  if (invoice.stamp_included) {
+    y += 7;
+    doc.setTextColor(120, 120, 120);
+    doc.text('Timbre fiscal', 140, y);
+    doc.setTextColor(0, 0, 0);
+    doc.text(formatCurrency(invoice.stamp_amount || 0, invoice.currency), pageWidth - 20, y, { align: 'right' });
+  }
   
   y += 10;
   doc.setFont('helvetica', 'bold');

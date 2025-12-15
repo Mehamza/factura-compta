@@ -30,8 +30,11 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { useToast } from '@/hooks/use-toast';
+import { downloadCSV, mapInvoicesToCSV, exportServerCSV } from '@/lib/export';
+import { canExportData } from '@/lib/permissions';
 import { Select as UiSelect, SelectContent as UiSelectContent, SelectItem as UiSelectItem, SelectTrigger as UiSelectTrigger, SelectValue as UiSelectValue } from '@/components/ui/select';
-import { Plus, Search, Download, Trash2, Eye, FileText } from 'lucide-react';
+import { Plus, Search, Download, Trash2, Eye, FileText, Printer } from 'lucide-react';
+import { openPdfForPrint } from '@/lib/print';
 import { 
   generateInvoiceWithTemplate, 
   templateLabels, 
@@ -76,6 +79,8 @@ interface Invoice {
   template_type: string;
   created_by_user_id: string | null;
   clients?: Client;
+  stamp_included?: boolean;
+  stamp_amount?: number;
 }
 
 interface CompanySettings {
@@ -128,7 +133,7 @@ const roleLabels: Record<string, string> = {
 };
 
 export default function Invoices() {
-  const { user } = useAuth();
+  const { user, role } = useAuth();
   const { toast } = useToast();
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
@@ -148,6 +153,7 @@ export default function Invoices() {
     issue_date: new Date().toISOString().split('T')[0],
     due_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
     tax_rate: 19,
+    stamp_included: false,
     notes: '',
     status: 'draft',
     currency: 'TND',
@@ -156,6 +162,7 @@ export default function Invoices() {
   const [items, setItems] = useState<InvoiceItem[]>([{ description: '', quantity: 1, unit_price: 0, total: 0 }]);
   const [itemProductMap, setItemProductMap] = useState<Record<number, string>>({});
   const [documentType, setDocumentType] = useState<'sale' | 'purchase'>('sale');
+  const canExport = canExportData(role ?? 'user');
 
   useEffect(() => {
     if (user) {
@@ -183,6 +190,27 @@ export default function Invoices() {
       })));
     }
     setLoading(false);
+  };
+
+  const onExportCSV = async () => {
+    if (!canExport) {
+      toast({ variant: 'destructive', title: 'Permission refusée', description: 'Vous n’avez pas l’autorisation d’exporter ces données.' });
+      return;
+    }
+    try {
+      // Try server-side enforced export first
+      await exportServerCSV('invoices');
+      toast({ title: 'Export serveur', description: 'Le téléchargement va démarrer.' });
+    } catch (e: any) {
+      // Fallback to client-side
+      try {
+        const rows = mapInvoicesToCSV(invoices);
+        downloadCSV('factures', rows);
+        toast({ title: 'Export CSV (local)', description: `${rows.length} ligne(s)` });
+      } catch (err: any) {
+        toast({ variant: 'destructive', title: 'Erreur', description: err?.message || 'Échec export CSV' });
+      }
+    }
   };
 
   const fetchClients = async () => {
@@ -245,11 +273,13 @@ export default function Invoices() {
     return `FAC-${year}${month}-${random}`;
   };
 
-  const calculateTotals = (invoiceItems: InvoiceItem[], taxRate: number) => {
+  const STAMP_AMOUNT = 1; // TND
+  const calculateTotals = (invoiceItems: InvoiceItem[], taxRate: number, stampIncluded: boolean) => {
     const subtotal = invoiceItems.reduce((sum, item) => sum + item.total, 0);
     const taxAmount = subtotal * (taxRate / 100);
-    const total = subtotal + taxAmount;
-    return { subtotal, taxAmount, total };
+    const stamp = stampIncluded ? STAMP_AMOUNT : 0;
+    const total = subtotal + taxAmount + stamp;
+    return { subtotal, taxAmount, stamp, total };
   };
 
   const updateItemTotal = (index: number, field: keyof InvoiceItem, value: string | number) => {
@@ -273,8 +303,7 @@ export default function Invoices() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    const { subtotal, taxAmount, total } = calculateTotals(items, formData.tax_rate);
+    const { subtotal, taxAmount, stamp, total } = calculateTotals(items, formData.tax_rate, formData.stamp_included);
     const invoiceNumber = generateInvoiceNumber();
 
     const { data: invoiceData, error: invoiceError } = await supabase
@@ -290,6 +319,8 @@ export default function Invoices() {
         tax_rate: formData.tax_rate,
         tax_amount: taxAmount,
         total,
+        stamp_included: formData.stamp_included,
+        stamp_amount: stamp,
         notes: formData.notes || null,
         currency: formData.currency,
         template_type: formData.template_type,
@@ -403,6 +434,8 @@ export default function Invoices() {
       tax_rate: Number(invoice.tax_rate),
       tax_amount: Number(invoice.tax_amount),
       total: Number(invoice.total),
+      stamp_included: Boolean(invoice.stamp_included),
+      stamp_amount: Number(invoice.stamp_amount || 0),
       notes: invoice.notes || undefined,
       currency: invoice.currency || 'TND',
       template_type: invoice.template_type || 'classic',
@@ -447,6 +480,34 @@ export default function Invoices() {
     );
   };
 
+  const printPDF = async (invoice: Invoice) => {
+    try {
+      // Reuse the same generation pipeline but capture Blob
+      const { data: items } = await supabase
+        .from('invoice_items')
+        .select('*')
+        .eq('invoice_id', invoice.id);
+      const currentSettings = companySettings || { default_currency: 'TND', default_vat_rate: 19 } as any;
+      const templateData = {
+        invoice,
+        items: (items || []).map(it => ({
+          description: it.description,
+          quantity: Number(it.quantity),
+          unit_price: Number(it.unit_price),
+          total: Number(it.total),
+        })),
+        settings: currentSettings,
+        createdBy: user?.id || '',
+      };
+      const pdf = await generateInvoiceWithTemplate(invoice.template_type as any, templateData, true);
+      const blob = new Blob([pdf.output('arraybuffer')], { type: 'application/pdf' });
+      await openPdfForPrint(blob);
+      toast({ title: 'Impression ouverte', description: 'La facture s’ouvre pour impression.' });
+    } catch (e: any) {
+      toast({ variant: 'destructive', title: 'Erreur', description: e?.message || 'Impossible d’ouvrir l’impression.' });
+    }
+  };
+
   const closeDialog = () => {
     setDialogOpen(false);
     setFormData({
@@ -467,7 +528,7 @@ export default function Invoices() {
     i.clients?.name.toLowerCase().includes(search.toLowerCase())
   );
 
-  const { subtotal, taxAmount, total } = calculateTotals(items, formData.tax_rate);
+  const { subtotal, taxAmount, stamp, total } = calculateTotals(items, formData.tax_rate, formData.stamp_included);
 
   if (loading) {
     return <div className="flex items-center justify-center h-64"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div></div>;
@@ -547,7 +608,15 @@ export default function Invoices() {
                 </div>
                 <div>
                   <Label>Taux TVA (%)</Label>
-                  <Input type="number" value={formData.tax_rate} onChange={e => setFormData({ ...formData, tax_rate: Number(e.target.value) })} />
+                  <Select value={String(formData.tax_rate)} onValueChange={v => setFormData({ ...formData, tax_rate: Number(v) })}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="0">0 % (Exonérée)</SelectItem>
+                      <SelectItem value="7">7 %</SelectItem>
+                      <SelectItem value="13">13 %</SelectItem>
+                      <SelectItem value="19">19 %</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div>
                   <Label>Devise</Label>
@@ -561,6 +630,10 @@ export default function Invoices() {
                       ))}
                     </SelectContent>
                   </Select>
+                </div>
+                <div className="col-span-2 flex items-center gap-2 pt-2">
+                  <input id="stamp" type="checkbox" className="h-4 w-4" checked={formData.stamp_included} onChange={e => setFormData({ ...formData, stamp_included: e.target.checked })} />
+                  <Label htmlFor="stamp">Inclure le timbre fiscal (1 TND)</Label>
                 </div>
               </div>
 
@@ -630,6 +703,9 @@ export default function Invoices() {
               <div className="bg-muted p-4 rounded-lg space-y-1 text-right">
                 <p>Sous-total HT: <span className="font-medium">{formatCurrency(subtotal, formData.currency)}</span></p>
                 <p>TVA ({formData.tax_rate}%): <span className="font-medium">{formatCurrency(taxAmount, formData.currency)}</span></p>
+                {formData.stamp_included && (
+                  <p>Timbre fiscal: <span className="font-medium">{formatCurrency(stamp, formData.currency)}</span></p>
+                )}
                 <p className="text-lg font-bold">Total TTC: {formatCurrency(total, formData.currency)}</p>
               </div>
 
@@ -638,7 +714,7 @@ export default function Invoices() {
                 <Textarea value={formData.notes} onChange={e => setFormData({ ...formData, notes: e.target.value })} />
               </div>
 
-              <Button type="submit" className="w-full">Créer la facture</Button>
+              <Button ripple type="submit" className="w-full">Créer la facture</Button>
             </form>
           </DialogContent>
         </Dialog>
@@ -646,9 +722,12 @@ export default function Invoices() {
 
       <Card>
         <CardHeader>
-          <div className="relative">
+          <div className="relative flex items-center gap-3">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input placeholder="Rechercher..." className="pl-10" value={search} onChange={e => setSearch(e.target.value)} />
+            {canExport && (
+              <Button variant="outline" onClick={onExportCSV}><Download className="h-4 w-4" /> Exporter</Button>
+            )}
           </div>
         </CardHeader>
         <CardContent>
@@ -686,6 +765,7 @@ export default function Invoices() {
                       <div className="flex gap-1">
                         <Button variant="ghost" size="icon" onClick={() => viewInvoice(invoice)}><Eye className="h-4 w-4" /></Button>
                         <Button variant="ghost" size="icon" onClick={() => downloadPDF(invoice)}><Download className="h-4 w-4" /></Button>
+                        <Button variant="ghost" size="icon" onClick={() => printPDF(invoice)} title="Imprimer"><Printer className="h-4 w-4" /></Button>
                         <Button variant="ghost" size="icon" onClick={() => handleDelete(invoice.id)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
                       </div>
                     </TableCell>
@@ -758,6 +838,9 @@ export default function Invoices() {
               <div className="bg-muted p-4 rounded-lg space-y-1 text-right">
                 <p>Sous-total HT: <span className="font-medium">{formatCurrency(Number(selectedInvoice.subtotal), selectedInvoice.currency)}</span></p>
                 <p>TVA ({selectedInvoice.tax_rate}%): <span className="font-medium">{formatCurrency(Number(selectedInvoice.tax_amount), selectedInvoice.currency)}</span></p>
+                {selectedInvoice.stamp_included && (
+                  <p>Timbre fiscal: <span className="font-medium">{formatCurrency(Number(selectedInvoice.stamp_amount || 0), selectedInvoice.currency)}</span></p>
+                )}
                 <p className="text-lg font-bold">Total TTC: {formatCurrency(Number(selectedInvoice.total), selectedInvoice.currency)}</p>
               </div>
 
