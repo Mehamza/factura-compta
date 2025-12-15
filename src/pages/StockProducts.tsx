@@ -213,7 +213,7 @@ export default function StockProducts() {
           <p className="text-muted-foreground">Gérez vos produits et quantités en stock.</p>
         </div>
         <div className="flex gap-2">
-          {canManage && <Button ripple onClick={openNew}><Plus className="h-4 w-4" /> Ajouter produit</Button>}
+          {canManage && <Button onClick={openNew}><Plus className="h-4 w-4" /> Ajouter produit</Button>}
         </div>
       </div>
 
@@ -390,7 +390,7 @@ export default function StockProducts() {
             </div>
             <div className="flex justify-end gap-3 pt-2">
               <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>Annuler</Button>
-              <Button type="submit" ripple>{editing ? 'Enregistrer les modifications' : 'Enregistrer'}</Button>
+              <Button type="submit">{editing ? 'Enregistrer les modifications' : 'Enregistrer'}</Button>
             </div>
           </form>
         </DialogContent>

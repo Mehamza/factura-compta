@@ -98,7 +98,7 @@ export default function StockMovements() {
           <p className="text-muted-foreground">Historique et enregistrement des mouvements de stock.</p>
         </div>
         <div className="flex gap-2">
-          {canManage && <Button ripple onClick={() => setDialogOpen(true)}><Plus className="h-4 w-4" /> Nouveau</Button>}
+          {canManage && <Button onClick={() => setDialogOpen(true)}><Plus className="h-4 w-4" /> Nouveau</Button>}
           {canExport && (
             <Button variant="outline" onClick={onExportCSV}><Download className="h-4 w-4" /> Exporter</Button>
           )}

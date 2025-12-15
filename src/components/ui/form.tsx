@@ -1,5 +1,4 @@
 import * as React from "react";
-import { motion } from "framer-motion";
 import * as LabelPrimitive from "@radix-ui/react-label";
 import { Slot } from "@radix-ui/react-slot";
 import { Controller, ControllerProps, FieldPath, FieldValues, FormProvider, useFormContext } from "react-hook-form";
@@ -120,17 +119,14 @@ const FormMessage = React.forwardRef<HTMLParagraphElement, React.HTMLAttributes<
     }
 
     return (
-      <motion.p
+      <p
         ref={ref}
         id={formMessageId}
         className={cn("text-sm font-medium text-destructive", className)}
         {...props}
-        initial={error ? { x: 0 } : undefined}
-        animate={error ? { x: [0, -6, 6, -4, 4, 0] } : { x: 0 }}
-        transition={{ duration: 0.35, ease: "easeOut" }}
       >
         {body}
-      </motion.p>
+      </p>
     );
   },
 );
