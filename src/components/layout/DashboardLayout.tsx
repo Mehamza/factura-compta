@@ -181,12 +181,6 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
                 item={{ name: 'Paramètres', href: '/settings', icon: Settings }} 
                 onClick={() => setSidebarOpen(false)} 
               />
-              {(role === 'admin' || role === 'manager') && (
-                <NavItem 
-                  item={{ name: 'Utilisateurs', href: '/settings/utilisateurs', icon: Users }} 
-                  onClick={() => setSidebarOpen(false)} 
-                />
-              )}
 
               {!collapsed && (
                 <div className="flex items-center gap-3 my-3 px-3">
