@@ -43,7 +43,8 @@ const stockNavigation = [
 ];
 
 const adminNavigation = [
-  { name: 'Utilisateurs', href: '/users', icon: Shield },
+  { name: 'Espace Admin', href: '/hamzafacturation', icon: Shield },
+  { name: 'Utilisateurs', href: '/settings/utilisateurs', icon: Users },
 ];
 
 export function DashboardLayout({ children }: { children: ReactNode }) {
@@ -96,21 +97,26 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
   return (
     <TooltipProvider>
       <div className="min-h-screen bg-background">
-        {/* Mobile sidebar backdrop */}
-        {sidebarOpen && (
-          <div
-            className="fixed inset-0 z-40 bg-background/80 backdrop-blur-sm lg:hidden"
-            onClick={() => setSidebarOpen(false)}
-          />
-        )}
+        {/* Mobile sidebar backdrop with smooth fade */}
+        <div
+          className={cn(
+            "fixed inset-0 z-40 lg:hidden transition-opacity duration-300 ease-in-out",
+            sidebarOpen ? "opacity-100" : "opacity-0 pointer-events-none"
+          )}
+          onClick={() => setSidebarOpen(false)}
+          aria-hidden
+        >
+          <div className="w-full h-full bg-background/80 backdrop-blur-sm" />
+        </div>
 
         {/* Sidebar */}
         <aside
           className={cn(
-            "fixed inset-y-0 left-0 z-50 bg-card border-r transform transition-all duration-300 lg:translate-x-0",
+            "fixed inset-y-0 left-0 z-50 bg-card border-r transform transition-transform duration-300 ease-in-out lg:translate-x-0 will-change-transform",
             sidebarOpen ? "translate-x-0" : "-translate-x-full",
             collapsed ? "w-16" : "w-64"
           )}
+          aria-hidden={!sidebarOpen}
         >
           <div className="flex h-full flex-col">
             {/* Header */}
@@ -132,8 +138,9 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
               <Button
                 variant="ghost"
                 size="icon"
-                className="lg:hidden"
+                className="lg:hidden transition-transform duration-200 ease-out active:scale-95"
                 onClick={() => setSidebarOpen(false)}
+                aria-label="Fermer le menu"
               >
                 <X className="h-5 w-5" />
               </Button>
@@ -174,6 +181,12 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
                 item={{ name: 'Paramètres', href: '/settings', icon: Settings }} 
                 onClick={() => setSidebarOpen(false)} 
               />
+              {(role === 'admin' || role === 'manager') && (
+                <NavItem 
+                  item={{ name: 'Utilisateurs', href: '/settings/utilisateurs', icon: Users }} 
+                  onClick={() => setSidebarOpen(false)} 
+                />
+              )}
 
               {!collapsed && (
                 <div className="flex items-center gap-3 my-3 px-3">
@@ -237,6 +250,8 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
               variant="ghost"
               size="icon"
               onClick={() => setSidebarOpen(true)}
+              aria-label="Ouvrir le menu"
+              className="transition-transform duration-200 ease-out active:scale-95"
             >
               <Menu className="h-5 w-5" />
             </Button>
