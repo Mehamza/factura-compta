@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
-import { NO_ACCESS_MSG, NO_PERMISSION_MSG, ROLE_LABELS, canAssignRole, canDeleteUser, canManageUsers } from '@/lib/permissions';
+import { AppRole, NO_ACCESS_MSG, NO_PERMISSION_MSG, ROLE_LABELS, canAssignRole, canDeleteUser, canManageUsers } from '@/lib/permissions';
 import { useToast } from '@/hooks/use-toast';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -14,15 +14,12 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Shield, Users as UsersIcon, Trash2 } from 'lucide-react';
 
-type AppRole = 'admin' | 'manager' | 'accountant' | 'cashier' | 'user';
-
 interface UserRow {
   id: string;
   full_name: string | null;
   email: string | null;
-  role: AppRole;
+  role: Exclude<AppRole, null | undefined>;
   created_at: string;
-  disabled?: boolean | null;
 }
 
 export default function SettingsUsers() {
@@ -32,7 +29,7 @@ export default function SettingsUsers() {
   const [loading, setLoading] = useState(true);
   const [rows, setRows] = useState<UserRow[]>([]);
   const [openAdd, setOpenAdd] = useState(false);
-  const [form, setForm] = useState({ full_name: '', email: '', role: 'cashier' as AppRole, password: '' });
+  const [form, setForm] = useState({ full_name: '', email: '', role: 'cashier' as Exclude<AppRole, null | undefined>, password: '' });
   const [emailTaken, setEmailTaken] = useState(false);
 
   const allowed = canManageUsers(role);
@@ -49,25 +46,17 @@ export default function SettingsUsers() {
   const load = async () => {
     setLoading(true);
     try {
-      const { data: profiles, error: pErr } = await supabase.from('profiles').select('user_id, full_name, created_at, email');
+      const { data: profiles, error: pErr } = await supabase.from('profiles').select('user_id, full_name, created_at');
       if (pErr) throw pErr;
       const { data: roles, error: rErr } = await supabase.from('user_roles').select('user_id, role');
       if (rErr) throw rErr;
-      // Optional disabled column if exists
-      // We attempt to fetch it separately to avoid schema mismatch issues
-      let disabledMap: Record<string, boolean> = {};
-      try {
-        const { data: profilesDisabled } = await supabase.from('profiles').select('user_id, disabled');
-        disabledMap = Object.fromEntries((profilesDisabled || []).map((r: any) => [r.user_id, !!r.disabled]));
-      } catch {}
 
       const merged: UserRow[] = (profiles || []).map((p: any) => ({
         id: p.user_id,
         full_name: p.full_name,
-        email: p.email,
-        role: (roles?.find(r => r.user_id === p.user_id)?.role as AppRole) || 'user',
+        email: null,
+        role: (roles?.find(r => r.user_id === p.user_id)?.role as Exclude<AppRole, null | undefined>) || 'user',
         created_at: p.created_at,
-        disabled: disabledMap[p.user_id] ?? false,
       }));
       setRows(merged);
     } catch (e: any) {
@@ -77,7 +66,7 @@ export default function SettingsUsers() {
     }
   };
 
-  const updateRole = async (uid: string, newRole: AppRole) => {
+  const updateRole = async (uid: string, newRole: Exclude<AppRole, null | undefined>) => {
     if (!canAssignRole(role, newRole)) {
       toast({ variant: 'destructive', title: 'Permission refusée', description: NO_PERMISSION_MSG });
       return;
@@ -96,22 +85,7 @@ export default function SettingsUsers() {
     }
   };
 
-  const toggleActive = async (uid: string, makeActive: boolean, targetRole: AppRole) => {
-    if (!canAssignRole(role, targetRole)) {
-      toast({ variant: 'destructive', title: 'Permission refusée', description: NO_PERMISSION_MSG });
-      return;
-    }
-    try {
-      const { error } = await supabase.from('profiles').update({ disabled: !makeActive }).eq('user_id', uid);
-      if (error) throw error;
-      toast({ title: 'Succès', description: makeActive ? 'Utilisateur activé' : 'Utilisateur désactivé' });
-      load();
-    } catch (e: any) {
-      toast({ variant: 'destructive', title: 'Erreur', description: e?.message || 'Échec mise à jour du statut' });
-    }
-  };
-
-  const deleteUser = async (uid: string, targetRole: AppRole) => {
+  const deleteUser = async (uid: string, targetRole: Exclude<AppRole, null | undefined>) => {
     if (!canDeleteUser(role, targetRole)) {
       toast({ variant: 'destructive', title: 'Permission refusée', description: NO_PERMISSION_MSG });
       return;
@@ -146,7 +120,7 @@ export default function SettingsUsers() {
       .ilike('email', form.email.trim());
     if (existing && existing.length > 0) {
       setEmailTaken(true);
-      toast({ variant: 'destructive', title: 'Email déjà utilisé', description: 'Cet email est déjà utilisé dans l’application. Un utilisateur ne peut avoir qu’un seul compte.' });
+      toast({ variant: 'destructive', title: 'Email déjà utilisé', description: "Cet email est déjà utilisé dans l'application. Un utilisateur ne peut avoir qu'un seul compte." });
       return;
     }
     // Call Edge Function to create auth user securely and assign role
@@ -161,7 +135,7 @@ export default function SettingsUsers() {
       setOpenAdd(false);
       load();
     } catch (e: any) {
-      const msg = e?.message || 'Impossible de créer l’utilisateur';
+      const msg = e?.message || "Impossible de créer l'utilisateur";
       toast({ variant: 'destructive', title: 'Erreur', description: msg });
     }
   };
@@ -176,7 +150,7 @@ export default function SettingsUsers() {
         <Shield className="h-8 w-8 text-primary" />
         <div>
           <h1 className="text-3xl font-bold">Paramètres / Utilisateurs</h1>
-          <p className="text-muted-foreground">Gérez les utilisateurs, rôles et statuts</p>
+          <p className="text-muted-foreground">Gérez les utilisateurs et leurs rôles</p>
         </div>
         <div className="ml-auto">
           <Button onClick={() => setOpenAdd(true)}>Ajouter un utilisateur</Button>
@@ -195,9 +169,7 @@ export default function SettingsUsers() {
             <TableHeader>
               <TableRow>
                 <TableHead>Nom</TableHead>
-                <TableHead>Email</TableHead>
                 <TableHead>Rôle</TableHead>
-                <TableHead>Statut</TableHead>
                 <TableHead>Date de création</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
@@ -205,37 +177,28 @@ export default function SettingsUsers() {
             <TableBody>
               {sorted.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center text-muted-foreground">Aucun utilisateur</TableCell>
+                  <TableCell colSpan={4} className="text-center text-muted-foreground">Aucun utilisateur</TableCell>
                 </TableRow>
               ) : sorted.map(u => (
                 <TableRow key={u.id}>
                   <TableCell className="font-medium">{u.full_name || 'Sans nom'}{u.id === user?.id && <Badge variant="outline" className="ml-2">Vous</Badge>}</TableCell>
-                  <TableCell>{u.email || '—'}</TableCell>
                   <TableCell>
-                    <Select value={u.role} onValueChange={(val) => updateRole(u.id, val as AppRole)} disabled={!canAssignRole(role, u.role) || u.id === user?.id}>
+                    <Select value={u.role} onValueChange={(val) => updateRole(u.id, val as Exclude<AppRole, null | undefined>)} disabled={!canAssignRole(role, u.role) || u.id === user?.id}>
                       <SelectTrigger className="w-44"><SelectValue /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="admin">{ROLE_LABELS.admin}</SelectItem>
                         <SelectItem value="manager">{ROLE_LABELS.manager}</SelectItem>
                         <SelectItem value="accountant">{ROLE_LABELS.accountant}</SelectItem>
                         <SelectItem value="cashier">{ROLE_LABELS.cashier}</SelectItem>
-                        <SelectItem value="user">Utilisateur</SelectItem>
+                        <SelectItem value="user">{ROLE_LABELS.user}</SelectItem>
                       </SelectContent>
                     </Select>
                   </TableCell>
-                  <TableCell>
-                    {u.disabled ? <Badge variant="secondary">Désactivé</Badge> : <Badge variant="outline">Actif</Badge>}
-                  </TableCell>
                   <TableCell>{new Date(u.created_at).toLocaleDateString('fr-FR')}</TableCell>
                   <TableCell className="text-right">
-                    <div className="flex justify-end gap-2">
-                      <Button variant="outline" size="sm" onClick={() => toggleActive(u.id, !!u.disabled, u.role)}>
-                        {u.disabled ? 'Activer' : 'Désactiver'}
-                      </Button>
-                      <Button variant="destructive" size="sm" onClick={() => deleteUser(u.id, u.role)} disabled={!canDeleteUser(role, u.role) || u.id === user?.id}>
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
+                    <Button variant="destructive" size="sm" onClick={() => deleteUser(u.id, u.role)} disabled={!canDeleteUser(role, u.role) || u.id === user?.id}>
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
                   </TableCell>
                 </TableRow>
               ))}
@@ -258,12 +221,12 @@ export default function SettingsUsers() {
               <Label>Email</Label>
               <Input type="email" value={form.email} onChange={(e) => { setForm({ ...form, email: e.target.value }); setEmailTaken(false); }} required />
               {emailTaken && (
-                <p className="text-destructive text-xs mt-1">Cet email est déjà utilisé dans l’application. Un utilisateur ne peut avoir qu’un seul compte.</p>
+                <p className="text-destructive text-xs mt-1">Cet email est déjà utilisé dans l'application. Un utilisateur ne peut avoir qu'un seul compte.</p>
               )}
             </div>
             <div>
               <Label>Rôle</Label>
-              <Select value={form.role} onValueChange={(val) => setForm({ ...form, role: val as AppRole })}>
+              <Select value={form.role} onValueChange={(val) => setForm({ ...form, role: val as Exclude<AppRole, null | undefined> })}>
                 <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="manager">{ROLE_LABELS.manager}</SelectItem>
@@ -273,11 +236,11 @@ export default function SettingsUsers() {
               </Select>
             </div>
             <div>
-              <Label>Mot de passe initial (optionnel)</Label>
+              <Label>Mot de passe initial</Label>
               <Input type="password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} required />
             </div>
             <div>
-              <Button type="submit" disabled={emailTaken}>Créer l’utilisateur</Button>
+              <Button type="submit" disabled={emailTaken}>Créer l'utilisateur</Button>
             </div>
           </form>
         </DialogContent>
