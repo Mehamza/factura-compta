@@ -75,7 +75,8 @@ Deno.serve(async (req) => {
         "cache-control": "no-store",
       },
     });
-  } catch (e) {
-    return internal(e?.message || "Erreur interne");
+  } catch (e: unknown) {
+    const error = e as Error;
+    return internal(error?.message || "Erreur interne");
   }
 });

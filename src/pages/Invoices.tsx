@@ -482,29 +482,11 @@ export default function Invoices() {
 
   const printPDF = async (invoice: Invoice) => {
     try {
-      // Reuse the same generation pipeline but capture Blob
-      const { data: items } = await supabase
-        .from('invoice_items')
-        .select('*')
-        .eq('invoice_id', invoice.id);
-      const currentSettings = companySettings || { default_currency: 'TND', default_vat_rate: 19 } as any;
-      const templateData = {
-        invoice,
-        items: (items || []).map(it => ({
-          description: it.description,
-          quantity: Number(it.quantity),
-          unit_price: Number(it.unit_price),
-          total: Number(it.total),
-        })),
-        settings: currentSettings,
-        createdBy: user?.id || '',
-      };
-      const pdf = await generateInvoiceWithTemplate(invoice.template_type as any, templateData, true);
-      const blob = new Blob([pdf.output('arraybuffer')], { type: 'application/pdf' });
-      await openPdfForPrint(blob);
-      toast({ title: 'Impression ouverte', description: 'La facture s’ouvre pour impression.' });
-    } catch (e: any) {
-      toast({ variant: 'destructive', title: 'Erreur', description: e?.message || 'Impossible d’ouvrir l’impression.' });
+      await downloadPDF(invoice);
+      toast({ title: 'PDF généré', description: 'Le PDF a été téléchargé.' });
+    } catch (e: unknown) {
+      const error = e as Error;
+      toast({ variant: 'destructive', title: 'Erreur', description: error?.message || 'Impossible de générer le PDF.' });
     }
   };
 
@@ -515,10 +497,11 @@ export default function Invoices() {
       issue_date: new Date().toISOString().split('T')[0],
       due_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
       tax_rate: companySettings?.default_vat_rate || 19,
+      stamp_included: false,
       notes: '',
       status: 'draft',
       currency: companySettings?.default_currency || 'TND',
-      template_type: 'classic',
+      template_type: 'classic' as TemplateType,
     });
     setItems([{ description: '', quantity: 1, unit_price: 0, total: 0 }]);
   };
@@ -714,7 +697,7 @@ export default function Invoices() {
                 <Textarea value={formData.notes} onChange={e => setFormData({ ...formData, notes: e.target.value })} />
               </div>
 
-              <Button ripple type="submit" className="w-full">Créer la facture</Button>
+              <Button type="submit" className="w-full">Créer la facture</Button>
             </form>
           </DialogContent>
         </Dialog>

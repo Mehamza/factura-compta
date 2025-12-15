@@ -1,6 +1,5 @@
 import * as React from "react";
 import { Slot } from "@radix-ui/react-slot";
-import { motion } from "framer-motion";
 import { cva, type VariantProps } from "class-variance-authority";
 
 import { cn } from "@/lib/utils";
@@ -35,34 +34,14 @@ export interface ButtonProps
   extends React.ButtonHTMLAttributes<HTMLButtonElement>,
     VariantProps<typeof buttonVariants> {
   asChild?: boolean;
-  ripple?: boolean;
 }
 
 const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
-  ({ className, variant, size, asChild = false, ripple = false, onMouseDown, ...props }, ref) => {
-    const Comp = asChild ? Slot : motion.button;
-    const handleMouseDown: React.MouseEventHandler<HTMLButtonElement> = (e) => {
-      onMouseDown?.(e);
-      if (!ripple) return;
-      const target = e.currentTarget;
-      const rect = target.getBoundingClientRect();
-      const diameter = Math.max(rect.width, rect.height);
-      const radius = diameter / 2;
-      const circle = document.createElement('span');
-      circle.style.width = circle.style.height = `${diameter}px`;
-      circle.style.left = `${e.clientX - rect.left - radius}px`;
-      circle.style.top = `${e.clientY - rect.top - radius}px`;
-      circle.className = 'absolute rounded-full bg-white/30 dark:bg-white/20 pointer-events-none animate-[ripple_600ms_ease-out]';
-      circle.style.transform = 'scale(0)';
-      target.appendChild(circle);
-      setTimeout(() => circle.remove(), 600);
-    };
+  ({ className, variant, size, asChild = false, ...props }, ref) => {
+    const Comp = asChild ? Slot : "button";
     return (
       <Comp
-        whileHover={{ scale: 1.02 }}
-        whileTap={{ scale: 0.98 }}
-        onMouseDown={handleMouseDown}
-        className={cn('relative overflow-hidden', buttonVariants({ variant, size, className }))}
+        className={cn(buttonVariants({ variant, size, className }))}
         ref={ref}
         {...props}
       />
