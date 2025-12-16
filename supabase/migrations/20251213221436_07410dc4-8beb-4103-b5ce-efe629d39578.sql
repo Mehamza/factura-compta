@@ -1,5 +1,5 @@
 -- Create accounts table (Plan comptable)
-CREATE TABLE public.accounts (
+CREATE TABLE IF NOT EXISTS public.accounts (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID NOT NULL,
   code TEXT NOT NULL,
@@ -17,7 +17,7 @@ CREATE POLICY "Users can update their own accounts" ON public.accounts FOR UPDAT
 CREATE POLICY "Users can delete their own accounts" ON public.accounts FOR DELETE USING (auth.uid() = user_id);
 
 -- Create journal_entries table
-CREATE TABLE public.journal_entries (
+CREATE TABLE IF NOT EXISTS public.journal_entries (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID NOT NULL,
   entry_date DATE NOT NULL DEFAULT CURRENT_DATE,
@@ -35,7 +35,7 @@ CREATE POLICY "Users can update their own entries" ON public.journal_entries FOR
 CREATE POLICY "Users can delete their own entries" ON public.journal_entries FOR DELETE USING (auth.uid() = user_id);
 
 -- Create journal_lines table
-CREATE TABLE public.journal_lines (
+CREATE TABLE IF NOT EXISTS public.journal_lines (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   entry_id UUID NOT NULL REFERENCES public.journal_entries(id) ON DELETE CASCADE,
   account_id UUID NOT NULL REFERENCES public.accounts(id),

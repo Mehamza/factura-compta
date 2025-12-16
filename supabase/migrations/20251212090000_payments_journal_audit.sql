@@ -63,7 +63,6 @@ create trigger trg_invoice_status_after_payment
 after insert or update or delete on public.payments
 for each row execute function public.refresh_invoice_status();
 
--- Journal (basic)
 create table if not exists public.accounts (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null,
@@ -74,7 +73,7 @@ create table if not exists public.accounts (
   created_at timestamptz default now(),
   unique(user_id, code)
 );
-
+-- end accounts
 alter table public.accounts enable row level security;
 create policy acc_select on public.accounts for select using (user_id = auth.uid());
 create policy acc_insert on public.accounts for insert with check (user_id = auth.uid());
