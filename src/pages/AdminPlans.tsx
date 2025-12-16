@@ -36,13 +36,13 @@ export default function AdminPlans() {
   useEffect(() => { load(); }, []);
 
   const load = async () => {
-    const { data: plansData } = await supabase.from('plans').select('*').order('display_order');
-    setPlans(plansData || []);
+    const { data: plansData } = await (supabase.from('plans' as any).select('*').order('display_order') as any);
+    setPlans((plansData as Plan[]) || []);
     const byPlan: Record<string, Feature[]> = {};
-    const { data: feats } = await supabase.from('plan_features').select('*');
-    (feats || []).forEach((f: any) => {
+    const { data: feats } = await (supabase.from('plan_features' as any).select('*') as any);
+    ((feats as any[]) || []).forEach((f: any) => {
       if (!byPlan[f.plan_id]) byPlan[f.plan_id] = [];
-      byPlan[f.plan_id].push({ id: f.id, plan_id: f.plan_id, key: f.key, value: f.value });
+      byPlan[f.plan_id].push({ id: f.id, plan_id: f.plan_id, key: f.feature_key, value: f.value });
     });
     setFeatures(byPlan);
   };
@@ -54,11 +54,11 @@ export default function AdminPlans() {
     e.preventDefault();
     const payload = { name: form.name.trim(), description: form.description.trim() || null, price_year: Number(form.price_year), duration: form.duration, active: form.active, display_order: Number(form.display_order) };
     if (editing) {
-      const { error } = await supabase.from('plans').update(payload).eq('id', editing.id);
+      const { error } = await (supabase.from('plans' as any).update(payload as any).eq('id', editing.id) as any);
       if (error) toast({ variant: 'destructive', title: 'Erreur', description: error.message });
       else { toast({ title: 'Succès', description: 'Plan mis à jour' }); setOpen(false); load(); }
     } else {
-      const { error } = await supabase.from('plans').insert(payload);
+      const { error } = await (supabase.from('plans' as any).insert(payload as any) as any);
       if (error) toast({ variant: 'destructive', title: 'Erreur', description: error.message });
       else { toast({ title: 'Succès', description: 'Plan ajouté' }); setOpen(false); load(); }
     }
@@ -66,7 +66,7 @@ export default function AdminPlans() {
 
   const removePlan = async (id: string) => {
     if (!confirm('Supprimer ce plan ?')) return;
-    const { error } = await supabase.from('plans').delete().eq('id', id);
+    const { error } = await (supabase.from('plans' as any).delete().eq('id', id) as any);
     if (error) toast({ variant: 'destructive', title: 'Erreur', description: error.message });
     else { toast({ title: 'Succès', description: 'Plan supprimé' }); load(); }
   };
@@ -74,13 +74,13 @@ export default function AdminPlans() {
   const upsertFeature = async (planId: string, key: string, value: any) => {
     const existing = (features[planId] || []).find(f => f.key === key);
     if (existing) {
-      const { error } = await supabase.from('plan_features').update({ value }).eq('id', existing.id);
+      const { error } = await (supabase.from('plan_features' as any).update({ value } as any).eq('id', existing.id) as any);
       if (!error) {
         setFeatures(prev => ({ ...prev, [planId]: (prev[planId] || []).map(f => f.id === existing.id ? { ...f, value } : f) }));
         toast({ title: 'Succès', description: 'Fonctionnalité mise à jour' });
       }
     } else {
-      const { data, error } = await supabase.from('plan_features').insert({ plan_id: planId, key, value }).select().single();
+      const { data, error } = await (supabase.from('plan_features' as any).insert({ plan_id: planId, feature_key: key, value } as any).select().single() as any);
       if (!error && data) {
         setFeatures(prev => ({ ...prev, [planId]: [...(prev[planId] || []), { id: data.id, plan_id: planId, key, value }] }));
         toast({ title: 'Succès', description: 'Fonctionnalité ajoutée' });
