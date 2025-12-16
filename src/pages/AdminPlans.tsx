@@ -256,7 +256,7 @@ export default function AdminPlans() {
             </div>
             <div className="flex justify-end gap-2">
               <Button type="button" variant="outline" onClick={() => setOpen(false)}>Annuler</Button>
-              <Button type="submit" ripple>{editing ? 'Enregistrer' : 'Ajouter'}</Button>
+              <Button type="submit">{editing ? 'Enregistrer' : 'Ajouter'}</Button>
             </div>
           </form>
         </DialogContent>
