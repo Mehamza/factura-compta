@@ -4,9 +4,15 @@ export type PlanPermissions = Record<string, any>;
 
 export async function fetchPlanPermissions(userId?: string): Promise<PlanPermissions> {
   if (!userId) return {};
-  const { data, error } = await supabase.rpc('get_effective_permissions', { p_user_id: userId });
-  if (error) return {};
-  return (data as any) || {};
+  
+  // Try to call get_effective_permissions if it exists
+  try {
+    const { data, error } = await supabase.rpc('get_effective_permissions' as any, { p_user_id: userId });
+    if (error) return {};
+    return (data as any) || {};
+  } catch {
+    return {};
+  }
 }
 
 export function canFeature(perms: PlanPermissions, key: string): boolean {
