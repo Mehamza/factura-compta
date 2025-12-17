@@ -10,7 +10,7 @@ export default function LandingHeader() {
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
         <div className="flex h-16 items-center justify-between">
-          <Link to="/" className="flex items-center gap-2 font-semibold">
+          <Link to="/" className="flex items-center gap-2 font-semibold transition-transform hover:scale-105">
             <span className="inline-block h-6 w-6 rounded bg-primary" />
             <span>Facture Pro</span>
           </Link>
@@ -27,7 +27,7 @@ export default function LandingHeader() {
                 to={item.href}
                 className={({ isActive }) =>
                   cn(
-                    "text-sm font-medium transition-colors",
+                    "text-sm font-medium transition-all hover:scale-105",
                     isActive
                       ? "text-primary"
                       : "text-muted-foreground hover:text-foreground"
