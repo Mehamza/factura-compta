@@ -7,90 +7,40 @@ export type Json =
   | Json[]
 
 export type Database = {
-  graphql_public: {
-    Tables: {
-      [_ in never]: never
-    }
-    Views: {
-      [_ in never]: never
-    }
-    Functions: {
-      graphql: {
-        Args: {
-          extensions?: Json
-          operationName?: string
-          query?: string
-          variables?: Json
-        }
-        Returns: Json
-      }
-    }
-    Enums: {
-      [_ in never]: never
-    }
-    CompositeTypes: {
-      [_ in never]: never
-    }
+  // Allows to automatically instantiate createClient with right options
+  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
+  __InternalSupabase: {
+    PostgrestVersion: "13.0.5"
   }
   public: {
     Tables: {
       accounts: {
         Row: {
           code: string
-          created_at: string | null
+          created_at: string
           id: string
-          is_active: boolean | null
           name: string
-          type: string | null
+          type: string
+          updated_at: string
           user_id: string
         }
         Insert: {
           code: string
-          created_at?: string | null
+          created_at?: string
           id?: string
-          is_active?: boolean | null
           name: string
-          type?: string | null
+          type?: string
+          updated_at?: string
           user_id: string
         }
         Update: {
           code?: string
-          created_at?: string | null
+          created_at?: string
           id?: string
-          is_active?: boolean | null
           name?: string
-          type?: string | null
+          type?: string
+          updated_at?: string
           user_id?: string
-        }
-        Relationships: []
-      }
-      audit_logs: {
-        Row: {
-          action: string | null
-          changes: Json | null
-          created_at: string | null
-          id: string
-          record_id: string | null
-          table_name: string | null
-          user_id: string | null
-        }
-        Insert: {
-          action?: string | null
-          changes?: Json | null
-          created_at?: string | null
-          id?: string
-          record_id?: string | null
-          table_name?: string | null
-          user_id?: string | null
-        }
-        Update: {
-          action?: string | null
-          changes?: Json | null
-          created_at?: string | null
-          id?: string
-          record_id?: string | null
-          table_name?: string | null
-          user_id?: string | null
         }
         Relationships: []
       }
@@ -98,7 +48,6 @@ export type Database = {
         Row: {
           address: string | null
           city: string | null
-          company_id: string
           country: string | null
           created_at: string
           email: string | null
@@ -114,7 +63,6 @@ export type Database = {
         Insert: {
           address?: string | null
           city?: string | null
-          company_id: string
           country?: string | null
           created_at?: string
           email?: string | null
@@ -130,7 +78,6 @@ export type Database = {
         Update: {
           address?: string | null
           city?: string | null
-          company_id?: string
           country?: string | null
           created_at?: string
           email?: string | null
@@ -143,86 +90,40 @@ export type Database = {
           user_id?: string
           vat_number?: string | null
         }
-        Relationships: [
-          {
-            foreignKeyName: "clients_company_fk"
-            columns: ["company_id"]
-            isOneToOne: false
-            referencedRelation: "companies"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      companies: {
-        Row: {
-          active: boolean
-          created_at: string
-          id: string
-          name: string
-          updated_at: string
-        }
-        Insert: {
-          active?: boolean
-          created_at?: string
-          id?: string
-          name: string
-          updated_at?: string
-        }
-        Update: {
-          active?: boolean
-          created_at?: string
-          id?: string
-          name?: string
-          updated_at?: string
-        }
         Relationships: []
       }
       company_plans: {
         Row: {
           active: boolean
-          assigned_at: string | null
-          company_id: string | null
-          expires_at: string | null
+          created_at: string
+          ends_at: string | null
           id: string
-          plan_id: string
-          started_at: string | null
+          plan_id: string | null
+          starts_at: string
+          updated_at: string
           user_id: string
         }
         Insert: {
           active?: boolean
-          assigned_at?: string | null
-          company_id?: string | null
-          expires_at?: string | null
+          created_at?: string
+          ends_at?: string | null
           id?: string
-          plan_id: string
-          started_at?: string | null
+          plan_id?: string | null
+          starts_at?: string
+          updated_at?: string
           user_id: string
         }
         Update: {
           active?: boolean
-          assigned_at?: string | null
-          company_id?: string | null
-          expires_at?: string | null
+          created_at?: string
+          ends_at?: string | null
           id?: string
-          plan_id?: string
-          started_at?: string | null
+          plan_id?: string | null
+          starts_at?: string
+          updated_at?: string
           user_id?: string
         }
         Relationships: [
-          {
-            foreignKeyName: "company_plans_company_fk"
-            columns: ["company_id"]
-            isOneToOne: false
-            referencedRelation: "companies"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "company_plans_plan_fk"
-            columns: ["plan_id"]
-            isOneToOne: false
-            referencedRelation: "plans"
-            referencedColumns: ["id"]
-          },
           {
             foreignKeyName: "company_plans_plan_id_fkey"
             columns: ["plan_id"]
@@ -382,7 +283,6 @@ export type Database = {
       }
       invoice_items: {
         Row: {
-          company_id: string
           created_at: string
           description: string
           id: string
@@ -392,7 +292,6 @@ export type Database = {
           unit_price: number
         }
         Insert: {
-          company_id: string
           created_at?: string
           description: string
           id?: string
@@ -402,7 +301,6 @@ export type Database = {
           unit_price: number
         }
         Update: {
-          company_id?: string
           created_at?: string
           description?: string
           id?: string
@@ -412,13 +310,6 @@ export type Database = {
           unit_price?: number
         }
         Relationships: [
-          {
-            foreignKeyName: "invoice_items_company_fk"
-            columns: ["company_id"]
-            isOneToOne: false
-            referencedRelation: "companies"
-            referencedColumns: ["id"]
-          },
           {
             foreignKeyName: "invoice_items_invoice_id_fkey"
             columns: ["invoice_id"]
@@ -431,7 +322,6 @@ export type Database = {
       invoices: {
         Row: {
           client_id: string | null
-          company_id: string
           created_at: string
           created_by_user_id: string | null
           currency: string | null
@@ -440,8 +330,6 @@ export type Database = {
           invoice_number: string
           issue_date: string
           notes: string | null
-          stamp_amount: number
-          stamp_included: boolean
           status: string
           subtotal: number
           tax_amount: number
@@ -453,7 +341,6 @@ export type Database = {
         }
         Insert: {
           client_id?: string | null
-          company_id: string
           created_at?: string
           created_by_user_id?: string | null
           currency?: string | null
@@ -462,8 +349,6 @@ export type Database = {
           invoice_number: string
           issue_date?: string
           notes?: string | null
-          stamp_amount?: number
-          stamp_included?: boolean
           status?: string
           subtotal?: number
           tax_amount?: number
@@ -475,7 +360,6 @@ export type Database = {
         }
         Update: {
           client_id?: string | null
-          company_id?: string
           created_at?: string
           created_by_user_id?: string | null
           currency?: string | null
@@ -484,8 +368,6 @@ export type Database = {
           invoice_number?: string
           issue_date?: string
           notes?: string | null
-          stamp_amount?: number
-          stamp_included?: boolean
           status?: string
           subtotal?: number
           tax_amount?: number
@@ -503,75 +385,62 @@ export type Database = {
             referencedRelation: "clients"
             referencedColumns: ["id"]
           },
-          {
-            foreignKeyName: "invoices_company_fk"
-            columns: ["company_id"]
-            isOneToOne: false
-            referencedRelation: "companies"
-            referencedColumns: ["id"]
-          },
         ]
       }
       journal_entries: {
         Row: {
-          created_at: string | null
+          created_at: string
           created_by_user_id: string | null
           description: string | null
           entry_date: string
           id: string
-          reference: string | null
-          updated_at: string | null
+          reference: string
           user_id: string
         }
         Insert: {
-          created_at?: string | null
-          created_by_user_id?: string | null
-          description?: string | null
-          entry_date: string
-          id?: string
-          reference?: string | null
-          updated_at?: string | null
-          user_id: string
-        }
-        Update: {
-          created_at?: string | null
+          created_at?: string
           created_by_user_id?: string | null
           description?: string | null
           entry_date?: string
           id?: string
-          reference?: string | null
-          updated_at?: string | null
+          reference: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          created_by_user_id?: string | null
+          description?: string | null
+          entry_date?: string
+          id?: string
+          reference?: string
           user_id?: string
         }
         Relationships: []
       }
       journal_lines: {
         Row: {
-          account_id: string | null
-          credit: number | null
-          debit: number | null
-          entry_id: string | null
+          account_id: string
+          created_at: string
+          credit: number
+          debit: number
+          entry_id: string
           id: string
-          invoice_id: string | null
-          payment_id: string | null
         }
         Insert: {
-          account_id?: string | null
-          credit?: number | null
-          debit?: number | null
-          entry_id?: string | null
+          account_id: string
+          created_at?: string
+          credit?: number
+          debit?: number
+          entry_id: string
           id?: string
-          invoice_id?: string | null
-          payment_id?: string | null
         }
         Update: {
-          account_id?: string | null
-          credit?: number | null
-          debit?: number | null
-          entry_id?: string | null
+          account_id?: string
+          created_at?: string
+          credit?: number
+          debit?: number
+          entry_id?: string
           id?: string
-          invoice_id?: string | null
-          payment_id?: string | null
         }
         Relationships: [
           {
@@ -588,136 +457,31 @@ export type Database = {
             referencedRelation: "journal_entries"
             referencedColumns: ["id"]
           },
-          {
-            foreignKeyName: "journal_lines_invoice_id_fkey"
-            columns: ["invoice_id"]
-            isOneToOne: false
-            referencedRelation: "invoices"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "journal_lines_payment_id_fkey"
-            columns: ["payment_id"]
-            isOneToOne: false
-            referencedRelation: "payments"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      payment_methods: {
-        Row: {
-          created_at: string | null
-          id: string
-          name: string
-          type: string | null
-          user_id: string
-        }
-        Insert: {
-          created_at?: string | null
-          id?: string
-          name: string
-          type?: string | null
-          user_id: string
-        }
-        Update: {
-          created_at?: string | null
-          id?: string
-          name?: string
-          type?: string | null
-          user_id?: string
-        }
-        Relationships: []
-      }
-      payments: {
-        Row: {
-          amount: number
-          client_id: string | null
-          created_at: string | null
-          created_by_user_id: string | null
-          currency: string | null
-          id: string
-          invoice_id: string | null
-          method_id: string | null
-          notes: string | null
-          paid_at: string
-          reference: string | null
-          updated_at: string | null
-          user_id: string
-        }
-        Insert: {
-          amount: number
-          client_id?: string | null
-          created_at?: string | null
-          created_by_user_id?: string | null
-          currency?: string | null
-          id?: string
-          invoice_id?: string | null
-          method_id?: string | null
-          notes?: string | null
-          paid_at: string
-          reference?: string | null
-          updated_at?: string | null
-          user_id: string
-        }
-        Update: {
-          amount?: number
-          client_id?: string | null
-          created_at?: string | null
-          created_by_user_id?: string | null
-          currency?: string | null
-          id?: string
-          invoice_id?: string | null
-          method_id?: string | null
-          notes?: string | null
-          paid_at?: string
-          reference?: string | null
-          updated_at?: string | null
-          user_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "payments_client_id_fkey"
-            columns: ["client_id"]
-            isOneToOne: false
-            referencedRelation: "clients"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "payments_invoice_id_fkey"
-            columns: ["invoice_id"]
-            isOneToOne: false
-            referencedRelation: "invoices"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "payments_method_id_fkey"
-            columns: ["method_id"]
-            isOneToOne: false
-            referencedRelation: "payment_methods"
-            referencedColumns: ["id"]
-          },
         ]
       }
       plan_features: {
         Row: {
-          created_at: string | null
+          created_at: string
+          feature_key: string
           id: string
-          key: string
           plan_id: string
+          updated_at: string
           value: Json
         }
         Insert: {
-          created_at?: string | null
+          created_at?: string
+          feature_key: string
           id?: string
-          key: string
           plan_id: string
-          value: Json
+          updated_at?: string
+          value?: Json
         }
         Update: {
-          created_at?: string | null
+          created_at?: string
+          feature_key?: string
           id?: string
-          key?: string
           plan_id?: string
+          updated_at?: string
           value?: Json
         }
         Relationships: [
@@ -733,119 +497,79 @@ export type Database = {
       plans: {
         Row: {
           active: boolean
-          created_at: string | null
+          created_at: string
           description: string | null
           display_order: number
           duration: string
           id: string
           name: string
           price_year: number
-          updated_at: string | null
+          updated_at: string
         }
         Insert: {
           active?: boolean
-          created_at?: string | null
+          created_at?: string
           description?: string | null
           display_order?: number
           duration?: string
           id?: string
           name: string
           price_year?: number
-          updated_at?: string | null
+          updated_at?: string
         }
         Update: {
           active?: boolean
-          created_at?: string | null
+          created_at?: string
           description?: string | null
           display_order?: number
           duration?: string
           id?: string
           name?: string
           price_year?: number
-          updated_at?: string | null
+          updated_at?: string
         }
         Relationships: []
       }
       products: {
         Row: {
-          category: string | null
-          company_id: string
           created_at: string
-          currency: string | null
-          description: string | null
           id: string
-          initial_qty: number
           min_stock: number
           name: string
-          purchase_price: number
           quantity: number
-          sale_price: number
           sku: string | null
-          supplier: string | null
-          unit: string
           unit_price: number
           updated_at: string
           user_id: string
-          vat_rate: number
         }
         Insert: {
-          category?: string | null
-          company_id: string
           created_at?: string
-          currency?: string | null
-          description?: string | null
           id?: string
-          initial_qty: number
           min_stock?: number
           name: string
-          purchase_price: number
           quantity?: number
-          sale_price: number
           sku?: string | null
-          supplier?: string | null
-          unit: string
           unit_price?: number
           updated_at?: string
           user_id: string
-          vat_rate: number
         }
         Update: {
-          category?: string | null
-          company_id?: string
           created_at?: string
-          currency?: string | null
-          description?: string | null
           id?: string
-          initial_qty?: number
           min_stock?: number
           name?: string
-          purchase_price?: number
           quantity?: number
-          sale_price?: number
           sku?: string | null
-          supplier?: string | null
-          unit?: string
           unit_price?: number
           updated_at?: string
           user_id?: string
-          vat_rate?: number
         }
-        Relationships: [
-          {
-            foreignKeyName: "products_company_fk"
-            columns: ["company_id"]
-            isOneToOne: false
-            referencedRelation: "companies"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       profiles: {
         Row: {
           company_name: string | null
           created_at: string
-          disabled: boolean | null
-          email: string | null
           full_name: string | null
           id: string
           updated_at: string
@@ -854,8 +578,6 @@ export type Database = {
         Insert: {
           company_name?: string | null
           created_at?: string
-          disabled?: boolean | null
-          email?: string | null
           full_name?: string | null
           id?: string
           updated_at?: string
@@ -864,8 +586,6 @@ export type Database = {
         Update: {
           company_name?: string | null
           created_at?: string
-          disabled?: boolean | null
-          email?: string | null
           full_name?: string | null
           id?: string
           updated_at?: string
@@ -915,7 +635,6 @@ export type Database = {
         Row: {
           address: string | null
           city: string | null
-          company_id: string
           country: string | null
           created_at: string
           email: string | null
@@ -931,7 +650,6 @@ export type Database = {
         Insert: {
           address?: string | null
           city?: string | null
-          company_id: string
           country?: string | null
           created_at?: string
           email?: string | null
@@ -947,7 +665,6 @@ export type Database = {
         Update: {
           address?: string | null
           city?: string | null
-          company_id?: string
           country?: string | null
           created_at?: string
           email?: string | null
@@ -959,67 +676,6 @@ export type Database = {
           updated_at?: string
           user_id?: string
           vat_number?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "suppliers_company_fk"
-            columns: ["company_id"]
-            isOneToOne: false
-            referencedRelation: "companies"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      user_company_roles: {
-        Row: {
-          company_id: string
-          created_at: string
-          id: string
-          role: string
-          user_id: string
-        }
-        Insert: {
-          company_id: string
-          created_at?: string
-          id?: string
-          role: string
-          user_id: string
-        }
-        Update: {
-          company_id?: string
-          created_at?: string
-          id?: string
-          role?: string
-          user_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "user_company_roles_company_id_fkey"
-            columns: ["company_id"]
-            isOneToOne: false
-            referencedRelation: "companies"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      user_global_roles: {
-        Row: {
-          created_at: string
-          id: string
-          role: string
-          user_id: string
-        }
-        Insert: {
-          created_at?: string
-          id?: string
-          role: string
-          user_id: string
-        }
-        Update: {
-          created_at?: string
-          id?: string
-          role?: string
-          user_id?: string
         }
         Relationships: []
       }
@@ -1049,22 +705,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      _get_default_company_id: { Args: never; Returns: string }
-      get_effective_permissions: {
-        Args: { p_company_id: string }
-        Returns: Json
-      }
+      get_effective_permissions: { Args: { p_user_id: string }; Returns: Json }
       get_user_role: {
         Args: { _user_id: string }
         Returns: Database["public"]["Enums"]["app_role"]
-      }
-      has_company_role: {
-        Args: { p_company_id: string; p_role: string; p_user_id: string }
-        Returns: boolean
-      }
-      has_global_role: {
-        Args: { p_role: string; p_user_id: string }
-        Returns: boolean
       }
       has_role: {
         Args: {
@@ -1072,11 +716,6 @@ export type Database = {
           _user_id: string
         }
         Returns: boolean
-      }
-      invoice_outstanding: { Args: { p_invoice_id: string }; Returns: number }
-      recompute_invoice_totals: {
-        Args: { p_invoice_id: string }
-        Returns: undefined
       }
     }
     Enums: {
@@ -1206,13 +845,9 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
-  graphql_public: {
-    Enums: {},
-  },
   public: {
     Enums: {
       app_role: ["admin", "accountant", "user", "manager", "cashier"],
     },
   },
 } as const
-
