@@ -17,8 +17,8 @@ export default function LandingHeader() {
 
           <nav className="hidden md:flex items-center gap-6">
             {[
-              { name: "Home", href: "/" },
-              { name: "Tarif", href: "/tarif" },
+              { name: "Accueil", href: "/" },
+              { name: "Tarifs", href: "/tarif" },
               { name: "Contact", href: "/contact" },
               { name: "Blog", href: "/blog" },
             ].map((item) => (
