@@ -6,7 +6,7 @@ import { createBrowserRouter, createRoutesFromElements, RouterProvider, Route } 
 import { AnimatePresence, motion, MotionConfig } from "framer-motion";
 import { AuthProvider } from "@/hooks/useAuth";
 import { ProtectedRoute } from "@/components/layout/ProtectedRoute";
-import { AdminRoute } from "@/components/layout/ProtectedRoute";
+import { SuperAdminRoute } from "@/components/layout/ProtectedRoute";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import Index from "./pages/Index";
 import LandingPage from "./pages/LandingPage";
@@ -26,6 +26,8 @@ import Reports from "./pages/Reports";
 import StockProducts from "./pages/StockProducts";
 import StockMovements from "./pages/StockMovements";
 import AdminIndex from "./pages/AdminIndex";
+import Pricing from "./pages/Pricing";
+import AdminPlans from "./pages/AdminPlans";
 
 const queryClient = new QueryClient();
 
@@ -47,7 +49,9 @@ const router = createBrowserRouter(
       <Route path="/reports" element={<ProtectedRoute><motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.2, ease: 'easeOut' }}><Reports /></motion.div></ProtectedRoute>} />
       <Route path="/stock/produits" element={<ProtectedRoute><motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.2, ease: 'easeOut' }}><StockProducts /></motion.div></ProtectedRoute>} />
       <Route path="/stock/mouvements" element={<ProtectedRoute><motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.2, ease: 'easeOut' }}><StockMovements /></motion.div></ProtectedRoute>} />
-      <Route path="/hamzafacturation" element={<ProtectedRoute><AdminRoute><motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.2, ease: 'easeOut' }}><AdminIndex /></motion.div></AdminRoute></ProtectedRoute>} />
+      <Route path="/tarif" element={<motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.2, ease: 'easeOut' }}><Pricing /></motion.div>} />
+      <Route path="/hamzafacturation" element={<ProtectedRoute><SuperAdminRoute><motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.2, ease: 'easeOut' }}><AdminIndex /></motion.div></SuperAdminRoute></ProtectedRoute>} />
+      <Route path="/hamzafacturation/plans" element={<ProtectedRoute><SuperAdminRoute><motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.2, ease: 'easeOut' }}><AdminPlans /></motion.div></SuperAdminRoute></ProtectedRoute>} />
       <Route path="*" element={<motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }}><NotFound /></motion.div>} />
     </Route>
   ),

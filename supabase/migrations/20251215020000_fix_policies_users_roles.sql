@@ -11,13 +11,13 @@ DO $$ BEGIN
 EXCEPTION WHEN undefined_object THEN NULL; END $$;
 
 -- Recreate with correct argument order
-create policy if not exists profiles_manage on public.profiles
+create policy profiles_manage on public.profiles
   for insert with check (
     public.has_role(auth.uid(), 'admin')
     or public.has_role(auth.uid(), 'manager')
   );
 
-create policy if not exists profiles_update on public.profiles
+create policy profiles_update on public.profiles
   for update using (
     public.has_role(auth.uid(), 'admin')
     or public.has_role(auth.uid(), 'manager')
@@ -26,29 +26,29 @@ create policy if not exists profiles_update on public.profiles
     or public.has_role(auth.uid(), 'manager')
   );
 
-create policy if not exists profiles_delete on public.profiles
+create policy profiles_delete on public.profiles
   for delete using (public.has_role(auth.uid(), 'admin'));
 
-create policy if not exists user_roles_insert on public.user_roles
+create policy user_roles_insert on public.user_roles
   for insert with check (
     public.has_role(auth.uid(), 'admin')
     or (
       public.has_role(auth.uid(), 'manager')
-      and (new.role != 'admin')
+      and (role <> 'admin')
     )
   );
 
-create policy if not exists user_roles_update on public.user_roles
+create policy user_roles_update on public.user_roles
   for update using (
     public.has_role(auth.uid(), 'admin')
-    or public.has_role(auth.uid(), 'manager')
+    or (public.has_role(auth.uid(), 'manager') and (role <> 'admin'))
   ) with check (
     public.has_role(auth.uid(), 'admin')
-    or (public.has_role(auth.uid(), 'manager') and (new.role != 'admin'))
+    or (public.has_role(auth.uid(), 'manager') and (role <> 'admin'))
   );
 
-create policy if not exists user_roles_delete on public.user_roles
+create policy user_roles_delete on public.user_roles
   for delete using (
     public.has_role(auth.uid(), 'admin')
-    or (public.has_role(auth.uid(), 'manager') and (old.role != 'admin'))
+    or (public.has_role(auth.uid(), 'manager') and (role <> 'admin'))
   );

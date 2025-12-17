@@ -2,12 +2,11 @@ import { supabase } from '@/integrations/supabase/client';
 
 export type PlanPermissions = Record<string, any>;
 
-export async function fetchPlanPermissions(userId?: string): Promise<PlanPermissions> {
-  if (!userId) return {};
-  
-  // Try to call get_effective_permissions if it exists
+export async function fetchPlanPermissions(companyId?: string): Promise<PlanPermissions> {
+  if (!companyId) return {};
+
   try {
-    const { data, error } = await supabase.rpc('get_effective_permissions' as any, { p_user_id: userId });
+    const { data, error } = await supabase.rpc('get_effective_permissions' as any, { p_company_id: companyId });
     if (error) return {};
     return (data as any) || {};
   } catch {

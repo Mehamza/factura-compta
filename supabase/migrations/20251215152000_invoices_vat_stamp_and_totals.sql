@@ -39,15 +39,30 @@ begin
     where id = p_invoice_id;
 end; $$ language plpgsql security definer;
 
+create or replace function public.trg_invoice_items_recompute_totals()
+returns trigger as $$
+declare
+  v_invoice_id uuid;
+begin
+  v_invoice_id := case when tg_op = 'DELETE' then old.invoice_id else new.invoice_id end;
+  perform public.recompute_invoice_totals(v_invoice_id);
+  return null;
+end; $$ language plpgsql;
+
 drop trigger if exists trg_invoice_items_recompute_totals on public.invoice_items;
 create trigger trg_invoice_items_recompute_totals
 after insert or update or delete on public.invoice_items
-for each row execute procedure public.recompute_invoice_totals(
-  case when tg_op = 'DELETE' then old.invoice_id else new.invoice_id end
-);
+for each row execute function public.trg_invoice_items_recompute_totals();
+
+create or replace function public.trg_invoices_recompute_on_change()
+returns trigger as $$
+begin
+  perform public.recompute_invoice_totals(new.id);
+  return new;
+end; $$ language plpgsql;
 
 -- Also recompute when invoices' tax_rate, stamp fields change
 drop trigger if exists trg_invoices_recompute_on_change on public.invoices;
 create trigger trg_invoices_recompute_on_change
 after update of tax_rate, stamp_included, stamp_amount on public.invoices
-for each row execute procedure public.recompute_invoice_totals(new.id);
+for each row execute function public.trg_invoices_recompute_on_change();

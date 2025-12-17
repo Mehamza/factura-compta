@@ -4,14 +4,8 @@
 alter table public.profiles enable row level security;
 alter table public.user_roles enable row level security;
 
--- Define helper function (idempotent via create or replace)
-create or replace function public.has_role(role text, user_id uuid)
-returns boolean language sql stable as $fn$
-  select exists (
-    select 1 from public.user_roles ur
-    where ur.user_id = user_id and lower(ur.role) = lower(role)
-  );
-$fn$;
+-- NOTE: has_role function already defined in earlier migration with signature:
+-- has_role(_user_id uuid, _role app_role)
 
 -- Read policies: allow authenticated users to read profiles and roles
 do $$ begin
@@ -30,8 +24,8 @@ end $$;
 do $$ begin
   if not exists (select 1 from pg_policies where schemaname = 'public' and tablename = 'profiles' and policyname = 'profiles_manage') then
     create policy profiles_manage on public.profiles for insert with check (
-      public.has_role('admin', auth.uid())
-      or public.has_role('manager', auth.uid())
+      public.has_role(auth.uid(), 'admin'::app_role)
+      or public.has_role(auth.uid(), 'manager'::app_role)
     );
   end if;
 end $$;
@@ -40,11 +34,11 @@ end $$;
 do $$ begin
   if not exists (select 1 from pg_policies where schemaname = 'public' and tablename = 'profiles' and policyname = 'profiles_update') then
     create policy profiles_update on public.profiles for update using (
-      public.has_role('admin', auth.uid())
-      or public.has_role('manager', auth.uid())
+      public.has_role(auth.uid(), 'admin'::app_role)
+      or public.has_role(auth.uid(), 'manager'::app_role)
     ) with check (
-      public.has_role('admin', auth.uid())
-      or public.has_role('manager', auth.uid())
+      public.has_role(auth.uid(), 'admin'::app_role)
+      or public.has_role(auth.uid(), 'manager'::app_role)
     );
   end if;
 end $$;
@@ -52,7 +46,7 @@ end $$;
 -- Delete profiles: admin only
 do $$ begin
   if not exists (select 1 from pg_policies where schemaname = 'public' and tablename = 'profiles' and policyname = 'profiles_delete') then
-    create policy profiles_delete on public.profiles for delete using (public.has_role('admin', auth.uid()));
+    create policy profiles_delete on public.profiles for delete using (public.has_role(auth.uid(), 'admin'::app_role));
   end if;
 end $$;
 
@@ -60,10 +54,10 @@ end $$;
 do $$ begin
   if not exists (select 1 from pg_policies where schemaname = 'public' and tablename = 'user_roles' and policyname = 'user_roles_insert') then
     create policy user_roles_insert on public.user_roles for insert with check (
-      public.has_role('admin', auth.uid())
+      public.has_role(auth.uid(), 'admin'::app_role)
       or (
-        public.has_role('manager', auth.uid())
-        and (new.role != 'admin')
+        public.has_role(auth.uid(), 'manager'::app_role)
+        and (role <> 'admin'::app_role)
       )
     );
   end if;
@@ -73,11 +67,11 @@ end $$;
 do $$ begin
   if not exists (select 1 from pg_policies where schemaname = 'public' and tablename = 'user_roles' and policyname = 'user_roles_update') then
     create policy user_roles_update on public.user_roles for update using (
-      public.has_role('admin', auth.uid())
-      or public.has_role('manager', auth.uid())
+      public.has_role(auth.uid(), 'admin'::app_role)
+      or (public.has_role(auth.uid(), 'manager'::app_role) and (role <> 'admin'::app_role))
     ) with check (
-      public.has_role('admin', auth.uid())
-      or (public.has_role('manager', auth.uid()) and (new.role != 'admin'))
+      public.has_role(auth.uid(), 'admin'::app_role)
+      or (public.has_role(auth.uid(), 'manager'::app_role) and (role <> 'admin'::app_role))
     );
   end if;
 end $$;
@@ -86,8 +80,8 @@ end $$;
 do $$ begin
   if not exists (select 1 from pg_policies where schemaname = 'public' and tablename = 'user_roles' and policyname = 'user_roles_delete') then
     create policy user_roles_delete on public.user_roles for delete using (
-      public.has_role('admin', auth.uid())
-      or (public.has_role('manager', auth.uid()) and (old.role != 'admin'))
+      public.has_role(auth.uid(), 'admin'::app_role)
+      or (public.has_role(auth.uid(), 'manager'::app_role) and (role <> 'admin'::app_role))
     );
   end if;
 end $$;

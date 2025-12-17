@@ -25,7 +25,7 @@ type Plan = {
 type Feature = { id: string; plan_id: string; key: string; value: any };
 
 export default function AdminPlans() {
-  const { role } = useAuth();
+  useAuth();
   const { toast } = useToast();
   const [plans, setPlans] = useState<Plan[]>([]);
   const [features, setFeatures] = useState<Record<string, Feature[]>>({});
@@ -42,7 +42,7 @@ export default function AdminPlans() {
     const { data: feats } = await (supabase.from('plan_features' as any).select('*') as any);
     ((feats as any[]) || []).forEach((f: any) => {
       if (!byPlan[f.plan_id]) byPlan[f.plan_id] = [];
-      byPlan[f.plan_id].push({ id: f.id, plan_id: f.plan_id, key: f.feature_key, value: f.value });
+      byPlan[f.plan_id].push({ id: f.id, plan_id: f.plan_id, key: f.key, value: f.value });
     });
     setFeatures(byPlan);
   };
@@ -80,7 +80,7 @@ export default function AdminPlans() {
         toast({ title: 'Succès', description: 'Fonctionnalité mise à jour' });
       }
     } else {
-      const { data, error } = await (supabase.from('plan_features' as any).insert({ plan_id: planId, feature_key: key, value } as any).select().single() as any);
+      const { data, error } = await (supabase.from('plan_features' as any).insert({ plan_id: planId, key, value } as any).select().single() as any);
       if (!error && data) {
         setFeatures(prev => ({ ...prev, [planId]: [...(prev[planId] || []), { id: data.id, plan_id: planId, key, value }] }));
         toast({ title: 'Succès', description: 'Fonctionnalité ajoutée' });
