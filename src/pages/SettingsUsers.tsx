@@ -55,7 +55,7 @@ export default function SettingsUsers() {
         id: p.user_id,
         full_name: p.full_name,
         email: null,
-        role: (roles?.find(r => r.user_id === p.user_id)?.role as Exclude<AppRole, null | undefined>) || 'user',
+        role: (roles?.find(r => r.user_id === p.user_id)?.role as Exclude<AppRole, null | undefined>) || 'cashier',
         created_at: p.created_at,
       }));
       setRows(merged);
@@ -190,7 +190,6 @@ export default function SettingsUsers() {
                         <SelectItem value="manager">{ROLE_LABELS.manager}</SelectItem>
                         <SelectItem value="accountant">{ROLE_LABELS.accountant}</SelectItem>
                         <SelectItem value="cashier">{ROLE_LABELS.cashier}</SelectItem>
-                        <SelectItem value="user">{ROLE_LABELS.user}</SelectItem>
                       </SelectContent>
                     </Select>
                   </TableCell>

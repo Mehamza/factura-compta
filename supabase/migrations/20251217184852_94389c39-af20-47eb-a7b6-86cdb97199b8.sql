@@ -1,4 +1,6 @@
 -- Fix get_effective_permissions function to use correct column names
+DROP FUNCTION IF EXISTS public.get_effective_permissions(uuid);
+
 CREATE OR REPLACE FUNCTION public.get_effective_permissions(p_user_id uuid)
 RETURNS jsonb
 LANGUAGE plpgsql

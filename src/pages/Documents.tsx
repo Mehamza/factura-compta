@@ -56,6 +56,7 @@ import {
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
+import { logger } from '@/lib/logger';
 
 interface Document {
   id: string;
@@ -157,7 +158,7 @@ export default function Documents() {
       if (error) throw error;
       setDocuments(data || []);
     } catch (error) {
-      console.error('Erreur lors du chargement des documents:', error);
+      logger.error('Erreur lors du chargement des documents:', error);
       toast.error('Erreur lors du chargement des documents');
     } finally {
       setLoading(false);
@@ -261,7 +262,7 @@ export default function Documents() {
       if (fileInputRef.current) fileInputRef.current.value = '';
       fetchDocuments();
     } catch (error) {
-      console.error('Erreur lors du téléversement:', error);
+      logger.error('Erreur lors du téléversement:', error);
       toast.error('Erreur lors du téléversement du document');
     } finally {
       setUploading(false);
@@ -288,7 +289,7 @@ export default function Documents() {
       toast.success('Document supprimé');
       fetchDocuments();
     } catch (error) {
-      console.error('Erreur lors de la suppression:', error);
+      logger.error('Erreur lors de la suppression:', error);
       toast.error('Erreur lors de la suppression');
     }
   };
@@ -310,7 +311,7 @@ export default function Documents() {
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
     } catch (error) {
-      console.error('Erreur lors du téléchargement:', error);
+      logger.error('Erreur lors du téléchargement:', error);
       toast.error('Erreur lors du téléchargement');
     }
   };
@@ -326,7 +327,7 @@ export default function Documents() {
       setPreviewUrl(data.signedUrl);
       setPreviewOpen(true);
     } catch (error) {
-      console.error('Erreur lors de la prévisualisation:', error);
+      logger.error('Erreur lors de la prévisualisation:', error);
       toast.error('Erreur lors de la prévisualisation');
     }
   };

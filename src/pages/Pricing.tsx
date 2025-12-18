@@ -15,11 +15,13 @@ export default function Pricing() {
   const load = async () => {
     const { data: plansData } = await (supabase.from('plans' as any).select('*').eq('active', true).order('display_order') as any);
     setPlans((plansData as Plan[]) || []);
-    const { data: feats } = await (supabase.from('plan_features' as any).select('plan_id,key,value') as any);
+    const { data: feats } = await (supabase.from('plan_features' as any).select('*') as any);
     const byPlan: Record<string, Feature[]> = {};
     ((feats as any[]) || []).forEach((f: any) => {
       if (!byPlan[f.plan_id]) byPlan[f.plan_id] = [];
-      byPlan[f.plan_id].push({ plan_id: f.plan_id, key: f.key, value: f.value });
+      const key = (f.key ?? f.feature_key) as string | undefined;
+      if (!key) return;
+      byPlan[f.plan_id].push({ plan_id: f.plan_id, key, value: f.value });
     });
     setFeatures(byPlan);
   };

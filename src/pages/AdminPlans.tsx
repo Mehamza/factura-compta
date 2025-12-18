@@ -42,9 +42,26 @@ export default function AdminPlans() {
     const { data: feats } = await (supabase.from('plan_features' as any).select('*') as any);
     ((feats as any[]) || []).forEach((f: any) => {
       if (!byPlan[f.plan_id]) byPlan[f.plan_id] = [];
-      byPlan[f.plan_id].push({ id: f.id, plan_id: f.plan_id, key: f.key, value: f.value });
+      const key = (f.key ?? f.feature_key) as string | undefined;
+      if (!key) return;
+      byPlan[f.plan_id].push({ id: f.id, plan_id: f.plan_id, key, value: f.value });
     });
     setFeatures(byPlan);
+  };
+
+  const insertPlanFeature = async (planId: string, key: string, value: any) => {
+    // Local schema uses `key`, older/remote schema may use `feature_key`.
+    const tryInsert = async (payload: any) => (supabase.from('plan_features' as any).insert(payload).select().single() as any);
+
+    const first = await tryInsert({ plan_id: planId, key, value });
+    if (!first.error) return first;
+
+    const message = String(first.error?.message || '').toLowerCase();
+    if (message.includes('column') && message.includes('key') && message.includes('does not exist')) {
+      return await tryInsert({ plan_id: planId, feature_key: key, value });
+    }
+
+    return first;
   };
 
   const openNew = () => { setEditing(null); setForm({ name: '', description: '', price_year: '0', duration: 'annuel', active: true, display_order: '0' }); setOpen(true); };
@@ -80,7 +97,7 @@ export default function AdminPlans() {
         toast({ title: 'Succès', description: 'Fonctionnalité mise à jour' });
       }
     } else {
-      const { data, error } = await (supabase.from('plan_features' as any).insert({ plan_id: planId, key, value } as any).select().single() as any);
+      const { data, error } = await insertPlanFeature(planId, key, value);
       if (!error && data) {
         setFeatures(prev => ({ ...prev, [planId]: [...(prev[planId] || []), { id: data.id, plan_id: planId, key, value }] }));
         toast({ title: 'Succès', description: 'Fonctionnalité ajoutée' });

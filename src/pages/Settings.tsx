@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { toast } from 'sonner';
 import { Building2, Receipt, FileText, Plus, Trash2, Save, Upload, Image } from 'lucide-react';
 import { currencies } from '@/lib/numberToWords';
+import { logger } from '@/lib/logger';
 
 interface VatRate {
   rate: number;
@@ -107,7 +108,7 @@ export default function Settings() {
         });
       }
     } catch (error) {
-      console.error('Erreur lors du chargement des paramètres:', error);
+      logger.error('Erreur lors du chargement des paramètres:', error);
       toast.error('Erreur lors du chargement des paramètres');
     } finally {
       setLoading(false);
@@ -148,7 +149,7 @@ export default function Settings() {
       setSettings(prev => prev ? { ...prev, company_logo_url: publicUrl } : null);
       toast.success('Logo téléchargé avec succès');
     } catch (error) {
-      console.error('Erreur upload logo:', error);
+      logger.error('Erreur upload logo:', error);
       toast.error('Erreur lors du téléchargement du logo');
     } finally {
       setUploadingLogo(false);
@@ -192,7 +193,7 @@ export default function Settings() {
 
       toast.success('Paramètres enregistrés avec succès');
     } catch (error) {
-      console.error('Erreur lors de la sauvegarde:', error);
+      logger.error('Erreur lors de la sauvegarde:', error);
       toast.error('Erreur lors de la sauvegarde des paramètres');
     } finally {
       setSaving(false);

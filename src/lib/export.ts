@@ -1,3 +1,5 @@
+import { env } from '@/env';
+
 type Row = Record<string, unknown>;
 
 function toCSV(rows: Row[], headers?: string[]): string {
@@ -94,12 +96,10 @@ export function mapStockMovementsToCSV(movs: any[]) {
 // Server-side CSV export via Supabase Edge Function (admin-only)
 export async function exportServerCSV(resource: 'invoices' | 'products' | 'stock_movements') {
   const { supabase } = await import('@/integrations/supabase/client');
-  // @ts-ignore Vite env var
-  const baseUrl: string = import.meta.env.VITE_SUPABASE_URL as string;
   const { data: { session } } = await supabase.auth.getSession();
   if (!session?.access_token) throw new Error('Session invalide');
 
-  const url = `${baseUrl}/functions/v1/export_data?resource=${resource}`;
+  const url = `${env.supabaseUrl}/functions/v1/export_data?resource=${resource}`;
   const res = await fetch(url, { headers: { Authorization: `Bearer ${session.access_token}` } });
   if (!res.ok) {
     const msg = await res.text();

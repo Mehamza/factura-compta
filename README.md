@@ -95,3 +95,78 @@ supabase functions deploy export_data
 ```
 
 Frontend usage falls back to client-side CSV if the function is unavailable.
+
+## Supabase Post-deploy Health Check
+
+These checks ensure `SUPER_ADMIN` detection works reliably in production.
+
+### Apply DB migrations to remote
+
+```bash
+# Link your local repo to the remote Supabase project (run once)
+supabase link --project-ref <YOUR_PROJECT_REF>
+
+# Push local migrations/schema to the linked remote
+supabase db push --linked
+```
+
+## Production Hosting Notes (SPA)
+
+This app is a Vite single-page application (SPA). For production hosting:
+
+```bash
+npm ci
+npm run typecheck
+npm run build
+
+# Local simulation of production serving
+npm run start
+```
+
+Hosting requires an SPA rewrite rule so that unknown routes (e.g. `/clients`) serve `index.html`.
+- **Nginx:** `try_files $uri $uri/ /index.html;`
+- **Netlify:** add a catch-all redirect to `/index.html`
+- **Cloudflare Pages / Vercel static:** enable SPA fallback
+
+## Environment Variables
+
+- Copy `.env.example` to `.env.local` (or set vars in your hosting provider).
+- Do not commit `.env` files.
+- `VITE_*` variables are public (bundled into the browser). Never put secrets there.
+
+### Verify `user_global_roles` table + RLS + policies
+
+Run in Supabase SQL Editor (or via psql) as an admin/owner:
+
+```sql
+-- 1) Table exists?
+select to_regclass('public.user_global_roles') as user_global_roles;
+
+-- 2) RLS enabled?
+select c.relrowsecurity as rls_enabled
+from pg_class c
+join pg_namespace n on n.oid = c.relnamespace
+where n.nspname = 'public'
+	and c.relname = 'user_global_roles';
+
+-- 3) Policies present?
+select polname, cmd, roles
+from pg_policies
+where schemaname = 'public'
+	and tablename = 'user_global_roles'
+order by polname;
+```
+
+Expected:
+- `user_global_roles` is not null.
+- `rls_enabled = true`.
+- A SELECT policy exists for `authenticated` users to read their own rows (commonly `ugr_select_own`).
+
+### Verify a user is SUPER_ADMIN
+
+```sql
+select *
+from public.user_global_roles
+where user_id = '<USER_UUID>'
+	and role = 'SUPER_ADMIN';
+```

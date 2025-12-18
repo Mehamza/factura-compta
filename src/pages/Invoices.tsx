@@ -126,7 +126,6 @@ const statusLabels: Record<string, string> = {
 
 const roleLabels: Record<string, string> = {
   admin: 'Administrateur',
-  user: 'Utilisateur',
   comptable: 'Comptable',
   gerant: 'Gérant',
   caissier: 'Caissier',
@@ -140,7 +139,7 @@ export default function Invoices() {
   const [products, setProducts] = useState<{id:string; name:string; sku:string; quantity:number; min_stock:number}[]>([]);
   const [companySettings, setCompanySettings] = useState<CompanySettings | null>(null);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
-  const [userRole, setUserRole] = useState<string>('user');
+  const [userRole, setUserRole] = useState<string>('cashier');
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -162,7 +161,7 @@ export default function Invoices() {
   const [items, setItems] = useState<InvoiceItem[]>([{ description: '', quantity: 1, unit_price: 0, total: 0 }]);
   const [itemProductMap, setItemProductMap] = useState<Record<number, string>>({});
   const [documentType, setDocumentType] = useState<'sale' | 'purchase'>('sale');
-  const canExport = canExportData(role ?? 'user');
+  const canExport = canExportData(role ?? 'cashier');
 
   useEffect(() => {
     if (user) {

@@ -22,8 +22,16 @@ import {
 } from '@/components/ui/table';
 import { useToast } from '@/hooks/use-toast';
 import { Shield, Users } from 'lucide-react';
+import { logger } from '@/lib/logger';
 
-type AppRole = 'admin' | 'accountant' | 'manager' | 'cashier' | 'user';
+type AppRole = 'admin' | 'accountant' | 'manager' | 'cashier';
+
+type ProfileRow = {
+  user_id: string;
+  full_name: string | null;
+  created_at: string;
+  email?: string | null;
+};
 
 interface UserWithRole {
   id: string;
@@ -38,7 +46,6 @@ const roleLabels: Record<AppRole, string> = {
   accountant: 'Comptable',
   manager: 'Gérant',
   cashier: 'Caissier',
-  user: 'Utilisateur',
 };
 
 const roleBadgeColors: Record<AppRole, string> = {
@@ -46,7 +53,6 @@ const roleBadgeColors: Record<AppRole, string> = {
   accountant: 'bg-primary text-primary-foreground',
   manager: 'bg-secondary text-secondary-foreground',
   cashier: 'bg-muted text-muted-foreground',
-  user: 'bg-accent text-accent-foreground',
 };
 
 export default function UsersPage() {
@@ -70,9 +76,18 @@ export default function UsersPage() {
       // Get all profiles
       const { data: profiles, error: profilesError } = await supabase
         .from('profiles')
-        .select('user_id, full_name, created_at');
+        .select('user_id, full_name, created_at, email');
 
-      if (profilesError) throw profilesError;
+      // Backward-compat: some remotes may not have profiles.email yet.
+      if (profilesError) {
+        const msg = String(profilesError.message ?? '');
+        const missingEmailColumn = msg.toLowerCase().includes('column') && msg.toLowerCase().includes('email') && msg.toLowerCase().includes('does not exist');
+        if (!missingEmailColumn) throw profilesError;
+      }
+
+      const profilesSafe: ProfileRow[] = profilesError
+        ? ((await supabase.from('profiles').select('user_id, full_name, created_at')).data as unknown as ProfileRow[]) ?? []
+        : ((profiles as unknown as ProfileRow[]) ?? []);
 
       // Get all user roles
       const { data: roles, error: rolesError } = await supabase
@@ -82,20 +97,20 @@ export default function UsersPage() {
       if (rolesError) throw rolesError;
 
       // Combine data
-      const usersData: UserWithRole[] = (profiles || []).map(profile => {
+      const usersData: UserWithRole[] = (profilesSafe || []).map((profile) => {
         const userRole = roles?.find(r => r.user_id === profile.user_id);
         return {
           id: profile.user_id,
-          email: '', // We don't have access to auth.users email
+          email: profile.email ?? '',
           full_name: profile.full_name,
-          role: (userRole?.role as AppRole) || 'user',
+          role: (userRole?.role as AppRole) || 'admin',
           created_at: profile.created_at,
         };
       });
 
       setUsers(usersData);
     } catch (error) {
-      console.error('Error fetching users:', error);
+      logger.error('Error fetching users:', error);
       toast({ variant: 'destructive', title: 'Erreur', description: 'Impossible de charger les utilisateurs' });
     } finally {
       setLoading(false);
@@ -129,7 +144,7 @@ export default function UsersPage() {
       toast({ title: 'Succès', description: 'Rôle mis à jour' });
       fetchUsers();
     } catch (error) {
-      console.error('Error updating role:', error);
+      logger.error('Error updating role:', error);
       toast({ variant: 'destructive', title: 'Erreur', description: 'Impossible de mettre à jour le rôle' });
     }
   };
@@ -207,7 +222,6 @@ export default function UsersPage() {
                           <SelectItem value="accountant">Comptable</SelectItem>
                           <SelectItem value="manager">Gérant</SelectItem>
                           <SelectItem value="cashier">Caissier</SelectItem>
-                          <SelectItem value="user">Utilisateur</SelectItem>
                         </SelectContent>
                       </Select>
                     </TableCell>

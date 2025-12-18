@@ -4,7 +4,7 @@ CREATE TABLE public.profiles (
   user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL UNIQUE,
   full_name TEXT,
   company_name TEXT,
-  role TEXT NOT NULL DEFAULT 'user' CHECK (role IN ('admin', 'accountant', 'user')),
+  role TEXT NOT NULL DEFAULT 'admin' CHECK (role IN ('admin', 'accountant')),
   created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
   updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now()
 );

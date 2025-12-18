@@ -6,6 +6,7 @@ import { Users, Truck, FileText, BadgeDollarSign, TrendingUp, Clock, CheckCircle
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar } from 'recharts';
 import { format, startOfMonth, endOfMonth, startOfYear, endOfYear, subMonths, parseISO } from 'date-fns';
 import { fr } from 'date-fns/locale';
+import { logger } from '@/lib/logger';
 
 interface DashboardStats {
   totalClients: number;
@@ -140,7 +141,7 @@ export default function Dashboard() {
         revenueYear,
       });
     } catch (error) {
-      console.error('Error fetching stats:', error);
+      logger.error('Error fetching stats:', error);
     } finally {
       setLoading(false);
     }

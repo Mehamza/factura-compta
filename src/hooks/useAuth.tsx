@@ -2,8 +2,8 @@ import { useState, useEffect, createContext, useContext, ReactNode } from 'react
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 
-type AppRole = 'admin' | 'accountant' | 'manager' | 'cashier' | 'user';
-type GlobalRole = 'SUPER_ADMIN' | 'USER';
+type AppRole = 'admin' | 'accountant' | 'manager' | 'cashier';
+type GlobalRole = 'SUPER_ADMIN';
 type CompanyRole = 'COMPANY_ADMIN' | 'ACCOUNTANT' | 'CASHIER' | 'EMPLOYEE' | 'READ_ONLY';
 
 interface CompanyRoleEntry { company_id: string; role: CompanyRole }
@@ -38,17 +38,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       if (companyId) localStorage.setItem('active_company_id', companyId);
       else localStorage.removeItem('active_company_id');
-    } catch {}
+    } catch (error) {
+      void error;
+    }
   };
 
   const loadActiveCompanyFromStorage = () => {
     try {
       const stored = localStorage.getItem('active_company_id');
       if (stored) _setActiveCompanyId(stored);
-    } catch {}
+    } catch (error) {
+      void error;
+    }
   };
 
   const fetchUserRoles = async (userId: string) => {
+    let legacyRole: AppRole | null = null;
+
     // Legacy single role (lowercase)
     try {
       const { data } = await supabase
@@ -57,17 +63,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         .eq('user_id', userId)
         .maybeSingle();
       if (data?.role) {
-        setRole(data.role as AppRole);
+        legacyRole = data.role as AppRole;
+        setRole(legacyRole);
       } else {
         setRole(null);
       }
     } catch {
-      // If table or query fails, keep safe defaults
       setRole(null);
-      setGlobalRole(null);
     }
 
-    // Global roles (e.g. SUPER_ADMIN)
+    // Global roles (ONLY from user_global_roles)
     try {
       const { data: globalRoles } = await supabase
         .from('user_global_roles' as any)
@@ -76,9 +81,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       const roles = (globalRoles as any[] | null) ?? [];
       const isSuperAdmin = roles.some((r) => String(r.role).toUpperCase() === 'SUPER_ADMIN');
-      setGlobalRole(isSuperAdmin ? 'SUPER_ADMIN' : 'USER');
+      setGlobalRole(isSuperAdmin ? 'SUPER_ADMIN' : null);
     } catch {
-      setGlobalRole('USER');
+      // If the table is missing or query fails, default to USER (safe)
+      setGlobalRole(null);
     }
 
     // Per-company roles
@@ -104,34 +110,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, session) => {
-        setSession(session);
-        setUser(session?.user ?? null);
-        
-        if (session?.user) {
-          setTimeout(() => {
-            loadActiveCompanyFromStorage();
-            fetchUserRoles(session.user.id);
-          }, 0);
-        } else {
-          setRole(null);
-          setGlobalRole(null);
-          setCompanyRoles([]);
-          setActiveCompany(null);
-        }
-        setLoading(false);
+    const applySession = async (nextSession: Session | null) => {
+      setLoading(true);
+      setSession(nextSession);
+      setUser(nextSession?.user ?? null);
+
+      if (nextSession?.user) {
+        loadActiveCompanyFromStorage();
+        await fetchUserRoles(nextSession.user.id);
+      } else {
+        setRole(null);
+        setGlobalRole(null);
+        setCompanyRoles([]);
+        setActiveCompany(null);
       }
-    );
+
+      setLoading(false);
+    };
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      void applySession(session);
+    });
 
     supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      if (session?.user) {
-        loadActiveCompanyFromStorage();
-        fetchUserRoles(session.user.id);
-      }
-      setLoading(false);
+      void applySession(session);
     });
 
     return () => subscription.unsubscribe();

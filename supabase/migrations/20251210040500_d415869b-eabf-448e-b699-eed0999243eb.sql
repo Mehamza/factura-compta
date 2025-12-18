@@ -21,7 +21,7 @@ ALTER TABLE public.profiles DROP COLUMN IF EXISTS role;
 
 -- Create app_role enum
 DO $$ BEGIN
-  CREATE TYPE public.app_role AS ENUM ('admin', 'accountant', 'user');
+  CREATE TYPE public.app_role AS ENUM ('admin', 'accountant');
 EXCEPTION
   WHEN duplicate_object THEN null;
 END $$;
@@ -30,7 +30,7 @@ END $$;
 CREATE TABLE IF NOT EXISTS public.user_roles (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
-  role app_role NOT NULL DEFAULT 'user',
+  role app_role NOT NULL DEFAULT 'admin',
   created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
   UNIQUE (user_id, role)
 );
@@ -74,7 +74,7 @@ CREATE OR REPLACE FUNCTION public.handle_new_user_role()
 RETURNS TRIGGER AS $$
 BEGIN
   INSERT INTO public.user_roles (user_id, role)
-  VALUES (NEW.id, 'user');
+  VALUES (NEW.id, 'admin');
   RETURN NEW;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;

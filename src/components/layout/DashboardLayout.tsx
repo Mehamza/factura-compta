@@ -42,13 +42,17 @@ const stockNavigation = [
   { name: 'Mouvements', href: '/stock/mouvements', icon: MoveUpRight },
 ];
 
+const superAdminNavigation = [
+  { name: 'Espace Super Admin', href: '/hamzafacturation', icon: Shield },
+  { name: 'Plans', href: '/hamzafacturation/plans', icon: Users },
+];
 const adminNavigation = [
-  { name: 'Espace Admin', href: '/hamzafacturation', icon: Shield },
   { name: 'Utilisateurs', href: '/settings/utilisateurs', icon: Users },
 ];
 
 export function DashboardLayout({ children }: { children: ReactNode }) {
-  const { user, role, signOut } = useAuth();
+  const { user, role, globalRole, signOut } = useAuth();
+  const isSuperAdmin = globalRole === 'SUPER_ADMIN';
   const location = useLocation();
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -161,8 +165,20 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
                 <NavItem key={item.name} item={item} onClick={() => setSidebarOpen(false)} />
               ))}
 
+              {/*super admin section*/}
+              {isSuperAdmin && (
+                <>
+                  <div className="my-2 border-t" />
+                   {!collapsed && (
+                    <p className="px-3 py-1 text-xs font-semibold text-muted-foreground uppercase">Administration</p>
+                  )}
+                  {superAdminNavigation.map((item) => (
+                    <NavItem key={item.name} item={item} onClick={() => setSidebarOpen(false)} />
+                  ))}
+                </>
+              )}
               {/* Admin Section */}
-              {role === 'admin' && (
+              {role === 'admin' && !isSuperAdmin && (
                 <>
                   <div className="my-2 border-t" />
                   {!collapsed && (

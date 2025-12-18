@@ -1,12 +1,11 @@
 // Centralized role and permission guards
-export type AppRole = 'admin' | 'manager' | 'accountant' | 'cashier' | 'user' | null | undefined;
+export type AppRole = 'admin' | 'manager' | 'accountant' | 'cashier' | null | undefined;
 
 export const ROLE_LABELS: Record<Exclude<AppRole, null | undefined>, string> = {
   admin: 'Admin',
   manager: 'Gérant',
   accountant: 'Comptable',
   cashier: 'Caissier',
-  user: 'Utilisateur',
 };
 
 // Stock: who can add/edit products
