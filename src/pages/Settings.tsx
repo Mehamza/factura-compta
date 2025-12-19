@@ -8,9 +8,11 @@ import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
-import { Building2, Receipt, FileText, Plus, Trash2, Save, Upload, Image } from 'lucide-react';
+import { Building2, Receipt, FileText, Plus, Trash2, Save, Upload, Image, User } from 'lucide-react';
 import { currencies } from '@/lib/numberToWords';
 import { logger } from '@/lib/logger';
+import AccountTab from '@/components/settings/AccountTab';
+import type { Tables } from '@/integrations/supabase/types';
 
 interface VatRate {
   rate: number;
@@ -74,14 +76,25 @@ export default function Settings() {
   const [saving, setSaving] = useState(false);
   const [uploadingLogo, setUploadingLogo] = useState(false);
   const [settings, setSettings] = useState<CompanySettings | null>(null);
+  const [profile, setProfile] = useState<Tables<'profiles'> | null>(null);
   const [newVatRate, setNewVatRate] = useState({ rate: 0, label: '' });
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (user) {
       fetchSettings();
+      fetchProfile();
     }
   }, [user]);
+
+  const fetchProfile = async () => {
+    const { data } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('user_id', user?.id)
+      .maybeSingle();
+    setProfile(data);
+  };
 
   const fetchSettings = async () => {
     try {
@@ -261,7 +274,7 @@ export default function Settings() {
       </div>
 
       <Tabs defaultValue="company" className="space-y-4">
-        <TabsList className="grid w-full grid-cols-3">
+        <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="company" className="flex items-center gap-2">
             <Building2 className="h-4 w-4" />
             Entreprise
@@ -273,6 +286,10 @@ export default function Settings() {
           <TabsTrigger value="invoicing" className="flex items-center gap-2">
             <FileText className="h-4 w-4" />
             Facturation
+          </TabsTrigger>
+          <TabsTrigger value="account" className="flex items-center gap-2">
+            <User className="h-4 w-4" />
+            Mon Compte
           </TabsTrigger>
         </TabsList>
 
@@ -641,6 +658,11 @@ export default function Settings() {
               </div>
             </CardContent>
           </Card>
+        </TabsContent>
+
+        {/* Mon Compte */}
+        <TabsContent value="account">
+          <AccountTab profile={profile} onProfileUpdate={fetchProfile} />
         </TabsContent>
       </Tabs>
     </div>
