@@ -6,155 +6,299 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
+import { Plus, Download, Edit, Trash2 } from 'lucide-react';
+import { toast } from 'sonner';
+import { logger } from '@/lib/logger';
+import JournalEntryDialog from '@/components/journal/JournalEntryDialog';
 import type { Tables } from '@/integrations/supabase/types';
 
 type Account = Tables<'accounts'>;
 type JournalEntry = Tables<'journal_entries'>;
 type JournalLine = Tables<'journal_lines'>;
 
+interface EntryWithLines extends JournalEntry {
+  lines: JournalLine[];
+}
+
 export default function Journal() {
   const { user } = useAuth();
   const [accounts, setAccounts] = useState<Account[]>([]);
-  const [entries, setEntries] = useState<JournalEntry[]>([]);
-  const [lines, setLines] = useState<Record<string, JournalLine[]>>({});
+  const [entries, setEntries] = useState<EntryWithLines[]>([]);
   const [loading, setLoading] = useState(true);
+  const [period, setPeriod] = useState({ start: '', end: '' });
 
-  const [newEntry, setNewEntry] = useState({ date: new Date().toISOString().slice(0,10), reference: '', description: '' });
-  const [newLine, setNewLine] = useState({ account_id: '', debit: '', credit: '' });
-  const [currentEntryId, setCurrentEntryId] = useState<string | null>(null);
+  // Dialog state
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [editingEntry, setEditingEntry] = useState<EntryWithLines | null>(null);
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => { if (user) load(); }, [user]);
 
   const load = async () => {
     setLoading(true);
     const accRes = await supabase.from('accounts').select('*').order('code');
-    const entRes = await supabase.from('journal_entries').select('*').order('entry_date', { ascending: false });
     setAccounts(accRes.data || []);
-    setEntries(entRes.data || []);
+
+    const entRes = await supabase.from('journal_entries').select('*').order('entry_date', { ascending: false });
+    const entriesData = entRes.data || [];
+
     // Load lines per entry
-    const linesByEntry: Record<string, JournalLine[]> = {};
-    for (const e of entRes.data || []) {
+    const entriesWithLines: EntryWithLines[] = [];
+    for (const e of entriesData) {
       const lr = await supabase.from('journal_lines').select('*').eq('entry_id', e.id);
-      linesByEntry[e.id] = lr.data || [];
+      entriesWithLines.push({ ...e, lines: lr.data || [] });
     }
-    setLines(linesByEntry);
+    setEntries(entriesWithLines);
     setLoading(false);
   };
 
-  const createEntry = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const { data, error } = await supabase.from('journal_entries').insert({
-      user_id: user?.id!,
-      entry_date: newEntry.date,
-      reference: newEntry.reference || 'REF-' + Date.now(),
-      description: newEntry.description || null,
-      created_by_user_id: user?.id,
-    }).select().single();
-    if (!error && data) {
-      setCurrentEntryId(data.id);
+  const filteredEntries = entries.filter(e => {
+    if (period.start && e.entry_date < period.start) return false;
+    if (period.end && e.entry_date > period.end) return false;
+    return true;
+  });
+
+  const handleSaveEntry = async (data: { date: string; reference: string; description: string; lines: { account_id: string; debit: number; credit: number }[] }) => {
+    if (!user) return;
+    setSaving(true);
+    try {
+      if (editingEntry) {
+        // Update entry
+        const { error: entryError } = await supabase
+          .from('journal_entries')
+          .update({
+            entry_date: data.date,
+            reference: data.reference,
+            description: data.description || null
+          })
+          .eq('id', editingEntry.id);
+        if (entryError) throw entryError;
+
+        // Delete old lines and insert new ones
+        await supabase.from('journal_lines').delete().eq('entry_id', editingEntry.id);
+        const linesToInsert = data.lines.map(l => ({
+          entry_id: editingEntry.id,
+          account_id: l.account_id,
+          debit: l.debit,
+          credit: l.credit
+        }));
+        const { error: linesError } = await supabase.from('journal_lines').insert(linesToInsert);
+        if (linesError) throw linesError;
+
+        toast.success('Écriture modifiée');
+      } else {
+        // Create entry
+        const { data: newEntry, error: entryError } = await supabase
+          .from('journal_entries')
+          .insert({
+            user_id: user.id,
+            entry_date: data.date,
+            reference: data.reference,
+            description: data.description || null,
+            created_by_user_id: user.id
+          })
+          .select()
+          .single();
+        if (entryError) throw entryError;
+
+        // Insert lines
+        const linesToInsert = data.lines.map(l => ({
+          entry_id: newEntry.id,
+          account_id: l.account_id,
+          debit: l.debit,
+          credit: l.credit
+        }));
+        const { error: linesError } = await supabase.from('journal_lines').insert(linesToInsert);
+        if (linesError) throw linesError;
+
+        toast.success('Écriture créée');
+      }
+      setDialogOpen(false);
+      setEditingEntry(null);
       await load();
+    } catch (error) {
+      logger.error('Erreur sauvegarde écriture:', error);
+      toast.error('Erreur lors de la sauvegarde');
+    } finally {
+      setSaving(false);
     }
   };
 
-  const addLine = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!currentEntryId) return;
-    const { error } = await supabase.from('journal_lines').insert({
-      entry_id: currentEntryId,
-      account_id: newLine.account_id,
-      debit: Number(newLine.debit || 0),
-      credit: Number(newLine.credit || 0),
-    });
-    if (!error) {
-      setNewLine({ account_id: '', debit: '', credit: '' });
+  const handleDeleteEntry = async (entry: EntryWithLines) => {
+    try {
+      // Lines will be deleted by cascade or we delete manually
+      await supabase.from('journal_lines').delete().eq('entry_id', entry.id);
+      const { error } = await supabase.from('journal_entries').delete().eq('id', entry.id);
+      if (error) throw error;
+      toast.success('Écriture supprimée');
       await load();
+    } catch (error) {
+      logger.error('Erreur suppression écriture:', error);
+      toast.error('Erreur lors de la suppression');
     }
+  };
+
+  const exportCSV = () => {
+    const rows: string[] = ['date,reference,description,compte,debit,credit'];
+    for (const e of filteredEntries) {
+      for (const l of e.lines) {
+        const acc = accounts.find(a => a.id === l.account_id);
+        rows.push(`${e.entry_date},"${e.reference}","${e.description || ''}","${acc?.code || ''} ${acc?.name || ''}",${l.debit},${l.credit}`);
+      }
+    }
+    const blob = new Blob([rows.join('\n')], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `journal-${new Date().toISOString().slice(0,10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const getAccountLabel = (accountId: string) => {
+    const account = accounts.find(a => a.id === accountId);
+    return account ? `${account.code} ${account.name}` : '-';
   };
 
   if (loading) {
-    return (<div className="flex items-center justify-center h-64"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div></div>);
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      </div>
+    );
   }
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold">Journal Comptable</h1>
-        <p className="text-muted-foreground">Saisissez des écritures (débit/crédit) et consultez par période.</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold">Journal Comptable</h1>
+          <p className="text-muted-foreground">Saisissez et consultez vos écritures comptables.</p>
+        </div>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={exportCSV}>
+            <Download className="h-4 w-4 mr-2" />
+            Exporter CSV
+          </Button>
+          <Button onClick={() => { setEditingEntry(null); setDialogOpen(true); }}>
+            <Plus className="h-4 w-4 mr-2" />
+            Nouvelle écriture
+          </Button>
+        </div>
       </div>
 
       <Card>
-        <CardHeader><CardTitle>Nouvelle écriture</CardTitle></CardHeader>
-        <CardContent>
-          <form onSubmit={createEntry} className="grid md:grid-cols-3 gap-4">
-            <div>
-              <Label>Date</Label>
-              <Input type="date" value={newEntry.date} onChange={(e) => setNewEntry({ ...newEntry, date: e.target.value })} required />
-            </div>
-            <div>
-              <Label>Référence</Label>
-              <Input value={newEntry.reference} onChange={(e) => setNewEntry({ ...newEntry, reference: e.target.value })} />
-            </div>
-            <div className="md:col-span-3">
-              <Label>Description</Label>
-              <Input value={newEntry.description} onChange={(e) => setNewEntry({ ...newEntry, description: e.target.value })} />
-            </div>
-            <div className="md:col-span-3"><Button type="submit">Créer</Button></div>
-          </form>
+        <CardHeader><CardTitle>Filtrer par période</CardTitle></CardHeader>
+        <CardContent className="grid md:grid-cols-2 gap-4">
+          <div>
+            <Label>Date début</Label>
+            <Input type="date" value={period.start} onChange={(e) => setPeriod({ ...period, start: e.target.value })} />
+          </div>
+          <div>
+            <Label>Date fin</Label>
+            <Input type="date" value={period.end} onChange={(e) => setPeriod({ ...period, end: e.target.value })} />
+          </div>
         </CardContent>
       </Card>
-
-      {currentEntryId && (
-        <Card>
-          <CardHeader><CardTitle>Ajouter lignes à l'écriture</CardTitle></CardHeader>
-          <CardContent>
-            <form onSubmit={addLine} className="grid md:grid-cols-4 gap-4">
-              <div className="md:col-span-2">
-                <Label>Compte (code)</Label>
-                <Input value={newLine.account_id} onChange={(e) => setNewLine({ ...newLine, account_id: e.target.value })} placeholder="Sélection via code/ID" />
-              </div>
-              <div>
-                <Label>Débit</Label>
-                <Input value={newLine.debit} onChange={(e) => setNewLine({ ...newLine, debit: e.target.value })} />
-              </div>
-              <div>
-                <Label>Crédit</Label>
-                <Input value={newLine.credit} onChange={(e) => setNewLine({ ...newLine, credit: e.target.value })} />
-              </div>
-              <div className="md:col-span-4"><Button type="submit">Ajouter ligne</Button></div>
-            </form>
-          </CardContent>
-        </Card>
-      )}
 
       <Card>
-        <CardHeader><CardTitle>Écritures récentes</CardTitle></CardHeader>
-        <CardContent>
-          {entries.map(e => (
-            <div key={e.id} className="mb-6">
-              <div className="font-medium">{new Date(e.entry_date).toLocaleDateString('fr-FR')} • {e.reference || '—'}</div>
-              <div className="text-sm text-muted-foreground">{e.description || ''}</div>
-              <Table className="mt-2">
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Compte</TableHead>
-                    <TableHead>Débit</TableHead>
-                    <TableHead>Crédit</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {(lines[e.id] || []).map(l => (
-                    <TableRow key={l.id}>
-                      <TableCell>{accounts.find(a => a.id === l.account_id)?.code || ''} {accounts.find(a => a.id === l.account_id)?.name || ''}</TableCell>
-                      <TableCell>{Number(l.debit).toLocaleString('fr-FR')}</TableCell>
-                      <TableCell>{Number(l.credit).toLocaleString('fr-FR')}</TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          ))}
+        <CardHeader><CardTitle>Écritures ({filteredEntries.length})</CardTitle></CardHeader>
+        <CardContent className="space-y-6">
+          {filteredEntries.length === 0 ? (
+            <p className="text-center text-muted-foreground py-8">Aucune écriture. Créez votre première écriture comptable.</p>
+          ) : (
+            filteredEntries.map(e => {
+              const totalDebit = e.lines.reduce((sum, l) => sum + Number(l.debit), 0);
+              const totalCredit = e.lines.reduce((sum, l) => sum + Number(l.credit), 0);
+              return (
+                <div key={e.id} className="border rounded-lg p-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <div>
+                      <span className="font-medium">{new Date(e.entry_date).toLocaleDateString('fr-FR')}</span>
+                      <span className="mx-2">•</span>
+                      <span className="text-muted-foreground">{e.reference}</span>
+                    </div>
+                    <div className="flex gap-1">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => { setEditingEntry(e); setDialogOpen(true); }}
+                      >
+                        <Edit className="h-4 w-4" />
+                      </Button>
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <Button variant="ghost" size="icon">
+                            <Trash2 className="h-4 w-4 text-destructive" />
+                          </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>Supprimer l'écriture ?</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              Cette action est irréversible. L'écriture "{e.reference}" et toutes ses lignes seront supprimées.
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>Annuler</AlertDialogCancel>
+                            <AlertDialogAction onClick={() => handleDeleteEntry(e)} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                              Supprimer
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
+                    </div>
+                  </div>
+                  {e.description && <p className="text-sm text-muted-foreground mb-2">{e.description}</p>}
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Compte</TableHead>
+                        <TableHead className="text-right">Débit</TableHead>
+                        <TableHead className="text-right">Crédit</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {e.lines.map(l => (
+                        <TableRow key={l.id}>
+                          <TableCell>{getAccountLabel(l.account_id)}</TableCell>
+                          <TableCell className="text-right">{Number(l.debit).toLocaleString('fr-FR')}</TableCell>
+                          <TableCell className="text-right">{Number(l.credit).toLocaleString('fr-FR')}</TableCell>
+                        </TableRow>
+                      ))}
+                      <TableRow className="font-medium bg-muted/50">
+                        <TableCell>Total</TableCell>
+                        <TableCell className="text-right">{totalDebit.toLocaleString('fr-FR')}</TableCell>
+                        <TableCell className="text-right">{totalCredit.toLocaleString('fr-FR')}</TableCell>
+                      </TableRow>
+                    </TableBody>
+                  </Table>
+                </div>
+              );
+            })
+          )}
         </CardContent>
       </Card>
+
+      <JournalEntryDialog
+        open={dialogOpen}
+        onOpenChange={setDialogOpen}
+        accounts={accounts}
+        onSave={handleSaveEntry}
+        loading={saving}
+        editEntry={editingEntry ? {
+          id: editingEntry.id,
+          entry_date: editingEntry.entry_date,
+          reference: editingEntry.reference,
+          description: editingEntry.description,
+          lines: editingEntry.lines.map(l => ({
+            account_id: l.account_id,
+            debit: Number(l.debit),
+            credit: Number(l.credit)
+          }))
+        } : null}
+      />
     </div>
   );
 }
