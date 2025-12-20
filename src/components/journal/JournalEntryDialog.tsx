@@ -6,6 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { Plus, Trash2, AlertCircle, CheckCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import type { Tables } from '@/integrations/supabase/types';
@@ -119,142 +120,143 @@ export default function JournalEntryDialog({ open, onOpenChange, accounts, onSav
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
+      <DialogContent className="max-w-3xl flex flex-col">
+        <DialogHeader className="flex-shrink-0">
           <DialogTitle>{editEntry ? 'Modifier l\'écriture' : 'Nouvelle écriture comptable'}</DialogTitle>
           <DialogDescription>
             Saisissez les informations de l'écriture. Le total des débits doit égaler le total des crédits.
           </DialogDescription>
         </DialogHeader>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="grid md:grid-cols-3 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="date">Date</Label>
-              <Input
-                id="date"
-                type="date"
-                value={date}
-                onChange={(e) => setDate(e.target.value)}
-                required
-              />
+        <ScrollArea className="flex-1 overflow-auto">
+          <form id="journal-form" onSubmit={handleSubmit} className="space-y-4 pr-4">
+            <div className="grid md:grid-cols-3 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="date">Date</Label>
+                <Input
+                  id="date"
+                  type="date"
+                  value={date}
+                  onChange={(e) => setDate(e.target.value)}
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="reference">Référence</Label>
+                <Input
+                  id="reference"
+                  value={reference}
+                  onChange={(e) => setReference(e.target.value)}
+                  placeholder="Auto-générée si vide"
+                />
+              </div>
+              <div className="space-y-2 md:col-span-1">
+                <Label htmlFor="description">Description</Label>
+                <Input
+                  id="description"
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  placeholder="Description de l'écriture"
+                />
+              </div>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="reference">Référence</Label>
-              <Input
-                id="reference"
-                value={reference}
-                onChange={(e) => setReference(e.target.value)}
-                placeholder="Auto-générée si vide"
-              />
-            </div>
-            <div className="space-y-2 md:col-span-1">
-              <Label htmlFor="description">Description</Label>
-              <Input
-                id="description"
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                placeholder="Description de l'écriture"
-              />
-            </div>
-          </div>
 
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <Label>Lignes de l'écriture</Label>
-              <Button type="button" variant="outline" size="sm" onClick={addLine}>
-                <Plus className="h-4 w-4 mr-1" />
-                Ajouter une ligne
-              </Button>
-            </div>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-[40%]">Compte</TableHead>
-                  <TableHead>Débit</TableHead>
-                  <TableHead>Crédit</TableHead>
-                  <TableHead className="w-10"></TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {lines.map((line, index) => (
-                  <TableRow key={index}>
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <Label>Lignes de l'écriture</Label>
+                <Button type="button" variant="outline" size="sm" onClick={addLine}>
+                  <Plus className="h-4 w-4 mr-1" />
+                  Ajouter une ligne
+                </Button>
+              </div>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-[40%]">Compte</TableHead>
+                    <TableHead>Débit</TableHead>
+                    <TableHead>Crédit</TableHead>
+                    <TableHead className="w-10"></TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {lines.map((line, index) => (
+                    <TableRow key={index}>
+                      <TableCell>
+                        <Select value={line.account_id} onValueChange={(v) => updateLine(index, 'account_id', v)}>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Sélectionner un compte" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {accounts.map((account) => (
+                              <SelectItem key={account.id} value={account.id}>
+                                {account.code} - {account.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </TableCell>
+                      <TableCell>
+                        <Input
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          value={line.debit || ''}
+                          onChange={(e) => updateLine(index, 'debit', e.target.value)}
+                          placeholder="0.00"
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <Input
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          value={line.credit || ''}
+                          onChange={(e) => updateLine(index, 'credit', e.target.value)}
+                          placeholder="0.00"
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => removeLine(index)}
+                          disabled={lines.length <= 2}
+                        >
+                          <Trash2 className="h-4 w-4 text-destructive" />
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                  <TableRow className="bg-muted/50 font-medium">
+                    <TableCell>Total</TableCell>
+                    <TableCell>{totals.totalDebit.toLocaleString('fr-FR', { minimumFractionDigits: 2 })}</TableCell>
+                    <TableCell>{totals.totalCredit.toLocaleString('fr-FR', { minimumFractionDigits: 2 })}</TableCell>
                     <TableCell>
-                      <Select value={line.account_id} onValueChange={(v) => updateLine(index, 'account_id', v)}>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Sélectionner un compte" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {accounts.map((account) => (
-                            <SelectItem key={account.id} value={account.id}>
-                              {account.code} - {account.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </TableCell>
-                    <TableCell>
-                      <Input
-                        type="number"
-                        min="0"
-                        step="0.01"
-                        value={line.debit || ''}
-                        onChange={(e) => updateLine(index, 'debit', e.target.value)}
-                        placeholder="0.00"
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <Input
-                        type="number"
-                        min="0"
-                        step="0.01"
-                        value={line.credit || ''}
-                        onChange={(e) => updateLine(index, 'credit', e.target.value)}
-                        placeholder="0.00"
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => removeLine(index)}
-                        disabled={lines.length <= 2}
-                      >
-                        <Trash2 className="h-4 w-4 text-destructive" />
-                      </Button>
+                      {totals.balanced ? (
+                        <CheckCircle className="h-5 w-5 text-green-500" />
+                      ) : (
+                        <AlertCircle className="h-5 w-5 text-destructive" />
+                      )}
                     </TableCell>
                   </TableRow>
-                ))}
-                <TableRow className="bg-muted/50 font-medium">
-                  <TableCell>Total</TableCell>
-                  <TableCell>{totals.totalDebit.toLocaleString('fr-FR', { minimumFractionDigits: 2 })}</TableCell>
-                  <TableCell>{totals.totalCredit.toLocaleString('fr-FR', { minimumFractionDigits: 2 })}</TableCell>
-                  <TableCell>
-                    {totals.balanced ? (
-                      <CheckCircle className="h-5 w-5 text-green-500" />
-                    ) : (
-                      <AlertCircle className="h-5 w-5 text-destructive" />
-                    )}
-                  </TableCell>
-                </TableRow>
-              </TableBody>
-            </Table>
-            <div className="flex justify-end">
-              <Badge variant={totals.balanced ? 'default' : 'destructive'}>
-                {totals.balanced ? 'Équilibré' : `Écart: ${Math.abs(totals.totalDebit - totals.totalCredit).toLocaleString('fr-FR', { minimumFractionDigits: 2 })}`}
-              </Badge>
+                </TableBody>
+              </Table>
+              <div className="flex justify-end">
+                <Badge variant={totals.balanced ? 'default' : 'destructive'}>
+                  {totals.balanced ? 'Équilibré' : `Écart: ${Math.abs(totals.totalDebit - totals.totalCredit).toLocaleString('fr-FR', { minimumFractionDigits: 2 })}`}
+                </Badge>
+              </div>
             </div>
-          </div>
-
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-              Annuler
-            </Button>
-            <Button type="submit" disabled={loading || !totals.balanced}>
-              {loading ? 'Enregistrement...' : 'Enregistrer'}
-            </Button>
-          </DialogFooter>
-        </form>
+          </form>
+        </ScrollArea>
+        <DialogFooter className="flex-shrink-0 pt-4">
+          <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+            Annuler
+          </Button>
+          <Button type="submit" form="journal-form" disabled={loading || !totals.balanced}>
+            {loading ? 'Enregistrement...' : 'Enregistrer'}
+          </Button>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   );

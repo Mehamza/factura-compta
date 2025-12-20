@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import type { Tables } from '@/integrations/supabase/types';
 
 type Account = Tables<'accounts'>;
@@ -47,56 +48,58 @@ export default function AccountDialog({ open, onOpenChange, account, onSave, loa
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
-        <DialogHeader>
+      <DialogContent className="flex flex-col">
+        <DialogHeader className="flex-shrink-0">
           <DialogTitle>{account ? 'Modifier le compte' : 'Nouveau compte'}</DialogTitle>
           <DialogDescription>
             {account ? 'Modifiez les informations du compte.' : 'Créez un nouveau compte comptable.'}
           </DialogDescription>
         </DialogHeader>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="code">Code du compte</Label>
-            <Input
-              id="code"
-              value={code}
-              onChange={(e) => setCode(e.target.value)}
-              placeholder="Ex: 411000"
-              required
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="name">Nom du compte</Label>
-            <Input
-              id="name"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="Ex: Clients"
-              required
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="type">Type de compte</Label>
-            <Select value={type} onValueChange={setType}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {accountTypes.map((t) => (
-                  <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-              Annuler
-            </Button>
-            <Button type="submit" disabled={loading}>
-              {loading ? 'Enregistrement...' : 'Enregistrer'}
-            </Button>
-          </DialogFooter>
-        </form>
+        <ScrollArea className="flex-1 overflow-auto">
+          <form id="account-form" onSubmit={handleSubmit} className="space-y-4 pr-4">
+            <div className="space-y-2">
+              <Label htmlFor="code">Code du compte</Label>
+              <Input
+                id="code"
+                value={code}
+                onChange={(e) => setCode(e.target.value)}
+                placeholder="Ex: 411000"
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="name">Nom du compte</Label>
+              <Input
+                id="name"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="Ex: Clients"
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="type">Type de compte</Label>
+              <Select value={type} onValueChange={setType}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {accountTypes.map((t) => (
+                    <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </form>
+        </ScrollArea>
+        <DialogFooter className="flex-shrink-0 pt-4">
+          <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+            Annuler
+          </Button>
+          <Button type="submit" form="account-form" disabled={loading}>
+            {loading ? 'Enregistrement...' : 'Enregistrer'}
+          </Button>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   );
