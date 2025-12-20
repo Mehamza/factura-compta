@@ -155,6 +155,8 @@ export type Database = {
           invoice_next_number: number | null
           invoice_number_padding: number | null
           invoice_prefix: string | null
+          signature_url: string | null
+          stamp_url: string | null
           updated_at: string
           user_id: string
           vat_rates: Json | null
@@ -180,6 +182,8 @@ export type Database = {
           invoice_next_number?: number | null
           invoice_number_padding?: number | null
           invoice_prefix?: string | null
+          signature_url?: string | null
+          stamp_url?: string | null
           updated_at?: string
           user_id: string
           vat_rates?: Json | null
@@ -205,6 +209,8 @@ export type Database = {
           invoice_next_number?: number | null
           invoice_number_padding?: number | null
           invoice_prefix?: string | null
+          signature_url?: string | null
+          stamp_url?: string | null
           updated_at?: string
           user_id?: string
           vat_rates?: Json | null

@@ -1,8 +1,89 @@
 import LandingHeader from "@/components/landing/LandingHeader";
 import LandingFooter from "@/components/landing/LandingFooter";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
 import { Link } from "react-router-dom";
-import { FileText, Users, FolderOpen, BarChart3, CreditCard, Shield } from "lucide-react";
+import { 
+  FileText, Users, FolderOpen, BarChart3, CreditCard, Shield, 
+  Check, Mail, Phone, MapPin, Calendar, TrendingUp, ArrowRight 
+} from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+
+const plans = [
+  {
+    name: "Gratuit",
+    price: "0",
+    period: "pour toujours",
+    description: "Pour démarrer votre activité",
+    features: [
+      "10 factures / mois",
+      "5 clients",
+      "Export PDF",
+      "1 utilisateur",
+    ],
+    cta: "Commencer gratuitement",
+    popular: false,
+  },
+  {
+    name: "Pro",
+    price: "300",
+    period: "/ an",
+    description: "Pour les PME en croissance",
+    features: [
+      "Factures illimitées",
+      "Clients illimités",
+      "Export PDF & Excel",
+      "Rapports avancés",
+      "Gestion de stock",
+      "Support prioritaire",
+    ],
+    cta: "Essai gratuit 14 jours",
+    popular: true,
+  },
+  {
+    name: "Business",
+    price: "600",
+    period: "/ an",
+    description: "Pour les entreprises établies",
+    features: [
+      "Tout dans Pro",
+      "Multi-utilisateurs (5)",
+      "API d'intégration",
+      "Comptabilité avancée",
+      "Support dédié",
+      "Formation incluse",
+    ],
+    cta: "Contacter les ventes",
+    popular: false,
+  },
+];
+
+const blogPosts = [
+  {
+    title: "Comment optimiser sa facturation en 2025",
+    excerpt: "Découvrez les meilleures pratiques pour automatiser et améliorer votre processus de facturation.",
+    date: "15 Déc 2024",
+    category: "Conseils",
+    image: "📊",
+  },
+  {
+    title: "Les obligations fiscales des PME tunisiennes",
+    excerpt: "Guide complet sur les déclarations TVA, timbre fiscal et conformité fiscale en Tunisie.",
+    date: "10 Déc 2024",
+    category: "Fiscalité",
+    image: "📋",
+  },
+  {
+    title: "Digitaliser sa comptabilité : par où commencer ?",
+    excerpt: "Les étapes clés pour passer d'une gestion papier à un système 100% numérique.",
+    date: "5 Déc 2024",
+    category: "Digital",
+    image: "💻",
+  },
+];
 
 export default function LandingPage() {
   return (
@@ -10,6 +91,7 @@ export default function LandingPage() {
       <LandingHeader />
 
       <main className="flex-1">
+        {/* Hero Section */}
         <section className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 py-16 sm:py-24">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-center">
             <div className="animate-fade-in">
@@ -26,45 +108,105 @@ export default function LandingPage() {
                   <Link to="/signup">Commencer gratuitement</Link>
                 </Button>
                 <Button asChild variant="outline" size="lg" className="transition-transform hover:scale-105">
-                  <Link to="/tarif">Voir les tarifs</Link>
+                  <Link to="#tarifs">Voir les tarifs</Link>
                 </Button>
               </div>
               <p className="mt-3 text-sm text-muted-foreground opacity-0 animate-fade-in-up [animation-delay:600ms]">
                 Sans carte bancaire. Annulation à tout moment.
               </p>
             </div>
+            
+            {/* Dashboard Mock - Realistic */}
             <div className="relative opacity-0 animate-slide-in-right [animation-delay:300ms]">
-              <div className="aspect-video w-full rounded-lg border bg-card shadow-lg overflow-hidden animate-float">
+              <div className="aspect-[4/3] w-full rounded-xl border bg-card shadow-2xl overflow-hidden animate-float">
                 <div className="h-full flex flex-col">
-                  {/* Mini header */}
-                  <div className="h-8 bg-primary/10 border-b flex items-center px-3 gap-2">
-                    <FileText className="h-4 w-4 text-primary" />
-                    <span className="text-xs font-semibold">Facture Pro</span>
+                  {/* App Header */}
+                  <div className="h-10 bg-primary/10 border-b flex items-center px-4 gap-3">
+                    <FileText className="h-5 w-5 text-primary" />
+                    <span className="text-sm font-bold">Facture Pro</span>
+                    <div className="ml-auto flex items-center gap-2">
+                      <div className="h-6 w-6 rounded-full bg-primary/20" />
+                    </div>
                   </div>
+                  
                   {/* Content */}
                   <div className="flex-1 flex">
-                    {/* Mini sidebar */}
-                    <div className="w-16 border-r bg-muted/30 p-2 space-y-2">
-                      <div className="h-6 w-full rounded bg-primary/20" />
-                      <div className="h-6 w-full rounded bg-muted" />
-                      <div className="h-6 w-full rounded bg-muted" />
-                      <div className="h-6 w-full rounded bg-muted" />
+                    {/* Sidebar */}
+                    <div className="w-20 border-r bg-muted/30 p-2 space-y-2">
+                      <div className="h-8 w-full rounded-md bg-primary/20 flex items-center justify-center">
+                        <BarChart3 className="h-4 w-4 text-primary" />
+                      </div>
+                      <div className="h-8 w-full rounded-md bg-muted flex items-center justify-center">
+                        <FileText className="h-4 w-4 text-muted-foreground" />
+                      </div>
+                      <div className="h-8 w-full rounded-md bg-muted flex items-center justify-center">
+                        <Users className="h-4 w-4 text-muted-foreground" />
+                      </div>
+                      <div className="h-8 w-full rounded-md bg-muted flex items-center justify-center">
+                        <CreditCard className="h-4 w-4 text-muted-foreground" />
+                      </div>
                     </div>
-                    {/* Main area */}
-                    <div className="flex-1 p-3 space-y-3">
-                      <div className="grid grid-cols-3 gap-2">
-                        <div className="h-12 rounded bg-primary/10 flex items-center justify-center">
-                          <BarChart3 className="h-5 w-5 text-primary/60" />
+                    
+                    {/* Main Content */}
+                    <div className="flex-1 p-4 space-y-4">
+                      {/* Stats Cards */}
+                      <div className="grid grid-cols-4 gap-2">
+                        <div className="p-2 rounded-lg bg-primary/10 border border-primary/20">
+                          <div className="text-xs text-muted-foreground">Clients</div>
+                          <div className="text-lg font-bold text-primary">127</div>
                         </div>
-                        <div className="h-12 rounded bg-accent flex items-center justify-center">
-                          <CreditCard className="h-5 w-5 text-muted-foreground" />
+                        <div className="p-2 rounded-lg bg-accent">
+                          <div className="text-xs text-muted-foreground">Factures</div>
+                          <div className="text-lg font-bold">45</div>
                         </div>
-                        <div className="h-12 rounded bg-accent flex items-center justify-center">
-                          <Users className="h-5 w-5 text-muted-foreground" />
+                        <div className="p-2 rounded-lg bg-accent">
+                          <div className="text-xs text-muted-foreground">Ce mois</div>
+                          <div className="text-lg font-bold text-green-600">12.5K</div>
+                        </div>
+                        <div className="p-2 rounded-lg bg-accent">
+                          <div className="text-xs text-muted-foreground">En attente</div>
+                          <div className="text-lg font-bold text-orange-500">3.2K</div>
                         </div>
                       </div>
-                      <div className="h-16 rounded bg-muted/50" />
-                      <div className="h-8 rounded bg-muted/30" />
+                      
+                      {/* Chart Mock */}
+                      <div className="flex-1 rounded-lg bg-muted/30 p-3">
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-xs font-medium">Évolution CA</span>
+                          <TrendingUp className="h-4 w-4 text-green-500" />
+                        </div>
+                        <div className="flex items-end gap-1 h-16">
+                          {[40, 65, 45, 80, 55, 90, 70, 95, 85, 75, 100, 88].map((h, i) => (
+                            <div 
+                              key={i} 
+                              className="flex-1 bg-primary/60 rounded-t transition-all hover:bg-primary"
+                              style={{ height: `${h}%` }}
+                            />
+                          ))}
+                        </div>
+                      </div>
+                      
+                      {/* Recent Invoices */}
+                      <div className="space-y-1">
+                        <div className="text-xs font-medium mb-2">Factures récentes</div>
+                        {[
+                          { num: 'FAC-2024-045', client: 'ABC Corp', status: 'paid' },
+                          { num: 'FAC-2024-044', client: 'XYZ SARL', status: 'pending' },
+                          { num: 'FAC-2024-043', client: 'Tech Plus', status: 'paid' },
+                        ].map((inv, i) => (
+                          <div key={i} className="flex items-center justify-between text-xs p-1.5 rounded bg-muted/50">
+                            <span className="font-mono">{inv.num}</span>
+                            <span className="text-muted-foreground">{inv.client}</span>
+                            <span className={`px-1.5 py-0.5 rounded text-[10px] ${
+                              inv.status === 'paid' 
+                                ? 'bg-green-100 text-green-700' 
+                                : 'bg-orange-100 text-orange-700'
+                            }`}>
+                              {inv.status === 'paid' ? 'Payée' : 'En attente'}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -73,6 +215,7 @@ export default function LandingPage() {
           </div>
         </section>
 
+        {/* Features Section */}
         <section className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 pb-16">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {[
@@ -92,6 +235,200 @@ export default function LandingPage() {
                 <p className="mt-2 text-sm text-muted-foreground">{feature.desc}</p>
               </div>
             ))}
+          </div>
+        </section>
+
+        {/* Pricing Section */}
+        <section id="tarifs" className="bg-muted/30 py-16 sm:py-24">
+          <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
+            <div className="text-center mb-12">
+              <h2 className="text-3xl font-bold">Tarifs simples et transparents</h2>
+              <p className="mt-4 text-lg text-muted-foreground">
+                Choisissez le plan qui correspond à vos besoins
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+              {plans.map((plan, index) => (
+                <Card 
+                  key={plan.name} 
+                  className={`relative opacity-0 animate-fade-in-up ${
+                    plan.popular ? 'border-primary shadow-lg scale-105' : ''
+                  }`}
+                  style={{ animationDelay: `${index * 150}ms` }}
+                >
+                  {plan.popular && (
+                    <Badge className="absolute -top-3 left-1/2 -translate-x-1/2">
+                      Le plus populaire
+                    </Badge>
+                  )}
+                  <CardHeader className="text-center">
+                    <CardTitle className="text-xl">{plan.name}</CardTitle>
+                    <CardDescription>{plan.description}</CardDescription>
+                    <div className="mt-4">
+                      <span className="text-4xl font-bold">{plan.price}</span>
+                      <span className="text-muted-foreground"> TND {plan.period}</span>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <ul className="space-y-3">
+                      {plan.features.map((feature) => (
+                        <li key={feature} className="flex items-center gap-2 text-sm">
+                          <Check className="h-4 w-4 text-primary" />
+                          {feature}
+                        </li>
+                      ))}
+                    </ul>
+                    <Button 
+                      className="w-full" 
+                      variant={plan.popular ? "default" : "outline"}
+                      asChild
+                    >
+                      <Link to="/signup">{plan.cta}</Link>
+                    </Button>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        {/* Blog Section */}
+        <section className="py-16 sm:py-24">
+          <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
+            <div className="flex items-center justify-between mb-12">
+              <div>
+                <h2 className="text-3xl font-bold">Actualités & Conseils</h2>
+                <p className="mt-2 text-muted-foreground">
+                  Restez informé des dernières tendances en gestion d'entreprise
+                </p>
+              </div>
+              <Button variant="outline" asChild>
+                <Link to="/blog" className="hidden sm:flex items-center gap-2">
+                  Voir tous les articles
+                  <ArrowRight className="h-4 w-4" />
+                </Link>
+              </Button>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+              {blogPosts.map((post, index) => (
+                <Card 
+                  key={post.title} 
+                  className="opacity-0 animate-fade-in-up overflow-hidden hover:shadow-lg transition-shadow cursor-pointer"
+                  style={{ animationDelay: `${index * 150}ms` }}
+                >
+                  <div className="h-40 bg-muted flex items-center justify-center text-6xl">
+                    {post.image}
+                  </div>
+                  <CardHeader>
+                    <div className="flex items-center gap-2 mb-2">
+                      <Badge variant="secondary">{post.category}</Badge>
+                      <span className="text-xs text-muted-foreground flex items-center gap-1">
+                        <Calendar className="h-3 w-3" />
+                        {post.date}
+                      </span>
+                    </div>
+                    <CardTitle className="text-lg line-clamp-2">{post.title}</CardTitle>
+                    <CardDescription className="line-clamp-2">{post.excerpt}</CardDescription>
+                  </CardHeader>
+                </Card>
+              ))}
+            </div>
+
+            <div className="mt-8 text-center sm:hidden">
+              <Button variant="outline" asChild>
+                <Link to="/blog" className="flex items-center gap-2">
+                  Voir tous les articles
+                  <ArrowRight className="h-4 w-4" />
+                </Link>
+              </Button>
+            </div>
+          </div>
+        </section>
+
+        {/* Contact Section */}
+        <section id="contact" className="bg-muted/30 py-16 sm:py-24">
+          <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
+              <div>
+                <h2 className="text-3xl font-bold">Contactez-nous</h2>
+                <p className="mt-4 text-muted-foreground">
+                  Une question ? Notre équipe est là pour vous aider.
+                </p>
+
+                <div className="mt-8 space-y-6">
+                  <div className="flex items-center gap-4">
+                    <div className="h-12 w-12 rounded-lg bg-primary/10 flex items-center justify-center">
+                      <Mail className="h-5 w-5 text-primary" />
+                    </div>
+                    <div>
+                      <div className="font-medium">Email</div>
+                      <div className="text-muted-foreground">contact@facturepro.tn</div>
+                    </div>
+                  </div>
+                  
+                  <div className="flex items-center gap-4">
+                    <div className="h-12 w-12 rounded-lg bg-primary/10 flex items-center justify-center">
+                      <Phone className="h-5 w-5 text-primary" />
+                    </div>
+                    <div>
+                      <div className="font-medium">Téléphone</div>
+                      <div className="text-muted-foreground">+216 71 123 456</div>
+                    </div>
+                  </div>
+                  
+                  <div className="flex items-center gap-4">
+                    <div className="h-12 w-12 rounded-lg bg-primary/10 flex items-center justify-center">
+                      <MapPin className="h-5 w-5 text-primary" />
+                    </div>
+                    <div>
+                      <div className="font-medium">Adresse</div>
+                      <div className="text-muted-foreground">
+                        Rue de la Liberté, Les Berges du Lac<br />
+                        1053 Tunis, Tunisie
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle>Envoyez-nous un message</CardTitle>
+                  <CardDescription>
+                    Nous vous répondrons dans les plus brefs délais
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="name">Nom</Label>
+                      <Input id="name" placeholder="Votre nom" />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="email">Email</Label>
+                      <Input id="email" type="email" placeholder="votre@email.com" />
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="subject">Sujet</Label>
+                    <Input id="subject" placeholder="Comment pouvons-nous vous aider ?" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="message">Message</Label>
+                    <Textarea 
+                      id="message" 
+                      placeholder="Décrivez votre demande..." 
+                      rows={4}
+                    />
+                  </div>
+                  <Button className="w-full">
+                    Envoyer le message
+                  </Button>
+                </CardContent>
+              </Card>
+            </div>
           </div>
         </section>
       </main>

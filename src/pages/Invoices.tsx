@@ -98,6 +98,8 @@ interface CompanySettings {
   activity: string | null;
   default_currency: string | null;
   default_vat_rate: number | null;
+  signature_url: string | null;
+  stamp_url: string | null;
 }
 
 interface UserProfile {
@@ -220,7 +222,7 @@ export default function Invoices() {
   const fetchCompanySettings = async () => {
     const { data } = await supabase
       .from('company_settings')
-      .select('company_name, company_address, company_city, company_postal_code, company_country, company_phone, company_email, company_vat_number, company_tax_id, company_trade_register, company_logo_url, activity, default_currency, default_vat_rate')
+      .select('company_name, company_address, company_city, company_postal_code, company_country, company_phone, company_email, company_vat_number, company_tax_id, company_trade_register, company_logo_url, activity, default_currency, default_vat_rate, signature_url, stamp_url')
       .eq('user_id', user?.id)
       .maybeSingle();
     
@@ -460,6 +462,8 @@ export default function Invoices() {
         trade_register: companySettings.company_trade_register || undefined,
         logo_url: companySettings.company_logo_url || undefined,
         activity: companySettings.activity || undefined,
+        signature_url: companySettings.signature_url || undefined,
+        stamp_url: companySettings.stamp_url || undefined,
       } : undefined,
       created_by: {
         name: creatorName,
@@ -468,7 +472,7 @@ export default function Invoices() {
       },
     };
     
-    generateInvoiceWithTemplate(
+    await generateInvoiceWithTemplate(
       invoiceData,
       (items || []).map(i => ({
         description: i.description,
