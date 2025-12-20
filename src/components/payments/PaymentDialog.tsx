@@ -5,6 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import type { Tables } from '@/integrations/supabase/types';
 
 type Invoice = Tables<'invoices'>;
@@ -102,102 +103,103 @@ export default function PaymentDialog({ open, onOpenChange, invoices, clients, o
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg">
-        <DialogHeader>
+      <DialogContent className="max-w-lg flex flex-col">
+        <DialogHeader className="flex-shrink-0">
           <DialogTitle>{editPayment ? 'Modifier le paiement' : 'Enregistrer un paiement'}</DialogTitle>
           <DialogDescription>
             {editPayment ? 'Modifiez les informations du paiement.' : 'Enregistrez un nouveau paiement sur une facture.'}
           </DialogDescription>
         </DialogHeader>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="invoice">Facture (optionnel)</Label>
-            <Select value={invoiceId || 'none'} onValueChange={(v) => handleInvoiceSelect(v === 'none' ? '' : v)}>
-              <SelectTrigger>
-                <SelectValue placeholder="Sélectionner une facture" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="none">-- Aucune facture --</SelectItem>
-                {availableInvoices.map((inv) => (
-                  <SelectItem key={inv.id} value={inv.id}>
-                    {inv.invoice_number} - {getClientName(inv.client_id)} ({Number(inv.total).toLocaleString('fr-FR')} {inv.currency})
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
+        <ScrollArea className="flex-1 overflow-auto">
+          <form id="payment-form" onSubmit={handleSubmit} className="space-y-4 pr-4">
             <div className="space-y-2">
-              <Label htmlFor="amount">Montant *</Label>
-              <Input
-                id="amount"
-                type="number"
-                step="0.01"
-                min="0"
-                value={amount}
-                onChange={(e) => setAmount(e.target.value)}
-                placeholder="0.00"
-                required
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="payment_date">Date du paiement *</Label>
-              <Input
-                id="payment_date"
-                type="date"
-                value={paymentDate}
-                onChange={(e) => setPaymentDate(e.target.value)}
-                required
-              />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="payment_method">Mode de paiement</Label>
-              <Select value={paymentMethod} onValueChange={setPaymentMethod}>
+              <Label htmlFor="invoice">Facture (optionnel)</Label>
+              <Select value={invoiceId || 'none'} onValueChange={(v) => handleInvoiceSelect(v === 'none' ? '' : v)}>
                 <SelectTrigger>
-                  <SelectValue />
+                  <SelectValue placeholder="Sélectionner une facture" />
                 </SelectTrigger>
                 <SelectContent>
-                  {paymentMethods.map((m) => (
-                    <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>
+                  <SelectItem value="none">-- Aucune facture --</SelectItem>
+                  {availableInvoices.map((inv) => (
+                    <SelectItem key={inv.id} value={inv.id}>
+                      {inv.invoice_number} - {getClientName(inv.client_id)} ({Number(inv.total).toLocaleString('fr-FR')} {inv.currency})
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="amount">Montant *</Label>
+                <Input
+                  id="amount"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={amount}
+                  onChange={(e) => setAmount(e.target.value)}
+                  placeholder="0.00"
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="payment_date">Date du paiement *</Label>
+                <Input
+                  id="payment_date"
+                  type="date"
+                  value={paymentDate}
+                  onChange={(e) => setPaymentDate(e.target.value)}
+                  required
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="payment_method">Mode de paiement</Label>
+                <Select value={paymentMethod} onValueChange={setPaymentMethod}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {paymentMethods.map((m) => (
+                      <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="reference">Référence</Label>
+                <Input
+                  id="reference"
+                  value={reference}
+                  onChange={(e) => setReference(e.target.value)}
+                  placeholder="N° chèque, virement..."
+                />
+              </div>
+            </div>
+
             <div className="space-y-2">
-              <Label htmlFor="reference">Référence</Label>
-              <Input
-                id="reference"
-                value={reference}
-                onChange={(e) => setReference(e.target.value)}
-                placeholder="N° chèque, virement..."
+              <Label htmlFor="notes">Notes</Label>
+              <Textarea
+                id="notes"
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                placeholder="Notes supplémentaires..."
+                rows={2}
               />
             </div>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="notes">Notes</Label>
-            <Textarea
-              id="notes"
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              placeholder="Notes supplémentaires..."
-              rows={2}
-            />
-          </div>
-
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-              Annuler
-            </Button>
-            <Button type="submit" disabled={loading || !amount}>
-              {loading ? 'Enregistrement...' : 'Enregistrer'}
-            </Button>
-          </DialogFooter>
-        </form>
+          </form>
+        </ScrollArea>
+        <DialogFooter className="flex-shrink-0 pt-4">
+          <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+            Annuler
+          </Button>
+          <Button type="submit" form="payment-form" disabled={loading || !amount}>
+            {loading ? 'Enregistrement...' : 'Enregistrer'}
+          </Button>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   );
