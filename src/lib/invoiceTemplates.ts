@@ -36,6 +36,8 @@ export interface InvoiceTemplateData {
     trade_register?: string;
     logo_url?: string;
     activity?: string;
+    signature_url?: string;
+    stamp_url?: string;
   };
   created_by?: {
     name?: string;
@@ -66,26 +68,79 @@ export const templateDescriptions: Record<TemplateType, string> = {
 };
 
 // Fonction utilitaire pour dessiner le cachet et signature
-function drawStampZone(doc: jsPDF, y: number, pageWidth: number): number {
+async function drawStampZone(doc: jsPDF, y: number, pageWidth: number, signatureUrl?: string, stampUrl?: string): Promise<number> {
   doc.setFontSize(10);
   doc.setFont('helvetica', 'bold');
   doc.text('Cachet & Signature', pageWidth - 70, y);
   
+  const boxY = y + 5;
+  const boxHeight = 35;
+  const boxWidth = 70;
+  const boxX = pageWidth - 90;
+  
   // Rectangle pour le cachet
   doc.setDrawColor(180, 180, 180);
   doc.setLineWidth(0.5);
-  doc.rect(pageWidth - 90, y + 5, 70, 35);
+  doc.rect(boxX, boxY, boxWidth, boxHeight);
   
-  doc.setFontSize(8);
-  doc.setFont('helvetica', 'normal');
-  doc.setTextColor(150, 150, 150);
-  doc.text('Cachet de l\'entreprise', pageWidth - 55, y + 25, { align: 'center' });
+  // Ajouter le cachet si disponible
+  if (stampUrl) {
+    try {
+      const stampImg = await loadImage(stampUrl);
+      const stampSize = 30;
+      doc.addImage(stampImg, 'PNG', boxX + 5, boxY + 2, stampSize, stampSize);
+    } catch (e) {
+      console.error('Erreur chargement cachet:', e);
+    }
+  }
+  
+  // Ajouter la signature si disponible
+  if (signatureUrl) {
+    try {
+      const signatureImg = await loadImage(signatureUrl);
+      const sigWidth = 35;
+      const sigHeight = 20;
+      doc.addImage(signatureImg, 'PNG', boxX + boxWidth - sigWidth - 3, boxY + boxHeight - sigHeight - 3, sigWidth, sigHeight);
+    } catch (e) {
+      console.error('Erreur chargement signature:', e);
+    }
+  }
+  
+  // Texte par défaut si pas d'images
+  if (!stampUrl && !signatureUrl) {
+    doc.setFontSize(8);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(150, 150, 150);
+    doc.text('Cachet de l\'entreprise', pageWidth - 55, y + 25, { align: 'center' });
+  }
   
   return y + 45;
 }
 
+// Fonction pour charger une image depuis une URL
+function loadImage(url: string): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      canvas.width = img.width;
+      canvas.height = img.height;
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        ctx.drawImage(img, 0, 0);
+        resolve(canvas.toDataURL('image/png'));
+      } else {
+        reject(new Error('Could not get canvas context'));
+      }
+    };
+    img.onerror = reject;
+    img.src = url;
+  });
+}
+
 // Template Classique
-export function generateClassicPDF(invoice: InvoiceTemplateData, items: InvoiceItem[]): void {
+export async function generateClassicPDF(invoice: InvoiceTemplateData, items: InvoiceItem[]): Promise<void> {
   const doc = new jsPDF();
   const pageWidth = doc.internal.pageSize.getWidth();
   const currency = currencies[invoice.currency] || currencies.TND;
@@ -225,7 +280,7 @@ export function generateClassicPDF(invoice: InvoiceTemplateData, items: InvoiceI
   
   // Zone cachet et signature
   y = Math.max(y + 20, 230);
-  drawStampZone(doc, y, pageWidth);
+  await drawStampZone(doc, y, pageWidth, invoice.company?.signature_url, invoice.company?.stamp_url);
   
   // Utilisateur émetteur
   if (invoice.created_by) {
@@ -252,7 +307,7 @@ export function generateClassicPDF(invoice: InvoiceTemplateData, items: InvoiceI
 }
 
 // Template Moderne
-export function generateModernPDF(invoice: InvoiceTemplateData, items: InvoiceItem[]): void {
+export async function generateModernPDF(invoice: InvoiceTemplateData, items: InvoiceItem[]): Promise<void> {
   const doc = new jsPDF();
   const pageWidth = doc.internal.pageSize.getWidth();
   
@@ -390,7 +445,7 @@ export function generateModernPDF(invoice: InvoiceTemplateData, items: InvoiceIt
   
   // Zone cachet
   y = Math.max(y + 20, 220);
-  drawStampZone(doc, y, pageWidth);
+  await drawStampZone(doc, y, pageWidth, invoice.company?.signature_url, invoice.company?.stamp_url);
   
   // Utilisateur
   if (invoice.created_by) {
@@ -414,7 +469,7 @@ export function generateModernPDF(invoice: InvoiceTemplateData, items: InvoiceIt
 }
 
 // Template Minimaliste
-export function generateMinimalPDF(invoice: InvoiceTemplateData, items: InvoiceItem[]): void {
+export async function generateMinimalPDF(invoice: InvoiceTemplateData, items: InvoiceItem[]): Promise<void> {
   const doc = new jsPDF();
   const pageWidth = doc.internal.pageSize.getWidth();
   
@@ -569,7 +624,7 @@ export function generateMinimalPDF(invoice: InvoiceTemplateData, items: InvoiceI
   
   // Zone cachet
   y = Math.max(y + 25, 215);
-  drawStampZone(doc, y, pageWidth);
+  await drawStampZone(doc, y, pageWidth, invoice.company?.signature_url, invoice.company?.stamp_url);
   
   // Utilisateur
   if (invoice.created_by) {
@@ -588,20 +643,20 @@ export function generateMinimalPDF(invoice: InvoiceTemplateData, items: InvoiceI
 }
 
 // Fonction principale pour générer le PDF selon le template
-export function generateInvoiceWithTemplate(
+export async function generateInvoiceWithTemplate(
   invoice: InvoiceTemplateData,
   items: InvoiceItem[]
-): void {
+): Promise<void> {
   switch (invoice.template_type) {
     case 'modern':
-      generateModernPDF(invoice, items);
+      await generateModernPDF(invoice, items);
       break;
     case 'minimal':
-      generateMinimalPDF(invoice, items);
+      await generateMinimalPDF(invoice, items);
       break;
     case 'classic':
     default:
-      generateClassicPDF(invoice, items);
+      await generateClassicPDF(invoice, items);
       break;
   }
 }

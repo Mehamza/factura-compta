@@ -41,6 +41,8 @@ interface CompanySettings {
   invoice_next_number: number;
   invoice_format: string;
   invoice_number_padding: number;
+  signature_url: string;
+  stamp_url: string;
 }
 
 const defaultSettings: Omit<CompanySettings, 'user_id'> = {
@@ -67,7 +69,9 @@ const defaultSettings: Omit<CompanySettings, 'user_id'> = {
   invoice_prefix: 'FAC',
   invoice_next_number: 1,
   invoice_format: '{prefix}-{year}-{number}',
-  invoice_number_padding: 4
+  invoice_number_padding: 4,
+  signature_url: '',
+  stamp_url: ''
 };
 
 export default function Settings() {
@@ -75,10 +79,14 @@ export default function Settings() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [uploadingLogo, setUploadingLogo] = useState(false);
+  const [uploadingSignature, setUploadingSignature] = useState(false);
+  const [uploadingStamp, setUploadingStamp] = useState(false);
   const [settings, setSettings] = useState<CompanySettings | null>(null);
   const [profile, setProfile] = useState<Tables<'profiles'> | null>(null);
   const [newVatRate, setNewVatRate] = useState({ rate: 0, label: '' });
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const signatureInputRef = useRef<HTMLInputElement>(null);
+  const stampInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (user) {
@@ -112,7 +120,9 @@ export default function Settings() {
           company_logo_url: data.company_logo_url || '',
           default_currency: data.default_currency || 'TND',
           activity: data.activity || '',
-          vat_rates: (data.vat_rates as unknown as VatRate[]) || defaultSettings.vat_rates
+          vat_rates: (data.vat_rates as unknown as VatRate[]) || defaultSettings.vat_rates,
+          signature_url: data.signature_url || '',
+          stamp_url: data.stamp_url || ''
         });
       } else {
         setSettings({
@@ -171,6 +181,92 @@ export default function Settings() {
 
   const removeLogo = () => {
     setSettings(prev => prev ? { ...prev, company_logo_url: '' } : null);
+  };
+
+  const handleSignatureUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file || !user) return;
+
+    if (!file.type.startsWith('image/')) {
+      toast.error('Veuillez sélectionner une image');
+      return;
+    }
+
+    if (file.size > 1 * 1024 * 1024) {
+      toast.error('L\'image ne doit pas dépasser 1 Mo');
+      return;
+    }
+
+    setUploadingSignature(true);
+    try {
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${user.id}/signature-${Date.now()}.${fileExt}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('company-assets')
+        .upload(fileName, file, { upsert: true });
+
+      if (uploadError) throw uploadError;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('company-assets')
+        .getPublicUrl(fileName);
+
+      setSettings(prev => prev ? { ...prev, signature_url: publicUrl } : null);
+      toast.success('Signature téléchargée avec succès');
+    } catch (error) {
+      logger.error('Erreur upload signature:', error);
+      toast.error('Erreur lors du téléchargement de la signature');
+    } finally {
+      setUploadingSignature(false);
+    }
+  };
+
+  const handleStampUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file || !user) return;
+
+    if (!file.type.startsWith('image/')) {
+      toast.error('Veuillez sélectionner une image');
+      return;
+    }
+
+    if (file.size > 1 * 1024 * 1024) {
+      toast.error('L\'image ne doit pas dépasser 1 Mo');
+      return;
+    }
+
+    setUploadingStamp(true);
+    try {
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${user.id}/stamp-${Date.now()}.${fileExt}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('company-assets')
+        .upload(fileName, file, { upsert: true });
+
+      if (uploadError) throw uploadError;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('company-assets')
+        .getPublicUrl(fileName);
+
+      setSettings(prev => prev ? { ...prev, stamp_url: publicUrl } : null);
+      toast.success('Cachet téléchargé avec succès');
+    } catch (error) {
+      logger.error('Erreur upload cachet:', error);
+      toast.error('Erreur lors du téléchargement du cachet');
+    } finally {
+      setUploadingStamp(false);
+    }
+  };
+
+  const removeSignature = () => {
+    setSettings(prev => prev ? { ...prev, signature_url: '' } : null);
+  };
+
+  const removeStamp = () => {
+    setSettings(prev => prev ? { ...prev, stamp_url: '' } : null);
   };
 
   const saveSettings = async () => {
@@ -485,6 +581,115 @@ export default function Settings() {
                     placeholder="N° RC"
                   />
                 </div>
+              </div>
+
+              {/* Signature & Cachet */}
+              <div className="space-y-3 pt-4 border-t">
+                <Label className="text-base font-semibold">Signature & Cachet</Label>
+                <p className="text-sm text-muted-foreground">
+                  Ces images apparaîtront sur vos factures générées
+                </p>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {/* Signature */}
+                  <div className="space-y-2">
+                    <Label>Signature</Label>
+                    <div className="flex items-center gap-4">
+                      {settings.signature_url ? (
+                        <div className="relative">
+                          <img
+                            src={settings.signature_url}
+                            alt="Signature"
+                            className="h-16 w-32 object-contain rounded-lg border bg-background"
+                          />
+                          <Button
+                            type="button"
+                            variant="destructive"
+                            size="icon"
+                            className="absolute -top-2 -right-2 h-6 w-6"
+                            onClick={removeSignature}
+                          >
+                            <Trash2 className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      ) : (
+                        <div className="h-16 w-32 rounded-lg border-2 border-dashed border-muted-foreground/25 flex items-center justify-center">
+                          <span className="text-xs text-muted-foreground/50">Signature</span>
+                        </div>
+                      )}
+                      <div>
+                        <input
+                          ref={signatureInputRef}
+                          type="file"
+                          accept="image/*"
+                          onChange={handleSignatureUpload}
+                          className="hidden"
+                        />
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => signatureInputRef.current?.click()}
+                          disabled={uploadingSignature}
+                        >
+                          <Upload className="h-4 w-4 mr-2" />
+                          {uploadingSignature ? 'Chargement...' : 'Télécharger'}
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Cachet */}
+                  <div className="space-y-2">
+                    <Label>Cachet</Label>
+                    <div className="flex items-center gap-4">
+                      {settings.stamp_url ? (
+                        <div className="relative">
+                          <img
+                            src={settings.stamp_url}
+                            alt="Cachet"
+                            className="h-16 w-16 object-contain rounded-lg border bg-background"
+                          />
+                          <Button
+                            type="button"
+                            variant="destructive"
+                            size="icon"
+                            className="absolute -top-2 -right-2 h-6 w-6"
+                            onClick={removeStamp}
+                          >
+                            <Trash2 className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      ) : (
+                        <div className="h-16 w-16 rounded-lg border-2 border-dashed border-muted-foreground/25 flex items-center justify-center">
+                          <span className="text-xs text-muted-foreground/50">Cachet</span>
+                        </div>
+                      )}
+                      <div>
+                        <input
+                          ref={stampInputRef}
+                          type="file"
+                          accept="image/*"
+                          onChange={handleStampUpload}
+                          className="hidden"
+                        />
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => stampInputRef.current?.click()}
+                          disabled={uploadingStamp}
+                        >
+                          <Upload className="h-4 w-4 mr-2" />
+                          {uploadingStamp ? 'Chargement...' : 'Télécharger'}
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Format: PNG avec fond transparent recommandé. Taille max: 1 Mo
+                </p>
               </div>
             </CardContent>
           </Card>
