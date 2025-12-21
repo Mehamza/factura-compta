@@ -120,7 +120,8 @@ export default function AdminPlans() {
     else { toast({ title: 'Succès', description: 'Plan supprimé' }); load(); }
   };
 
-  const upsertFeature = async (planId: string, key: string, value: any) => {
+  // Returns { error?: any } so callers can check for errors
+  const upsertFeature = async (planId: string, key: string, value: any): Promise<{ error?: any }> => {
     const existing = (features[planId] || []).find(f => f.key === key);
     if (existing) {
       const { error } = await (supabase.from('plan_features' as any).update({ value } as any).eq('id', existing.id) as any);
@@ -128,12 +129,14 @@ export default function AdminPlans() {
         setFeatures(prev => ({ ...prev, [planId]: (prev[planId] || []).map(f => f.id === existing.id ? { ...f, value } : f) }));
         toast({ title: 'Succès', description: 'Fonctionnalité mise à jour' });
       }
+      return { error };
     } else {
       const { data, error } = await insertPlanFeature(planId, key, value);
       if (!error && data) {
         setFeatures(prev => ({ ...prev, [planId]: [...(prev[planId] || []), { id: data.id, plan_id: planId, key, value }] }));
         toast({ title: 'Succès', description: 'Fonctionnalité ajoutée' });
       }
+      return { error };
     }
   };
 
