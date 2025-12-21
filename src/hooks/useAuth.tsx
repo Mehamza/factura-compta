@@ -8,6 +8,20 @@ type CompanyRole = 'COMPANY_ADMIN' | 'ACCOUNTANT' | 'CASHIER' | 'EMPLOYEE' | 'RE
 
 interface CompanyRoleEntry { company_id: string; role: CompanyRole }
 
+// Impersonation state stored separately from auth session
+interface ImpersonationState {
+  isImpersonating: boolean;
+  originalUser: User | null;
+  originalSession: Session | null;
+  targetUser: {
+    id: string;
+    email: string;
+    profile: any;
+    legacy_role: AppRole | null;
+    global_roles: string[];
+  } | null;
+}
+
 interface AuthContextType {
   user: User | null;
   session: Session | null;
@@ -20,6 +34,11 @@ interface AuthContextType {
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
   signUp: (email: string, password: string, fullName: string) => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
+  // Impersonation methods (Super Admin only)
+  isImpersonating: boolean;
+  impersonatedUser: ImpersonationState['targetUser'];
+  startImpersonation: (targetUserId: string) => Promise<void>;
+  stopImpersonation: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -32,6 +51,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [companyRoles, setCompanyRoles] = useState<CompanyRoleEntry[]>([]);
   const [activeCompanyId, _setActiveCompanyId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  
+  // Impersonation state
+  const [impersonation, setImpersonation] = useState<ImpersonationState>({
+    isImpersonating: false,
+    originalUser: null,
+    originalSession: null,
+    targetUser: null,
+  });
 
   const setActiveCompany = (companyId: string | null) => {
     _setActiveCompanyId(companyId);
@@ -123,6 +150,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setGlobalRole(null);
         setCompanyRoles([]);
         setActiveCompany(null);
+        // Clear impersonation on logout
+        setImpersonation({
+          isImpersonating: false,
+          originalUser: null,
+          originalSession: null,
+          targetUser: null,
+        });
       }
 
       setLoading(false);
@@ -158,6 +192,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const signOut = async () => {
+    // If impersonating, stop first
+    if (impersonation.isImpersonating) {
+      await stopImpersonation();
+    }
     await supabase.auth.signOut();
     setRole(null);
     setGlobalRole(null);
@@ -165,8 +203,98 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setActiveCompany(null);
   };
 
+  /**
+   * Start impersonation of a target user (Super Admin only)
+   * This calls the server-side edge function to validate and log the impersonation
+   */
+  const startImpersonation = async (targetUserId: string) => {
+    if (globalRole !== 'SUPER_ADMIN') {
+      throw new Error('Only Super Admins can impersonate users');
+    }
+    
+    if (!session?.access_token) {
+      throw new Error('No active session');
+    }
+
+    // Call edge function to validate and log impersonation
+    const response = await supabase.functions.invoke('impersonate_user', {
+      body: { target_user_id: targetUserId, action: 'start' },
+    });
+
+    if (response.error) throw response.error;
+    if (response.data?.error) throw new Error(response.data.error);
+
+    const { target_user } = response.data;
+
+    // Store original session and apply target user's permissions
+    setImpersonation({
+      isImpersonating: true,
+      originalUser: user,
+      originalSession: session,
+      targetUser: target_user,
+    });
+
+    // Override role with target user's role (no privilege escalation)
+    setRole(target_user.legacy_role || null);
+    
+    // Never allow impersonated user to have Super Admin
+    const targetIsSuperAdmin = (target_user.global_roles || []).some(
+      (r: string) => r.toUpperCase() === 'SUPER_ADMIN'
+    );
+    setGlobalRole(targetIsSuperAdmin ? null : null); // Always null during impersonation
+  };
+
+  /**
+   * Stop impersonation and restore original Super Admin session
+   */
+  const stopImpersonation = async () => {
+    if (!impersonation.isImpersonating || !impersonation.targetUser) {
+      return;
+    }
+
+    // Log the end of impersonation
+    try {
+      await supabase.functions.invoke('impersonate_user', {
+        body: { target_user_id: impersonation.targetUser.id, action: 'end' },
+      });
+    } catch (e) {
+      console.error('Error logging impersonation end:', e);
+    }
+
+    // Restore original user and session
+    if (impersonation.originalUser) {
+      setUser(impersonation.originalUser);
+      await fetchUserRoles(impersonation.originalUser.id);
+    }
+
+    // Clear impersonation state
+    setImpersonation({
+      isImpersonating: false,
+      originalUser: null,
+      originalSession: null,
+      targetUser: null,
+    });
+  };
+
   return (
-    <AuthContext.Provider value={{ user, session, role, globalRole, companyRoles, activeCompanyId, setActiveCompany, loading, signIn, signUp, signOut }}>
+    <AuthContext.Provider value={{
+      user,
+      session,
+      role,
+      globalRole,
+      companyRoles,
+      activeCompanyId,
+      setActiveCompany,
+      loading,
+      signIn,
+      signUp,
+      signOut,
+      // Impersonation
+      isImpersonating: impersonation.isImpersonating,
+      impersonatedUser: impersonation.targetUser,
+      startImpersonation,
+      stopImpersonation,
+    }}>
       {children}
     </AuthContext.Provider>
   );

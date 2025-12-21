@@ -26,6 +26,7 @@ import Reports from "./pages/Reports";
 import StockProducts from "./pages/StockProducts";
 import StockMovements from "./pages/StockMovements";
 import AdminIndex from "./pages/AdminIndex";
+import AdminUsers from "./pages/AdminUsers";
 import Pricing from "./pages/Pricing";
 import AdminPlans from "./pages/AdminPlans";
 import Tarif from "./pages/Tarif"; 
@@ -57,6 +58,7 @@ const router = createBrowserRouter(
       <Route path="/stock/mouvements" element={<ProtectedRoute><motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.2, ease: 'easeOut' }}><StockMovements /></motion.div></ProtectedRoute>} />
       <Route path="/hamzafacturation" element={<ProtectedRoute><SuperAdminRoute><motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.2, ease: 'easeOut' }}><AdminIndex /></motion.div></SuperAdminRoute></ProtectedRoute>} />
       <Route path="/hamzafacturation/plans" element={<ProtectedRoute><SuperAdminRoute><motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.2, ease: 'easeOut' }}><AdminPlans /></motion.div></SuperAdminRoute></ProtectedRoute>} />
+      <Route path="/hamzafacturation/utilisateurs" element={<ProtectedRoute><SuperAdminRoute><motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.2, ease: 'easeOut' }}><AdminUsers /></motion.div></SuperAdminRoute></ProtectedRoute>} />
       <Route path="*" element={<motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }}><NotFound /></motion.div>} />
     </Route>
   ),

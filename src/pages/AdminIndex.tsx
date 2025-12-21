@@ -76,9 +76,17 @@ export default function AdminIndex() {
         </Card>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className="grid gap-4 md:grid-cols-4">
         <Card>
-          <CardHeader>Gestion des utilisateurs</CardHeader>
+          <CardHeader>Gestion globale des utilisateurs</CardHeader>
+          <CardContent className="space-y-2">
+            <p className="text-muted-foreground text-sm">Voir tous les utilisateurs, impersonnation, suppression</p>
+            <Button onClick={() => navigate('/hamzafacturation/utilisateurs')}>Ouvrir</Button>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>Gestion des utilisateurs entreprise</CardHeader>
           <CardContent className="space-y-2">
             <p className="text-muted-foreground text-sm">Ajouter, modifier, supprimer et gérer les rôles</p>
             <Button onClick={() => navigate('/settings/utilisateurs')}>Ouvrir</Button>

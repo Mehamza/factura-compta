@@ -22,8 +22,10 @@ import {
   MoveUpRight,
   ChevronLeft,
   ChevronRight,
+  UserCog,
 } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { ImpersonationBanner } from './ImpersonationBanner';
 
 const navigation = [
   { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
@@ -45,22 +47,34 @@ const stockNavigation = [
 const superAdminNavigation = [
   { name: 'Espace Super Admin', href: '/hamzafacturation', icon: Shield },
   { name: 'Plans', href: '/hamzafacturation/plans', icon: Users },
+  { name: 'Utilisateurs globaux', href: '/hamzafacturation/utilisateurs', icon: UserCog },
 ];
 const adminNavigation = [
   { name: 'Utilisateurs', href: '/settings/utilisateurs', icon: Users },
 ];
 
 export function DashboardLayout({ children }: { children: ReactNode }) {
-  const { user, role, globalRole, signOut } = useAuth();
+  const { user, role, globalRole, signOut, isImpersonating, impersonatedUser, stopImpersonation } = useAuth();
   const isSuperAdmin = globalRole === 'SUPER_ADMIN';
   const location = useLocation();
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
+  const [exitingImpersonation, setExitingImpersonation] = useState(false);
 
   const handleSignOut = async () => {
     await signOut();
     navigate('/auth');
+  };
+
+  const handleExitImpersonation = async () => {
+    setExitingImpersonation(true);
+    try {
+      await stopImpersonation();
+      navigate('/hamzafacturation/utilisateurs');
+    } finally {
+      setExitingImpersonation(false);
+    }
   };
 
   const NavItem = ({ item, onClick }: { item: { name: string; href: string; icon: React.ElementType }; onClick?: () => void }) => {
@@ -100,7 +114,16 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
 
   return (
     <TooltipProvider>
-      <div className="min-h-screen bg-background">
+      {/* Impersonation Banner - Fixed at top when impersonating */}
+      {isImpersonating && impersonatedUser && (
+        <ImpersonationBanner
+          targetEmail={impersonatedUser.email}
+          targetName={impersonatedUser.profile?.full_name}
+          onExit={handleExitImpersonation}
+        />
+      )}
+      
+      <div className={cn("min-h-screen bg-background", isImpersonating && "pt-10")}>
         {/* Mobile sidebar backdrop with smooth fade */}
         <div
           className={cn(
