@@ -32,6 +32,38 @@ export default function AdminPlans() {
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Plan | null>(null);
   const [form, setForm] = useState({ name: '', description: '', price_year: '0', duration: 'annuel', active: true, display_order: '0' });
+  // Local state for max_invoices_per_day per plan
+  const [maxInvoicesPerDay, setMaxInvoicesPerDay] = useState<Record<string, string>>({});
+  // Local state for switches: { [planId_featureKey]: boolean }
+  const [featureSwitches, setFeatureSwitches] = useState<Record<string, boolean>>({});
+
+  // Keep local state in sync with features when features change
+  useEffect(() => {
+    const newMaxInvoices: Record<string, string> = {};
+    const newSwitches: Record<string, boolean> = {};
+    Object.keys(features).forEach(planId => {
+      const maxVal = features[planId]?.find(f => f.key === 'billing.max_invoices_per_day')?.value?.value;
+      newMaxInvoices[planId] = maxVal !== undefined && maxVal !== null ? String(maxVal) : '';
+
+      // For each switchable feature, set local state
+      [
+        'billing.invoices_unlimited',
+        'billing.invoice_edit',
+        'billing.pdf_watermark',
+        'stock.readonly',
+        'stock.manage_products',
+        'stock.stock_alerts',
+        'export.csv',
+        'reports.access',
+        'accounting.access',
+      ].forEach(key => {
+        const val = features[planId]?.find(f => f.key === key)?.value?.enabled;
+        newSwitches[`${planId}_${key}`] = Boolean(val);
+      });
+    });
+    setMaxInvoicesPerDay(newMaxInvoices);
+    setFeatureSwitches(newSwitches);
+  }, [features]);
 
   useEffect(() => { load(); }, []);
 
@@ -169,19 +201,60 @@ export default function AdminPlans() {
                   <div className="font-medium">Facturation</div>
                   <div className="flex items-center justify-between">
                     <span>Factures illimitées</span>
-                    <Switch checked={Boolean(features[p.id]?.find(f => f.key === 'billing.invoices_unlimited')?.value?.enabled)} onCheckedChange={(v) => upsertFeature(p.id, 'billing.invoices_unlimited', { enabled: v })} />
+                    <Switch
+                      checked={featureSwitches[`${p.id}_billing.invoices_unlimited`] || false}
+                      onCheckedChange={async (v) => {
+                        setFeatureSwitches(prev => ({ ...prev, [`${p.id}_billing.invoices_unlimited`]: v }));
+                        const res = await upsertFeature(p.id, 'billing.invoices_unlimited', { enabled: v });
+                        if (res?.error) {
+                          setFeatureSwitches(prev => ({ ...prev, [`${p.id}_billing.invoices_unlimited`]: !v }));
+                        }
+                      }}
+                    />
                   </div>
                   <div className="flex items-center gap-2">
                     <Label>Max/jour</Label>
-                    <Input type="number" className="h-8" value={features[p.id]?.find(f => f.key === 'billing.max_invoices_per_day')?.value?.value ?? ''} onChange={(e) => upsertFeature(p.id, 'billing.max_invoices_per_day', { value: Number(e.target.value || 0) })} />
+                    <Input
+                      type="number"
+                      className="h-8"
+                      value={maxInvoicesPerDay[p.id] ?? ''}
+                      onChange={e => {
+                        // Allow empty string for erasing
+                        const val = e.target.value;
+                        setMaxInvoicesPerDay(prev => ({ ...prev, [p.id]: val }));
+                      }}
+                      onBlur={e => {
+                        // Only update if value changed
+                        const val = e.target.value;
+                        upsertFeature(p.id, 'billing.max_invoices_per_day', { value: val === '' ? null : Number(val) });
+                      }}
+                    />
                   </div>
                   <div className="flex items-center justify-between">
                     <span>Modification facture</span>
-                    <Switch checked={Boolean(features[p.id]?.find(f => f.key === 'billing.invoice_edit')?.value?.enabled)} onCheckedChange={(v) => upsertFeature(p.id, 'billing.invoice_edit', { enabled: v })} />
+                    <Switch
+                      checked={featureSwitches[`${p.id}_billing.invoice_edit`] || false}
+                      onCheckedChange={async (v) => {
+                        setFeatureSwitches(prev => ({ ...prev, [`${p.id}_billing.invoice_edit`]: v }));
+                        const res = await upsertFeature(p.id, 'billing.invoice_edit', { enabled: v });
+                        if (res?.error) {
+                          setFeatureSwitches(prev => ({ ...prev, [`${p.id}_billing.invoice_edit`]: !v }));
+                        }
+                      }}
+                    />
                   </div>
                   <div className="flex items-center justify-between">
                     <span>Watermark PDF</span>
-                    <Switch checked={Boolean(features[p.id]?.find(f => f.key === 'billing.pdf_watermark')?.value?.enabled)} onCheckedChange={(v) => upsertFeature(p.id, 'billing.pdf_watermark', { enabled: v })} />
+                    <Switch
+                      checked={featureSwitches[`${p.id}_billing.pdf_watermark`] || false}
+                      onCheckedChange={async (v) => {
+                        setFeatureSwitches(prev => ({ ...prev, [`${p.id}_billing.pdf_watermark`]: v }));
+                        const res = await upsertFeature(p.id, 'billing.pdf_watermark', { enabled: v });
+                        if (res?.error) {
+                          setFeatureSwitches(prev => ({ ...prev, [`${p.id}_billing.pdf_watermark`]: !v }));
+                        }
+                      }}
+                    />
                   </div>
                 </div>
 
@@ -197,15 +270,42 @@ export default function AdminPlans() {
                   <div className="font-medium">Stock</div>
                   <div className="flex items-center justify-between">
                     <span>Lecture seule</span>
-                    <Switch checked={Boolean(features[p.id]?.find(f => f.key === 'stock.readonly')?.value?.enabled)} onCheckedChange={(v) => upsertFeature(p.id, 'stock.readonly', { enabled: v })} />
+                    <Switch
+                      checked={featureSwitches[`${p.id}_stock.readonly`] || false}
+                      onCheckedChange={async (v) => {
+                        setFeatureSwitches(prev => ({ ...prev, [`${p.id}_stock.readonly`]: v }));
+                        const res = await upsertFeature(p.id, 'stock.readonly', { enabled: v });
+                        if (res?.error) {
+                          setFeatureSwitches(prev => ({ ...prev, [`${p.id}_stock.readonly`]: !v }));
+                        }
+                      }}
+                    />
                   </div>
                   <div className="flex items-center justify-between">
                     <span>Gestion produits</span>
-                    <Switch checked={Boolean(features[p.id]?.find(f => f.key === 'stock.manage_products')?.value?.enabled)} onCheckedChange={(v) => upsertFeature(p.id, 'stock.manage_products', { enabled: v })} />
+                    <Switch
+                      checked={featureSwitches[`${p.id}_stock.manage_products`] || false}
+                      onCheckedChange={async (v) => {
+                        setFeatureSwitches(prev => ({ ...prev, [`${p.id}_stock.manage_products`]: v }));
+                        const res = await upsertFeature(p.id, 'stock.manage_products', { enabled: v });
+                        if (res?.error) {
+                          setFeatureSwitches(prev => ({ ...prev, [`${p.id}_stock.manage_products`]: !v }));
+                        }
+                      }}
+                    />
                   </div>
                   <div className="flex items-center justify-between">
                     <span>Alertes stock</span>
-                    <Switch checked={Boolean(features[p.id]?.find(f => f.key === 'stock.stock_alerts')?.value?.enabled)} onCheckedChange={(v) => upsertFeature(p.id, 'stock.stock_alerts', { enabled: v })} />
+                    <Switch
+                      checked={featureSwitches[`${p.id}_stock.stock_alerts`] || false}
+                      onCheckedChange={async (v) => {
+                        setFeatureSwitches(prev => ({ ...prev, [`${p.id}_stock.stock_alerts`]: v }));
+                        const res = await upsertFeature(p.id, 'stock.stock_alerts', { enabled: v });
+                        if (res?.error) {
+                          setFeatureSwitches(prev => ({ ...prev, [`${p.id}_stock.stock_alerts`]: !v }));
+                        }
+                      }}
+                    />
                   </div>
                 </div>
 
@@ -213,7 +313,16 @@ export default function AdminPlans() {
                   <div className="font-medium">Export</div>
                   <div className="flex items-center justify-between">
                     <span>Export CSV</span>
-                    <Switch checked={Boolean(features[p.id]?.find(f => f.key === 'export.csv')?.value?.enabled)} onCheckedChange={(v) => upsertFeature(p.id, 'export.csv', { enabled: v })} />
+                    <Switch
+                      checked={featureSwitches[`${p.id}_export.csv`] || false}
+                      onCheckedChange={async (v) => {
+                        setFeatureSwitches(prev => ({ ...prev, [`${p.id}_export.csv`]: v }));
+                        const res = await upsertFeature(p.id, 'export.csv', { enabled: v });
+                        if (res?.error) {
+                          setFeatureSwitches(prev => ({ ...prev, [`${p.id}_export.csv`]: !v }));
+                        }
+                      }}
+                    />
                   </div>
                 </div>
 
@@ -221,7 +330,16 @@ export default function AdminPlans() {
                   <div className="font-medium">Rapports</div>
                   <div className="flex items-center justify-between">
                     <span>Accès rapports</span>
-                    <Switch checked={Boolean(features[p.id]?.find(f => f.key === 'reports.access')?.value?.enabled)} onCheckedChange={(v) => upsertFeature(p.id, 'reports.access', { enabled: v })} />
+                    <Switch
+                      checked={featureSwitches[`${p.id}_reports.access`] || false}
+                      onCheckedChange={async (v) => {
+                        setFeatureSwitches(prev => ({ ...prev, [`${p.id}_reports.access`]: v }));
+                        const res = await upsertFeature(p.id, 'reports.access', { enabled: v });
+                        if (res?.error) {
+                          setFeatureSwitches(prev => ({ ...prev, [`${p.id}_reports.access`]: !v }));
+                        }
+                      }}
+                    />
                   </div>
                 </div>
 
@@ -229,7 +347,16 @@ export default function AdminPlans() {
                   <div className="font-medium">Comptabilité</div>
                   <div className="flex items-center justify-between">
                     <span>Accès module comptable</span>
-                    <Switch checked={Boolean(features[p.id]?.find(f => f.key === 'accounting.access')?.value?.enabled)} onCheckedChange={(v) => upsertFeature(p.id, 'accounting.access', { enabled: v })} />
+                    <Switch
+                      checked={featureSwitches[`${p.id}_accounting.access`] || false}
+                      onCheckedChange={async (v) => {
+                        setFeatureSwitches(prev => ({ ...prev, [`${p.id}_accounting.access`]: v }));
+                        const res = await upsertFeature(p.id, 'accounting.access', { enabled: v });
+                        if (res?.error) {
+                          setFeatureSwitches(prev => ({ ...prev, [`${p.id}_accounting.access`]: !v }));
+                        }
+                      }}
+                    />
                   </div>
                 </div>
               </div>

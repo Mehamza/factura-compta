@@ -1,5 +1,3 @@
-import LandingHeader from "@/components/landing/LandingHeader";
-import LandingFooter from "@/components/landing/LandingFooter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -88,8 +86,6 @@ const blogPosts = [
 export default function LandingPage() {
   return (
     <div className="min-h-screen flex flex-col bg-background">
-      <LandingHeader />
-
       <main className="flex-1">
         {/* Hero Section */}
         <section className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 py-16 sm:py-24">
@@ -374,7 +370,7 @@ export default function LandingPage() {
                     </div>
                     <div>
                       <div className="font-medium">Téléphone</div>
-                      <div className="text-muted-foreground">+216 71 123 456</div>
+                      <div className="text-muted-foreground">+216 95 127 301</div>
                     </div>
                   </div>
                   
@@ -385,8 +381,8 @@ export default function LandingPage() {
                     <div>
                       <div className="font-medium">Adresse</div>
                       <div className="text-muted-foreground">
-                        Rue de la Liberté, Les Berges du Lac<br />
-                        1053 Tunis, Tunisie
+                        Rue de la Liberté, Sbeitla<br />
+                        1250 Kasserine, Tunisie
                       </div>
                     </div>
                   </div>
@@ -433,7 +429,6 @@ export default function LandingPage() {
         </section>
       </main>
 
-      <LandingFooter />
     </div>
   );
 }

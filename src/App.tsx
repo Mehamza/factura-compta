@@ -28,15 +28,21 @@ import StockMovements from "./pages/StockMovements";
 import AdminIndex from "./pages/AdminIndex";
 import Pricing from "./pages/Pricing";
 import AdminPlans from "./pages/AdminPlans";
+import Tarif from "./pages/Tarif"; 
+import Contact from "./pages/Contact";
+import PublicLayout from "@/components/layout/PublicLayout";
 
 const queryClient = new QueryClient();
 
 const router = createBrowserRouter(
   createRoutesFromElements(
     <Route>
-      <Route path="/" element={<LandingPage />} />
+      <Route path="/" element={<PublicLayout><LandingPage /></PublicLayout>} />
+      <Route path="/auth" element={<PublicLayout><Auth /></PublicLayout>} />
+      <Route path="/tarif" element={<PublicLayout><motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.2, ease: 'easeOut' }}><Tarif /></motion.div></PublicLayout>} />
+      <Route path="/contact" element={<PublicLayout><motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.2, ease: 'easeOut' }}><Contact /></motion.div></PublicLayout>} />
+      <Route path="/blog" element={<PublicLayout><div>Blog page coming soon</div></PublicLayout>} />
       <Route path="/dashboard" element={<ProtectedRoute><motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.2, ease: 'easeOut' }}><Index /></motion.div></ProtectedRoute>} />
-      <Route path="/auth" element={<Auth />} />
       <Route path="/clients" element={<ProtectedRoute><motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.2, ease: 'easeOut' }}><Clients /></motion.div></ProtectedRoute>} />
       <Route path="/suppliers" element={<ProtectedRoute><motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.2, ease: 'easeOut' }}><Suppliers /></motion.div></ProtectedRoute>} />
       <Route path="/invoices" element={<ProtectedRoute><motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.2, ease: 'easeOut' }}><Invoices /></motion.div></ProtectedRoute>} />
@@ -49,7 +55,6 @@ const router = createBrowserRouter(
       <Route path="/reports" element={<ProtectedRoute><motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.2, ease: 'easeOut' }}><Reports /></motion.div></ProtectedRoute>} />
       <Route path="/stock/produits" element={<ProtectedRoute><motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.2, ease: 'easeOut' }}><StockProducts /></motion.div></ProtectedRoute>} />
       <Route path="/stock/mouvements" element={<ProtectedRoute><motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.2, ease: 'easeOut' }}><StockMovements /></motion.div></ProtectedRoute>} />
-      <Route path="/tarif" element={<motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.2, ease: 'easeOut' }}><Pricing /></motion.div>} />
       <Route path="/hamzafacturation" element={<ProtectedRoute><SuperAdminRoute><motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.2, ease: 'easeOut' }}><AdminIndex /></motion.div></SuperAdminRoute></ProtectedRoute>} />
       <Route path="/hamzafacturation/plans" element={<ProtectedRoute><SuperAdminRoute><motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.2, ease: 'easeOut' }}><AdminPlans /></motion.div></SuperAdminRoute></ProtectedRoute>} />
       <Route path="*" element={<motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }}><NotFound /></motion.div>} />
