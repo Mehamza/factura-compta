@@ -1,1 +1,13 @@
 project_id = "njkgynqrobfyiqwzdbaz"
+
+[functions.create_user]
+verify_jwt = true
+
+[functions.export_data]
+verify_jwt = true
+
+[functions.impersonate_user]
+verify_jwt = true
+
+[functions.delete_user]
+verify_jwt = true
