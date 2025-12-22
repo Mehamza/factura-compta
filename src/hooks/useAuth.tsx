@@ -8,11 +8,19 @@ type CompanyRole = 'COMPANY_ADMIN' | 'ACCOUNTANT' | 'CASHIER' | 'EMPLOYEE' | 'RE
 
 interface CompanyRoleEntry { company_id: string; role: CompanyRole }
 
-// Impersonation state stored separately from auth session
-interface ImpersonationState {
+// Keys for sessionStorage
+const IMPERSONATION_ORIGINAL_SESSION_KEY = 'impersonation_original_session';
+const IMPERSONATION_STATE_KEY = 'impersonation_state';
+
+interface StoredOriginalSession {
+  access_token: string;
+  refresh_token: string;
+  user_id: string;
+  user_email: string;
+}
+
+interface StoredImpersonationState {
   isImpersonating: boolean;
-  originalUser: User | null;
-  originalSession: Session | null;
   targetUser: {
     id: string;
     email: string;
@@ -20,12 +28,14 @@ interface ImpersonationState {
     legacy_role: AppRole | null;
     global_roles: string[];
   } | null;
+  superAdminId: string;
+  superAdminEmail: string;
 }
 
 interface AuthContextType {
   user: User | null;
   session: Session | null;
-  role: AppRole | null; // legacy single role (backward compatibility)
+  role: AppRole | null;
   globalRole: GlobalRole | null;
   companyRoles: CompanyRoleEntry[];
   activeCompanyId: string | null;
@@ -36,7 +46,8 @@ interface AuthContextType {
   signOut: () => Promise<void>;
   // Impersonation methods (Super Admin only)
   isImpersonating: boolean;
-  impersonatedUser: ImpersonationState['targetUser'];
+  impersonatedUser: StoredImpersonationState['targetUser'];
+  originalSuperAdmin: { id: string; email: string } | null;
   startImpersonation: (targetUserId: string) => Promise<void>;
   stopImpersonation: () => Promise<void>;
 }
@@ -52,13 +63,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [activeCompanyId, _setActiveCompanyId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   
-  // Impersonation state
-  const [impersonation, setImpersonation] = useState<ImpersonationState>({
-    isImpersonating: false,
-    originalUser: null,
-    originalSession: null,
-    targetUser: null,
-  });
+  // Impersonation state from sessionStorage
+  const [impersonationState, setImpersonationState] = useState<StoredImpersonationState | null>(null);
 
   const setActiveCompany = (companyId: string | null) => {
     _setActiveCompanyId(companyId);
@@ -76,6 +82,67 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (stored) _setActiveCompanyId(stored);
     } catch (error) {
       void error;
+    }
+  };
+
+  // Load impersonation state from sessionStorage on mount
+  const loadImpersonationState = (): StoredImpersonationState | null => {
+    try {
+      const stored = sessionStorage.getItem(IMPERSONATION_STATE_KEY);
+      if (stored) {
+        return JSON.parse(stored);
+      }
+    } catch (error) {
+      console.error('Error loading impersonation state:', error);
+    }
+    return null;
+  };
+
+  const saveImpersonationState = (state: StoredImpersonationState | null) => {
+    try {
+      if (state) {
+        sessionStorage.setItem(IMPERSONATION_STATE_KEY, JSON.stringify(state));
+      } else {
+        sessionStorage.removeItem(IMPERSONATION_STATE_KEY);
+      }
+      setImpersonationState(state);
+    } catch (error) {
+      console.error('Error saving impersonation state:', error);
+    }
+  };
+
+  const saveOriginalSession = (session: Session, user: User) => {
+    try {
+      const original: StoredOriginalSession = {
+        access_token: session.access_token,
+        refresh_token: session.refresh_token,
+        user_id: user.id,
+        user_email: user.email || '',
+      };
+      sessionStorage.setItem(IMPERSONATION_ORIGINAL_SESSION_KEY, JSON.stringify(original));
+    } catch (error) {
+      console.error('Error saving original session:', error);
+    }
+  };
+
+  const getOriginalSession = (): StoredOriginalSession | null => {
+    try {
+      const stored = sessionStorage.getItem(IMPERSONATION_ORIGINAL_SESSION_KEY);
+      if (stored) {
+        return JSON.parse(stored);
+      }
+    } catch (error) {
+      console.error('Error getting original session:', error);
+    }
+    return null;
+  };
+
+  const clearImpersonationStorage = () => {
+    try {
+      sessionStorage.removeItem(IMPERSONATION_ORIGINAL_SESSION_KEY);
+      sessionStorage.removeItem(IMPERSONATION_STATE_KEY);
+    } catch (error) {
+      console.error('Error clearing impersonation storage:', error);
     }
   };
 
@@ -99,18 +166,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setRole(null);
     }
 
-    // Global roles (ONLY from user_global_roles)
-    try {
-      const { data: globalRoles } = await supabase
-        .from('user_global_roles' as any)
-        .select('role')
-        .eq('user_id', userId);
+    // Global roles (ONLY from user_global_roles) - but never set during impersonation
+    const currentImpersonation = loadImpersonationState();
+    if (!currentImpersonation?.isImpersonating) {
+      try {
+        const { data: globalRoles } = await supabase
+          .from('user_global_roles' as any)
+          .select('role')
+          .eq('user_id', userId);
 
-      const roles = (globalRoles as any[] | null) ?? [];
-      const isSuperAdmin = roles.some((r) => String(r.role).toUpperCase() === 'SUPER_ADMIN');
-      setGlobalRole(isSuperAdmin ? 'SUPER_ADMIN' : null);
-    } catch {
-      // If the table is missing or query fails, default to USER (safe)
+        const roles = (globalRoles as any[] | null) ?? [];
+        const isSuperAdmin = roles.some((r) => String(r.role).toUpperCase() === 'SUPER_ADMIN');
+        setGlobalRole(isSuperAdmin ? 'SUPER_ADMIN' : null);
+      } catch {
+        setGlobalRole(null);
+      }
+    } else {
+      // During impersonation, never grant Super Admin role
       setGlobalRole(null);
     }
 
@@ -124,7 +196,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setCompanyRoles(
           ucr.map((r: any) => ({ company_id: r.company_id, role: r.role as CompanyRole }))
         );
-        // Initialize active company if not set
         if (!activeCompanyId && ucr.length > 0) {
           setActiveCompany(ucr[0].company_id);
         }
@@ -137,6 +208,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   useEffect(() => {
+    // Load impersonation state on mount
+    const storedImpersonation = loadImpersonationState();
+    if (storedImpersonation) {
+      setImpersonationState(storedImpersonation);
+    }
+
     const applySession = async (nextSession: Session | null) => {
       setLoading(true);
       setSession(nextSession);
@@ -151,12 +228,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setCompanyRoles([]);
         setActiveCompany(null);
         // Clear impersonation on logout
-        setImpersonation({
-          isImpersonating: false,
-          originalUser: null,
-          originalSession: null,
-          targetUser: null,
-        });
+        clearImpersonationStorage();
+        setImpersonationState(null);
       }
 
       setLoading(false);
@@ -193,7 +266,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signOut = async () => {
     // If impersonating, stop first
-    if (impersonation.isImpersonating) {
+    if (impersonationState?.isImpersonating) {
       await stopImpersonation();
     }
     await supabase.auth.signOut();
@@ -201,79 +274,135 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setGlobalRole(null);
     setCompanyRoles([]);
     setActiveCompany(null);
+    clearImpersonationStorage();
+    setImpersonationState(null);
   };
 
   /**
    * Start impersonation of a target user (Super Admin only)
-   * This calls the server-side edge function to validate and log the impersonation
+   * This generates a real JWT token for the target user
    */
   const startImpersonation = async (targetUserId: string) => {
     if (globalRole !== 'SUPER_ADMIN') {
       throw new Error('Only Super Admins can impersonate users');
     }
     
-    if (!session?.access_token) {
+    if (!session?.access_token || !user) {
       throw new Error('No active session');
     }
 
-    // Call edge function to validate and log impersonation
+    // Save the original session BEFORE making any changes
+    saveOriginalSession(session, user);
+
+    // Call edge function to validate and get JWT for target user
     const response = await supabase.functions.invoke('impersonate_user', {
       body: { target_user_id: targetUserId, action: 'start' },
     });
 
-    if (response.error) throw response.error;
-    if (response.data?.error) throw new Error(response.data.error);
+    if (response.error) {
+      clearImpersonationStorage();
+      throw response.error;
+    }
+    if (response.data?.error) {
+      clearImpersonationStorage();
+      throw new Error(response.data.error);
+    }
 
-    const { target_user } = response.data;
+    const { target_user, access_token, refresh_token, super_admin } = response.data;
 
-    // Store original session and apply target user's permissions
-    setImpersonation({
+    if (!access_token || !refresh_token) {
+      clearImpersonationStorage();
+      throw new Error('Failed to generate impersonation token');
+    }
+
+    // Save impersonation state
+    const newImpersonationState: StoredImpersonationState = {
       isImpersonating: true,
-      originalUser: user,
-      originalSession: session,
       targetUser: target_user,
+      superAdminId: super_admin.id,
+      superAdminEmail: super_admin.email,
+    };
+    saveImpersonationState(newImpersonationState);
+
+    // Apply the new session with target user's token
+    // This will trigger onAuthStateChange and update the user/session
+    const { error: setSessionError } = await supabase.auth.setSession({
+      access_token,
+      refresh_token,
     });
 
-    // Override role with target user's role (no privilege escalation)
-    setRole(target_user.legacy_role || null);
-    
-    // Never allow impersonated user to have Super Admin
-    const targetIsSuperAdmin = (target_user.global_roles || []).some(
-      (r: string) => r.toUpperCase() === 'SUPER_ADMIN'
-    );
-    setGlobalRole(targetIsSuperAdmin ? null : null); // Always null during impersonation
+    if (setSessionError) {
+      clearImpersonationStorage();
+      throw new Error(`Failed to set impersonation session: ${setSessionError.message}`);
+    }
+
+    // The onAuthStateChange will handle updating user/session/roles
+    // But we need to ensure globalRole stays null during impersonation
+    setGlobalRole(null);
   };
 
   /**
    * Stop impersonation and restore original Super Admin session
    */
   const stopImpersonation = async () => {
-    if (!impersonation.isImpersonating || !impersonation.targetUser) {
+    const currentImpersonation = impersonationState || loadImpersonationState();
+    
+    if (!currentImpersonation?.isImpersonating) {
       return;
     }
 
-    // Log the end of impersonation
+    const originalSession = getOriginalSession();
+    
+    if (!originalSession) {
+      console.error('No original session found');
+      clearImpersonationStorage();
+      setImpersonationState(null);
+      // Force sign out as fallback
+      await supabase.auth.signOut();
+      return;
+    }
+
+    // Log the end of impersonation (use original token to authenticate)
     try {
-      await supabase.functions.invoke('impersonate_user', {
-        body: { target_user_id: impersonation.targetUser.id, action: 'end' },
+      // Create a temporary client with the original session to log the end
+      // Since we're still logged in as the target user, we need to use the original token
+      const { createClient } = await import('@supabase/supabase-js');
+      const tempClient = createClient(
+        'https://njkgynqrobfyiqwzdbaz.supabase.co',
+        'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5qa2d5bnFyb2JmeWlxd3pkYmF6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjUzMjUyOTcsImV4cCI6MjA4MDkwMTI5N30.Xa_YZBMi-NAqrJStjoZEYhyTrxx8ned3q3CUu3v2ASs',
+        {
+          global: {
+            headers: {
+              Authorization: `Bearer ${originalSession.access_token}`,
+            },
+          },
+        }
+      );
+      
+      await tempClient.functions.invoke('impersonate_user', {
+        body: { target_user_id: currentImpersonation.targetUser?.id, action: 'end' },
       });
     } catch (e) {
       console.error('Error logging impersonation end:', e);
     }
 
-    // Restore original user and session
-    if (impersonation.originalUser) {
-      setUser(impersonation.originalUser);
-      await fetchUserRoles(impersonation.originalUser.id);
+    // Clear impersonation state first
+    clearImpersonationStorage();
+    setImpersonationState(null);
+
+    // Restore original Super Admin session
+    const { error: restoreError } = await supabase.auth.setSession({
+      access_token: originalSession.access_token,
+      refresh_token: originalSession.refresh_token,
+    });
+
+    if (restoreError) {
+      console.error('Error restoring original session:', restoreError);
+      // Force sign out as fallback
+      await supabase.auth.signOut();
     }
 
-    // Clear impersonation state
-    setImpersonation({
-      isImpersonating: false,
-      originalUser: null,
-      originalSession: null,
-      targetUser: null,
-    });
+    // The onAuthStateChange will handle updating user/session/roles
   };
 
   return (
@@ -290,8 +419,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       signUp,
       signOut,
       // Impersonation
-      isImpersonating: impersonation.isImpersonating,
-      impersonatedUser: impersonation.targetUser,
+      isImpersonating: impersonationState?.isImpersonating || false,
+      impersonatedUser: impersonationState?.targetUser || null,
+      originalSuperAdmin: impersonationState?.isImpersonating 
+        ? { id: impersonationState.superAdminId, email: impersonationState.superAdminEmail }
+        : null,
       startImpersonation,
       stopImpersonation,
     }}>
