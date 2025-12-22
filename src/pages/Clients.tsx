@@ -28,7 +28,9 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { useToast } from '@/hooks/use-toast';
-import { Plus, Pencil, Trash2, Search, Upload, ArrowUpDown, Eye, FileText } from 'lucide-react';
+import { Plus, Pencil, Trash2, Search, Upload, ArrowUpDown, Eye, FileText, List } from 'lucide-react';
+import { getClientInvoiceStatement, ClientInvoiceStatement } from '@/lib/getClientInvoiceStatement';
+import { generateClientStatementPDF } from '@/lib/generateClientStatementPDF';
 import { Badge } from '@/components/ui/badge';
 
 interface Client {
@@ -78,6 +80,57 @@ export default function Clients() {
   const [editingClient, setEditingClient] = useState<Client | null>(null);
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
   const [clientInvoices, setClientInvoices] = useState<ClientInvoice[]>([]);
+  // Invoice statement state
+  const [statementOpen, setStatementOpen] = useState(false);
+  const [statementLoading, setStatementLoading] = useState(false);
+  const [statement, setStatement] = useState<ClientInvoiceStatement | null>(null);
+  const [statementError, setStatementError] = useState<string | null>(null);
+  const [statementStart, setStatementStart] = useState<string | undefined>(undefined);
+  const [statementEnd, setStatementEnd] = useState<string | undefined>(undefined);
+  const { companyRoles, activeCompanyId } = useAuth();
+
+  // Show statement for selected client
+  const openStatement = async () => {
+    if (!selectedClient || !activeCompanyId) return;
+    setStatementOpen(true);
+    setStatementLoading(true);
+    setStatementError(null);
+    try {
+      const data = await getClientInvoiceStatement(selectedClient.id, activeCompanyId, statementStart, statementEnd);
+      setStatement(data);
+    } catch (e: any) {
+      setStatementError(e.message || 'Erreur lors du chargement du relevé');
+    } finally {
+      setStatementLoading(false);
+    }
+  };
+
+  // Auto-load statement when detail dialog opens
+  useEffect(() => {
+    if (detailDialogOpen && selectedClient && activeCompanyId) {
+      openStatement();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [detailDialogOpen, selectedClient, activeCompanyId, statementStart, statementEnd]);
+
+  // Date range change handler
+  const handleStatementDateChange = async (start?: string, end?: string) => {
+    setStatementStart(start);
+    setStatementEnd(end);
+    if (statementOpen && selectedClient && activeCompanyId) {
+      setStatementLoading(true);
+      setStatementError(null);
+      try {
+        const data = await getClientInvoiceStatement(selectedClient.id, activeCompanyId, start, end);
+        setStatement(data);
+      } catch (e: any) {
+        setStatementError(e.message || 'Erreur lors du chargement du relevé');
+      } finally {
+        setStatementLoading(false);
+      }
+    }
+  };
+
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -350,7 +403,7 @@ export default function Clients() {
 
       {/* Detail Dialog */}
       <Dialog open={detailDialogOpen} onOpenChange={setDetailDialogOpen}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Fiche client : {selectedClient?.name}</DialogTitle>
           </DialogHeader>
@@ -396,6 +449,86 @@ export default function Clients() {
                     </TableBody>
                   </Table>
                 )}
+                {/* Statement Section */}
+                <div className="mt-8">
+                  <h4 className="font-semibold mb-2 flex items-center gap-2">
+                    <List className="h-4 w-4" />
+                    Relevé client
+                  </h4>
+                  {/* Date range picker and export */}
+                  <div className="flex flex-wrap gap-2 items-center mb-4">
+                    <Label>Du</Label>
+                    <Input type="date" value={statementStart || ''} onChange={e => handleStatementDateChange(e.target.value || undefined, statementEnd)} />
+                    <Label>au</Label>
+                    <Input type="date" value={statementEnd || ''} onChange={e => handleStatementDateChange(statementStart, e.target.value || undefined)} />
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="ml-auto"
+                      disabled={statementLoading || !statement || !!statementError}
+                      onClick={() => {
+                        if (statement && !statementLoading && !statementError) {
+                          generateClientStatementPDF(
+                            statement,
+                            selectedClient?.name || 'client',
+                            { start: statementStart, end: statementEnd }
+                          );
+                        }
+                      }}
+                    >
+                      {statementLoading ? 'Préparation PDF...' : 'Exporter en PDF'}
+                    </Button>
+                  </div>
+                  {/* Summary cards */}
+                  {statementLoading ? (
+                    <div>Chargement...</div>
+                  ) : statementError ? (
+                    <div className="text-destructive">{statementError}</div>
+                  ) : statement ? (
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                      <Card><CardContent className="pt-6"><div className="text-2xl font-bold">{statement.summary.total_invoiced.toLocaleString('fr-FR')} DT</div><p className="text-sm text-muted-foreground">Total TTC</p></CardContent></Card>
+                      <Card><CardContent className="pt-6"><div className="text-2xl font-bold">{statement.summary.total_paid.toLocaleString('fr-FR')} DT</div><p className="text-sm text-muted-foreground">Total payé</p></CardContent></Card>
+                      <Card><CardContent className="pt-6"><div className="text-2xl font-bold">{statement.summary.total_balance.toLocaleString('fr-FR')} DT</div><p className="text-sm text-muted-foreground">Solde restant</p></CardContent></Card>
+                    </div>
+                  ) : null}
+                  {/* Invoices table */}
+                  {statement && (
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>N° Facture</TableHead>
+                          <TableHead>Date</TableHead>
+                          <TableHead>Échéance</TableHead>
+                          <TableHead>Total HT</TableHead>
+                          <TableHead>TVA</TableHead>
+                          <TableHead>Total TTC</TableHead>
+                          <TableHead>Payé</TableHead>
+                          <TableHead>Solde</TableHead>
+                          <TableHead>Statut</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {statement.invoices.length === 0 ? (
+                          <TableRow><TableCell colSpan={9} className="text-center text-muted-foreground">Aucune facture</TableCell></TableRow>
+                        ) : (
+                          statement.invoices.map(inv => (
+                            <TableRow key={inv.id}>
+                              <TableCell className="font-medium">{inv.invoice_number}</TableCell>
+                              <TableCell>{new Date(inv.issue_date).toLocaleDateString('fr-FR')}</TableCell>
+                              <TableCell>{new Date(inv.due_date).toLocaleDateString('fr-FR')}</TableCell>
+                              <TableCell>{inv.total_ht.toLocaleString('fr-FR')} DT</TableCell>
+                              <TableCell>{inv.total_tva.toLocaleString('fr-FR')} DT</TableCell>
+                              <TableCell>{inv.total_ttc.toLocaleString('fr-FR')} DT</TableCell>
+                              <TableCell>{inv.paid.toLocaleString('fr-FR')} DT</TableCell>
+                              <TableCell>{inv.balance.toLocaleString('fr-FR')} DT</TableCell>
+                              <TableCell><Badge variant="outline">{statusLabels[inv.status] || inv.status}</Badge></TableCell>
+                            </TableRow>
+                          ))
+                        )}
+                      </TableBody>
+                    </Table>
+                  )}
+                </div>
               </div>
             </div>
           )}
@@ -457,8 +590,8 @@ export default function Clients() {
                     <TableCell>{client.city || '-'}</TableCell>
                     <TableCell>
                       <div className="flex gap-1">
-                        <Button variant="ghost" size="icon" onClick={() => openDetailDialog(client)}>
-                          <Eye className="h-4 w-4" />
+                        <Button variant="ghost" size="icon" onClick={() => openDetailDialog(client)} title="Voir fiche client">
+                          <FileText className="h-4 w-4" />
                         </Button>
                         <Button variant="ghost" size="icon" onClick={() => openEditDialog(client)}>
                           <Pencil className="h-4 w-4" />
