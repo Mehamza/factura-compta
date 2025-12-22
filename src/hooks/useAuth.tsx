@@ -280,7 +280,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   /**
    * Start impersonation of a target user (Super Admin only)
-   * This generates a real JWT token for the target user
+   * This generates a magic link to log in as the target user
    */
   const startImpersonation = async (targetUserId: string) => {
     if (globalRole !== 'SUPER_ADMIN') {
@@ -294,7 +294,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // Save the original session BEFORE making any changes
     saveOriginalSession(session, user);
 
-    // Call edge function to validate and get JWT for target user
+    // Call edge function to generate magic link for target user
     const response = await supabase.functions.invoke('impersonate_user', {
       body: { target_user_id: targetUserId, action: 'start' },
     });
@@ -308,14 +308,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       throw new Error(response.data.error);
     }
 
-    const { target_user, access_token, refresh_token, super_admin } = response.data;
+    const { target_user, magic_link, super_admin } = response.data;
 
-    if (!access_token || !refresh_token) {
+    if (!magic_link) {
       clearImpersonationStorage();
-      throw new Error('Failed to generate impersonation token');
+      throw new Error('Failed to generate impersonation link');
     }
 
-    // Save impersonation state
+    // Save impersonation state BEFORE redirecting
     const newImpersonationState: StoredImpersonationState = {
       isImpersonating: true,
       targetUser: target_user,
@@ -324,21 +324,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
     saveImpersonationState(newImpersonationState);
 
-    // Apply the new session with target user's token
-    // This will trigger onAuthStateChange and update the user/session
-    const { error: setSessionError } = await supabase.auth.setSession({
-      access_token,
-      refresh_token,
-    });
-
-    if (setSessionError) {
-      clearImpersonationStorage();
-      throw new Error(`Failed to set impersonation session: ${setSessionError.message}`);
-    }
-
-    // The onAuthStateChange will handle updating user/session/roles
-    // But we need to ensure globalRole stays null during impersonation
-    setGlobalRole(null);
+    // Redirect to the magic link - this will log in as the target user
+    // Supabase will handle the session creation
+    window.location.href = magic_link;
   };
 
   /**

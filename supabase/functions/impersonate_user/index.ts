@@ -1,7 +1,6 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import * as jose from "https://deno.land/x/jose@v4.14.4/index.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -17,16 +16,6 @@ serve(async (req) => {
   try {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    // Support both naming conventions
-    const jwtSecret = Deno.env.get('JWT_SECRET') || Deno.env.get('SUPABASE_JWT_SECRET');
-    
-    if (!jwtSecret) {
-      console.error('JWT_SECRET is not configured');
-      return new Response(
-        JSON.stringify({ error: 'JWT secret not configured' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
     
     // Create admin client for privileged operations
     const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
@@ -122,67 +111,37 @@ serve(async (req) => {
 
     console.log(`Impersonation ${action}: Super Admin ${caller.email} -> User ${targetUser.user.email}`);
 
-    // For 'start' action, generate a real JWT for the target user
-    let accessToken: string | null = null;
-    let refreshToken: string | null = null;
+    // For 'start' action, generate a magic link to get a real session
+    let magicLinkUrl: string | null = null;
 
     if (action === 'start') {
-      // Create JWT payload for the target user
-      const now = Math.floor(Date.now() / 1000);
-      const expiresIn = 3600; // 1 hour
-      
-      const payload = {
-        aud: 'authenticated',
-        exp: now + expiresIn,
-        iat: now,
-        iss: `${supabaseUrl}/auth/v1`,
-        sub: target_user_id,
-        email: targetUser.user.email,
-        phone: targetUser.user.phone || '',
-        app_metadata: {
-          provider: 'email',
-          providers: ['email'],
+      // Generate a magic link for the target user - this creates a real Supabase session
+      const { data: linkData, error: linkError } = await supabaseAdmin.auth.admin.generateLink({
+        type: 'magiclink',
+        email: targetUser.user.email!,
+        options: {
+          redirectTo: `${req.headers.get('origin') || supabaseUrl}/dashboard`,
         },
-        user_metadata: targetUser.user.user_metadata || {},
-        role: 'authenticated',
-        aal: 'aal1',
-        amr: [{ method: 'password', timestamp: now }],
-        session_id: crypto.randomUUID(),
-        is_anonymous: false,
-        // Mark this as an impersonated session for audit purposes
-        impersonated_by: caller.id,
-      };
+      });
 
-      // Sign the JWT
-      const secret = new TextEncoder().encode(jwtSecret);
-      
-      accessToken = await new jose.SignJWT(payload)
-        .setProtectedHeader({ alg: 'HS256', typ: 'JWT' })
-        .sign(secret);
+      if (linkError) {
+        console.error('Error generating magic link:', linkError);
+        return new Response(
+          JSON.stringify({ error: `Failed to generate impersonation link: ${linkError.message}` }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
 
-      // Create a simple refresh token (also JWT-based for impersonation)
-      const refreshPayload = {
-        aud: 'authenticated',
-        exp: now + expiresIn, // Same expiry as access token for impersonation
-        iat: now,
-        iss: `${supabaseUrl}/auth/v1`,
-        sub: target_user_id,
-        session_id: payload.session_id,
-        impersonated_by: caller.id,
-      };
-
-      refreshToken = await new jose.SignJWT(refreshPayload)
-        .setProtectedHeader({ alg: 'HS256', typ: 'JWT' })
-        .sign(secret);
+      // The action_link contains the magic link URL with the token
+      magicLinkUrl = linkData.properties.action_link;
+      console.log('Generated magic link for impersonation');
     }
 
     return new Response(
       JSON.stringify({
         success: true,
         action,
-        access_token: accessToken,
-        refresh_token: refreshToken,
-        expires_in: action === 'start' ? 3600 : null,
+        magic_link: magicLinkUrl,
         target_user: {
           id: targetUser.user.id,
           email: targetUser.user.email,
