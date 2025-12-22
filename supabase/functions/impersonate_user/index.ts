@@ -17,10 +17,11 @@ serve(async (req) => {
   try {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const jwtSecret = Deno.env.get('SUPABASE_JWT_SECRET');
+    // Support both naming conventions
+    const jwtSecret = Deno.env.get('JWT_SECRET') || Deno.env.get('SUPABASE_JWT_SECRET');
     
     if (!jwtSecret) {
-      console.error('SUPABASE_JWT_SECRET is not configured');
+      console.error('JWT_SECRET is not configured');
       return new Response(
         JSON.stringify({ error: 'JWT secret not configured' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
