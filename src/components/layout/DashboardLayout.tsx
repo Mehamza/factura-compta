@@ -217,10 +217,13 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
 
             {/* Footer */}
             <div className="p-2 border-t bg-card">
-              <NavItem 
-                item={{ name: 'Paramètres', href: '/settings', icon: Settings }} 
-                onClick={() => setSidebarOpen(false)} 
-              />
+              {/* Hide Settings for Super Admin - they manage platform, not their own company */}
+              {!isSuperAdmin && (
+                <NavItem 
+                  item={{ name: 'Paramètres', href: '/settings', icon: Settings }} 
+                  onClick={() => setSidebarOpen(false)} 
+                />
+              )}
 
               {!collapsed && (
                 <div className="flex items-center gap-3 my-3 px-3">
