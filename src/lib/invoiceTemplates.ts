@@ -131,7 +131,7 @@ function drawProfessionalHeader(
   return Math.max(y + 10, 55);
 }
 
-// Common client info box matching Relevé Client style with full details
+// Common client info box matching Relevé Client style with full details - Two column layout
 function drawClientInfoBox(
   doc: jsPDF,
   pageWidth: number,
@@ -142,60 +142,55 @@ function drawClientInfoBox(
   
   const boxX = 20;
   const boxWidth = pageWidth - 40;
+  const halfWidth = boxWidth / 2;
   const rowHeight = 7;
   
   doc.setDrawColor(0, 0, 0);
   doc.setLineWidth(0.3);
   doc.setFontSize(9);
   
-  // Row 1: Code Client
-  doc.rect(boxX, y, boxWidth, rowHeight);
+  // Row 1: Code Client | M.Fiscal
+  doc.rect(boxX, y, halfWidth, rowHeight);
+  doc.rect(boxX + halfWidth, y, halfWidth, rowHeight);
   doc.setFont('helvetica', 'bold');
   doc.text('Code Client:', boxX + 3, y + 5);
   doc.setFont('helvetica', 'normal');
   const clientCode = client.id ? client.id.substring(0, 8).toUpperCase() : 'N/A';
-  doc.text(clientCode, boxX + 35, y + 5);
+  doc.text(clientCode, boxX + 30, y + 5);
+  doc.setFont('helvetica', 'bold');
+  doc.text('M.Fiscal:', boxX + halfWidth + 3, y + 5);
+  doc.setFont('helvetica', 'normal');
+  doc.text(client.vat_number || client.siret || '', boxX + halfWidth + 25, y + 5);
   
-  // Row 2: Client name
+  // Row 2: Client name (full width)
   y += rowHeight;
   doc.rect(boxX, y, boxWidth, rowHeight);
   doc.setFont('helvetica', 'bold');
   doc.text('Client:', boxX + 3, y + 5);
   doc.setFont('helvetica', 'normal');
-  doc.text(client.name || '', boxX + 35, y + 5);
+  doc.text(client.name || '', boxX + 22, y + 5);
   
-  // Row 3: M.Fiscal
-  y += rowHeight;
-  doc.rect(boxX, y, boxWidth, rowHeight);
-  doc.setFont('helvetica', 'bold');
-  doc.text('M.Fiscal:', boxX + 3, y + 5);
-  doc.setFont('helvetica', 'normal');
-  doc.text(client.vat_number || client.siret || '', boxX + 35, y + 5);
-  
-  // Row 4: Address
+  // Row 3: Address (full width)
   y += rowHeight;
   doc.rect(boxX, y, boxWidth, rowHeight);
   doc.setFont('helvetica', 'bold');
   doc.text('Adresse:', boxX + 3, y + 5);
   doc.setFont('helvetica', 'normal');
   const fullAddress = [client.address, client.postal_code, client.city].filter(Boolean).join(', ');
-  doc.text(fullAddress || '', boxX + 35, y + 5);
+  doc.text(fullAddress || '', boxX + 25, y + 5);
   
-  // Row 5: Phone
+  // Row 4: Phone | Email
   y += rowHeight;
-  doc.rect(boxX, y, boxWidth, rowHeight);
+  doc.rect(boxX, y, halfWidth, rowHeight);
+  doc.rect(boxX + halfWidth, y, halfWidth, rowHeight);
   doc.setFont('helvetica', 'bold');
-  doc.text('Téléphone:', boxX + 3, y + 5);
+  doc.text('Tél:', boxX + 3, y + 5);
   doc.setFont('helvetica', 'normal');
-  doc.text(client.phone || '', boxX + 35, y + 5);
-  
-  // Row 6: Email
-  y += rowHeight;
-  doc.rect(boxX, y, boxWidth, rowHeight);
+  doc.text(client.phone || '', boxX + 15, y + 5);
   doc.setFont('helvetica', 'bold');
-  doc.text('Email:', boxX + 3, y + 5);
+  doc.text('Email:', boxX + halfWidth + 3, y + 5);
   doc.setFont('helvetica', 'normal');
-  doc.text(client.email || '', boxX + 35, y + 5);
+  doc.text(client.email || '', boxX + halfWidth + 20, y + 5);
   
   return y + rowHeight + 10;
 }
