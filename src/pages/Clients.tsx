@@ -31,6 +31,18 @@ import { useToast } from '@/hooks/use-toast';
 import { Plus, Pencil, Trash2, Search, Upload, ArrowUpDown, Eye, FileText, List } from 'lucide-react';
 import { getClientInvoiceStatement, ClientInvoiceStatement } from '@/lib/getClientInvoiceStatement';
 import { generateClientStatementPDF } from '@/lib/generateClientStatementPDF';
+
+interface CompanySettings {
+  company_name?: string | null;
+  company_address?: string | null;
+  company_city?: string | null;
+  company_postal_code?: string | null;
+  company_phone?: string | null;
+  company_email?: string | null;
+  company_tax_id?: string | null;
+  company_logo_url?: string | null;
+  activity?: string | null;
+}
 import { Badge } from '@/components/ui/badge';
 
 interface Client {
@@ -87,7 +99,22 @@ export default function Clients() {
   const [statementError, setStatementError] = useState<string | null>(null);
   const [statementStart, setStatementStart] = useState<string | undefined>(undefined);
   const [statementEnd, setStatementEnd] = useState<string | undefined>(undefined);
+  const [companySettings, setCompanySettings] = useState<CompanySettings | null>(null);
   const { companyRoles, activeCompanyId } = useAuth();
+
+  // Fetch company settings
+  useEffect(() => {
+    const fetchCompanySettings = async () => {
+      if (!user) return;
+      const { data } = await supabase
+        .from('company_settings')
+        .select('company_name, company_address, company_city, company_postal_code, company_phone, company_email, company_tax_id, company_logo_url, activity')
+        .eq('user_id', user.id)
+        .maybeSingle();
+      if (data) setCompanySettings(data);
+    };
+    fetchCompanySettings();
+  }, [user]);
 
   // Show statement for selected client
   const openStatement = async () => {
@@ -467,10 +494,15 @@ export default function Clients() {
                       className="ml-auto"
                       disabled={statementLoading || !statement || !!statementError}
                       onClick={() => {
-                        if (statement && !statementLoading && !statementError) {
+                        if (statement && !statementLoading && !statementError && selectedClient) {
                           generateClientStatementPDF(
                             statement,
-                            selectedClient?.name || 'client',
+                            {
+                              id: selectedClient.id,
+                              name: selectedClient.name,
+                              vat_number: selectedClient.vat_number,
+                            },
+                            companySettings || {},
                             { start: statementStart, end: statementEnd }
                           );
                         }

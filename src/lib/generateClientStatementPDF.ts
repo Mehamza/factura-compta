@@ -1,102 +1,211 @@
 import { jsPDF } from 'jspdf';
 import { ClientInvoiceStatement } from './getClientInvoiceStatement';
 
-const formatNumber = (n: number) => n.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const formatNumber = (n: number) => n.toLocaleString('fr-FR', { minimumFractionDigits: 3, maximumFractionDigits: 3 });
 const formatDate = (d: string) => new Date(d).toLocaleDateString('fr-FR');
 
-const STATUS_LABELS: Record<string, string> = {
-  draft: 'Brouillon',
-  sent: 'Envoyée',
-  paid: 'Payée',
-  overdue: 'En retard',
-  cancelled: 'Annulée',
-};
+interface ClientInfo {
+  id: string;
+  name: string;
+  vat_number?: string | null;
+}
 
-export function generateClientStatementPDF(
+interface CompanySettings {
+  company_name?: string | null;
+  company_address?: string | null;
+  company_city?: string | null;
+  company_postal_code?: string | null;
+  company_phone?: string | null;
+  company_email?: string | null;
+  company_tax_id?: string | null;
+  company_logo_url?: string | null;
+  activity?: string | null;
+}
+
+export async function generateClientStatementPDF(
   statement: ClientInvoiceStatement,
-  clientName: string,
+  client: ClientInfo,
+  companySettings: CompanySettings,
   dateRange?: { start?: string; end?: string }
 ) {
   const doc = new jsPDF();
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
-  const margin = 15;
+  const margin = 10;
   const contentWidth = pageWidth - margin * 2;
-  let y = 20;
+  let y = 15;
+  let pageNumber = 1;
+  let totalPages = 1; // Will be updated at the end
 
   const checkPageBreak = (neededSpace: number) => {
-    if (y + neededSpace > pageHeight - 20) {
+    if (y + neededSpace > pageHeight - 25) {
       doc.addPage();
-      y = 20;
+      pageNumber++;
+      y = 15;
       return true;
     }
     return false;
   };
 
-  // Title
-  doc.setFontSize(18);
-  doc.setFont('helvetica', 'bold');
-  doc.text('RELEVÉ CLIENT', pageWidth / 2, y, { align: 'center' });
-  y += 12;
+  // Helper to draw page footer
+  const drawFooter = (pageNum: number) => {
+    doc.setFontSize(8);
+    doc.setTextColor(100, 100, 100);
+    doc.text(`${pageNum}`, pageWidth - margin - 5, pageHeight - 10);
+  };
 
-  // Client info and date range
-  doc.setFontSize(11);
+  // ==================== HEADER SECTION ====================
+  // Date at top right
+  doc.setFontSize(9);
+  doc.setTextColor(0, 0, 0);
+  doc.text(`Le ${new Date().toLocaleDateString('fr-FR')}`, pageWidth - margin, y, { align: 'right' });
+  
+  // Company Info (left side)
+  y = 20;
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(12);
+  doc.text(companySettings.company_name || 'Entreprise', margin, y);
+  
+  y += 5;
   doc.setFont('helvetica', 'normal');
-  doc.text(`Client : ${clientName}`, margin, y);
-  if (dateRange?.start || dateRange?.end) {
-    y += 6;
-    doc.text(`Période : ${dateRange.start || '...'} au ${dateRange.end || '...'}`, margin, y);
+  doc.setFontSize(9);
+  if (companySettings.activity) {
+    doc.text(companySettings.activity, margin, y);
+    y += 4;
   }
+  if (companySettings.company_address) {
+    doc.text(companySettings.company_address, margin, y);
+    y += 4;
+  }
+  if (companySettings.company_city) {
+    doc.text(`${companySettings.company_postal_code || ''} ${companySettings.company_city}`.trim(), margin, y);
+    y += 4;
+  }
+  if (companySettings.company_phone) {
+    doc.text(`GSM: ${companySettings.company_phone}`, margin, y);
+    y += 4;
+  }
+  if (companySettings.company_tax_id) {
+    doc.text(`M.F: ${companySettings.company_tax_id}`, margin, y);
+    y += 4;
+  }
+
+  // Title on the right side
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(16);
+  doc.text('RELEVÉ DES VENTES', pageWidth - margin, 30, { align: 'right' });
+  
+  y = Math.max(y, 50) + 5;
+
+  // ==================== PERIOD BOX ====================
+  const periodText = `Periode: ${dateRange?.start ? formatDate(dateRange.start) : '...'} - ${dateRange?.end ? formatDate(dateRange.end) : '...'}`;
+  doc.setDrawColor(0, 0, 0);
+  doc.setLineWidth(0.3);
+  doc.rect(margin, y, contentWidth, 8);
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(10);
+  doc.text(periodText, margin + 3, y + 5.5);
+  y += 14;
+
+  // ==================== CLIENT INFO BOX ====================
+  const clientBoxHeight = 24;
+  doc.setDrawColor(0, 0, 0);
+  doc.setLineWidth(0.3);
+  doc.rect(margin, y, contentWidth, clientBoxHeight);
+  
+  // Client info rows
+  doc.setFontSize(10);
+  const clientRowHeight = 8;
+  
+  // Row 1: Code Client
+  doc.line(margin, y + clientRowHeight, margin + contentWidth, y + clientRowHeight);
+  doc.text('Code Client:', margin + 3, y + 5.5);
+  doc.text(client.id.substring(0, 8).toUpperCase(), margin + 35, y + 5.5);
+  
+  // Row 2: Client
+  doc.line(margin, y + clientRowHeight * 2, margin + contentWidth, y + clientRowHeight * 2);
+  doc.text('Client:', margin + 3, y + clientRowHeight + 5.5);
+  doc.setFont('helvetica', 'bold');
+  doc.text(client.name, margin + 35, y + clientRowHeight + 5.5);
+  doc.setFont('helvetica', 'normal');
+  
+  // Row 3: M.Fiscal
+  doc.text('M.Fiscal:', margin + 3, y + clientRowHeight * 2 + 5.5);
+  doc.text(client.vat_number || '-', margin + 35, y + clientRowHeight * 2 + 5.5);
+  
+  y += clientBoxHeight + 8;
+
+  // ==================== TABLE HEADER ====================
+  const colWidths = {
+    ref: 25,
+    designation: 80,
+    qty: 20,
+    unitPrice: 30,
+    total: 35
+  };
+  
+  // Table header background
+  doc.setFillColor(230, 230, 230);
+  doc.rect(margin, y, contentWidth, 8, 'F');
+  doc.setDrawColor(0, 0, 0);
+  doc.rect(margin, y, contentWidth, 8);
+  
+  // Column headers
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(9);
+  let colX = margin;
+  
+  doc.text('REF', colX + 2, y + 5.5);
+  colX += colWidths.ref;
+  doc.line(colX, y, colX, y + 8);
+  
+  doc.text('DESIGNATION', colX + 2, y + 5.5);
+  colX += colWidths.designation;
+  doc.line(colX, y, colX, y + 8);
+  
+  doc.text('QTE', colX + 2, y + 5.5);
+  colX += colWidths.qty;
+  doc.line(colX, y, colX, y + 8);
+  
+  doc.text('P.UTC', colX + 2, y + 5.5);
+  colX += colWidths.unitPrice;
+  doc.line(colX, y, colX, y + 8);
+  
+  doc.text('TOTAL', colX + 2, y + 5.5);
+  
   y += 10;
 
-  // Summary box
-  doc.setFillColor(245, 245, 245);
-  doc.roundedRect(margin, y, contentWidth, 28, 2, 2, 'F');
-  y += 8;
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(10);
-  doc.text('RÉSUMÉ', margin + 5, y);
-  y += 7;
+  // ==================== INVOICE DATA ROWS ====================
   doc.setFont('helvetica', 'normal');
-  doc.text(`Total TTC : ${formatNumber(statement.summary.total_invoiced)} DT`, margin + 5, y);
-  doc.text(`Total payé : ${formatNumber(statement.summary.total_paid)} DT`, margin + 70, y);
-  doc.text(`Solde restant : ${formatNumber(statement.summary.total_balance)} DT`, margin + 135, y);
-  y += 18;
+  doc.setFontSize(9);
 
-  // Invoices with items
-  statement.invoices.forEach((inv, index) => {
+  let grandTotal = 0;
+
+  statement.invoices.forEach((inv) => {
     // Calculate space needed for this invoice
-    const itemsHeight = inv.items.length * 6 + 30; // items + header + totals
-    checkPageBreak(itemsHeight + 20);
+    const itemsCount = Math.max(inv.items.length, 1);
+    const neededSpace = 8 + (itemsCount * 6) + 10;
+    checkPageBreak(neededSpace);
 
-    // Invoice header
-    doc.setFillColor(70, 130, 180); // Steel blue
-    doc.setTextColor(255, 255, 255);
-    doc.roundedRect(margin, y, contentWidth, 8, 1, 1, 'F');
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(10);
-    doc.text(`FACTURE ${inv.invoice_number}`, margin + 3, y + 5.5);
-    doc.text(`${formatDate(inv.issue_date)}`, margin + 80, y + 5.5);
-    doc.text(`Échéance: ${formatDate(inv.due_date)}`, margin + 115, y + 5.5);
-    doc.text(STATUS_LABELS[inv.status] || inv.status, margin + contentWidth - 25, y + 5.5);
-    y += 12;
-
-    // Items table header
-    doc.setTextColor(0, 0, 0);
-    doc.setFillColor(240, 240, 240);
+    // Invoice header row (darker background)
+    doc.setFillColor(200, 200, 200);
     doc.rect(margin, y, contentWidth, 7, 'F');
+    doc.setDrawColor(0, 0, 0);
+    doc.rect(margin, y, contentWidth, 7);
+    
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(9);
-    doc.text('Description', margin + 3, y + 5);
-    doc.text('Qté', margin + 100, y + 5);
-    doc.text('P.U. (DT)', margin + 120, y + 5);
-    doc.text('Total (DT)', margin + 155, y + 5);
-    y += 9;
-
-    // Items rows
+    doc.text(`${inv.invoice_number}`, margin + 2, y + 5);
+    doc.text(`DATE: ${formatDate(inv.issue_date)}`, margin + 50, y + 5);
+    
     doc.setFont('helvetica', 'normal');
-    doc.setFontSize(9);
+    y += 8;
+
+    // Invoice items
     if (inv.items.length === 0) {
+      // Draw empty row
+      doc.setDrawColor(180, 180, 180);
+      doc.rect(margin, y, contentWidth, 6);
       doc.setTextColor(128, 128, 128);
       doc.text('Aucun article', margin + 3, y + 4);
       doc.setTextColor(0, 0, 0);
@@ -104,49 +213,88 @@ export function generateClientStatementPDF(
     } else {
       inv.items.forEach((item) => {
         checkPageBreak(8);
-        // Truncate description if too long
-        const desc = item.description.length > 45 ? item.description.substring(0, 42) + '...' : item.description;
-        doc.text(desc, margin + 3, y + 4);
-        doc.text(item.quantity.toString(), margin + 100, y + 4);
-        doc.text(formatNumber(item.unit_price), margin + 120, y + 4);
-        doc.text(formatNumber(item.total), margin + 155, y + 4);
+        
+        // Draw row borders
+        doc.setDrawColor(180, 180, 180);
+        doc.rect(margin, y, contentWidth, 6);
+        
+        // Draw column separators
+        let itemColX = margin + colWidths.ref;
+        doc.line(itemColX, y, itemColX, y + 6);
+        itemColX += colWidths.designation;
+        doc.line(itemColX, y, itemColX, y + 6);
+        itemColX += colWidths.qty;
+        doc.line(itemColX, y, itemColX, y + 6);
+        itemColX += colWidths.unitPrice;
+        doc.line(itemColX, y, itemColX, y + 6);
+        
+        // Item data
+        doc.setFontSize(8);
+        colX = margin;
+        
+        // REF (use first 10 chars of description as ref or empty)
+        doc.text('', colX + 2, y + 4);
+        colX += colWidths.ref;
+        
+        // DESIGNATION (truncate if too long)
+        const desc = item.description.length > 40 ? item.description.substring(0, 37) + '...' : item.description;
+        doc.text(desc, colX + 2, y + 4);
+        colX += colWidths.designation;
+        
+        // QTE
+        doc.text(item.quantity.toString(), colX + 2, y + 4);
+        colX += colWidths.qty;
+        
+        // P.UTC (Unit Price)
+        doc.text(formatNumber(item.unit_price), colX + 2, y + 4);
+        colX += colWidths.unitPrice;
+        
+        // TOTAL
+        doc.text(formatNumber(item.total), colX + 2, y + 4);
+        
         y += 6;
       });
     }
 
-    // Invoice totals
-    y += 2;
-    doc.setDrawColor(200, 200, 200);
-    doc.line(margin + 90, y, margin + contentWidth, y);
-    y += 5;
-    doc.setFontSize(9);
-    doc.setFont('helvetica', 'normal');
-    doc.text(`Total HT: ${formatNumber(inv.total_ht)} DT`, margin + 100, y);
-    doc.text(`TVA: ${formatNumber(inv.total_tva)} DT`, margin + 140, y);
-    y += 5;
+    // Invoice total row
     doc.setFont('helvetica', 'bold');
-    doc.text(`Total TTC: ${formatNumber(inv.total_ttc)} DT`, margin + 100, y);
-    y += 5;
+    doc.setFontSize(9);
+    const totalText = `TOTAL: ${formatNumber(inv.total_ttc)}`;
+    doc.text(totalText, margin + contentWidth - 5, y + 3, { align: 'right' });
+    grandTotal += inv.total_ttc;
+    y += 8;
+    
     doc.setFont('helvetica', 'normal');
-    doc.setTextColor(inv.balance > 0 ? 180 : 0, inv.balance > 0 ? 0 : 128, 0);
-    doc.text(`Payé: ${formatNumber(inv.paid)} DT  |  Solde: ${formatNumber(inv.balance)} DT`, margin + 100, y);
-    doc.setTextColor(0, 0, 0);
-    y += 12;
-
-    // Separator between invoices
-    if (index < statement.invoices.length - 1) {
-      doc.setDrawColor(220, 220, 220);
-      doc.setLineDashPattern([2, 2], 0);
-      doc.line(margin, y, margin + contentWidth, y);
-      doc.setLineDashPattern([], 0);
-      y += 8;
-    }
   });
 
-  // Footer
-  doc.setFontSize(8);
-  doc.setTextColor(128, 128, 128);
-  doc.text(`Document généré le ${new Date().toLocaleDateString('fr-FR')}`, pageWidth / 2, pageHeight - 10, { align: 'center' });
+  // ==================== GRAND TOTAL ====================
+  checkPageBreak(15);
+  y += 5;
+  doc.setDrawColor(0, 0, 0);
+  doc.setLineWidth(0.5);
+  doc.line(margin + contentWidth - 60, y, margin + contentWidth, y);
+  y += 6;
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(11);
+  doc.text(`TOTAL GÉNÉRAL: ${formatNumber(grandTotal)} DT`, margin + contentWidth, y, { align: 'right' });
 
-  doc.save(`releve-client-${clientName.replace(/\s+/g, '_')}.pdf`);
+  // ==================== FOOTER ON ALL PAGES ====================
+  const numPages = doc.getNumberOfPages();
+  for (let i = 1; i <= numPages; i++) {
+    doc.setPage(i);
+    drawFooter(i);
+    
+    // Company footer info
+    doc.setFontSize(7);
+    doc.setTextColor(100, 100, 100);
+    const footerY = pageHeight - 8;
+    const footerText = [
+      companySettings.company_name,
+      companySettings.company_address,
+      companySettings.company_email
+    ].filter(Boolean).join(' - ');
+    doc.text(footerText, pageWidth / 2, footerY, { align: 'center' });
+  }
+
+  doc.save(`releve-ventes-${client.name.replace(/\s+/g, '_')}.pdf`);
 }
