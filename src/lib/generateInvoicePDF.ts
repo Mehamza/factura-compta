@@ -22,6 +22,7 @@ interface Invoice {
     address?: string;
     city?: string;
     postal_code?: string;
+    phone?: string;
     email?: string;
     siret?: string;
     vat_number?: string;
@@ -125,31 +126,56 @@ export function generateInvoicePDF(invoice: Invoice, items: InvoiceItem[]): void
   
   // Client info box
   if (invoice.client) {
-    const rowHeight = 8;
+    const rowHeight = 7;
     
     // Row 1: Code Client
     doc.rect(boxX, y, boxWidth, rowHeight);
     doc.setFont('helvetica', 'bold');
-    doc.text('Code Client:', boxX + 3, y + 5.5);
+    doc.text('Code Client:', boxX + 3, y + 5);
     doc.setFont('helvetica', 'normal');
     const clientCode = invoice.client.id ? invoice.client.id.substring(0, 8).toUpperCase() : 'N/A';
-    doc.text(clientCode, boxX + 35, y + 5.5);
+    doc.text(clientCode, boxX + 35, y + 5);
     
     // Row 2: Client name
     y += rowHeight;
     doc.rect(boxX, y, boxWidth, rowHeight);
     doc.setFont('helvetica', 'bold');
-    doc.text('Client:', boxX + 3, y + 5.5);
+    doc.text('Client:', boxX + 3, y + 5);
     doc.setFont('helvetica', 'normal');
-    doc.text(invoice.client.name, boxX + 35, y + 5.5);
+    doc.text(invoice.client.name, boxX + 35, y + 5);
     
     // Row 3: M.Fiscal
     y += rowHeight;
     doc.rect(boxX, y, boxWidth, rowHeight);
     doc.setFont('helvetica', 'bold');
-    doc.text('M.Fiscal:', boxX + 3, y + 5.5);
+    doc.text('M.Fiscal:', boxX + 3, y + 5);
     doc.setFont('helvetica', 'normal');
-    doc.text(invoice.client.vat_number || invoice.client.siret || '', boxX + 35, y + 5.5);
+    doc.text(invoice.client.vat_number || invoice.client.siret || '', boxX + 35, y + 5);
+    
+    // Row 4: Address
+    y += rowHeight;
+    doc.rect(boxX, y, boxWidth, rowHeight);
+    doc.setFont('helvetica', 'bold');
+    doc.text('Adresse:', boxX + 3, y + 5);
+    doc.setFont('helvetica', 'normal');
+    const fullAddress = [invoice.client.address, invoice.client.postal_code, invoice.client.city].filter(Boolean).join(', ');
+    doc.text(fullAddress || '', boxX + 35, y + 5);
+    
+    // Row 5: Phone
+    y += rowHeight;
+    doc.rect(boxX, y, boxWidth, rowHeight);
+    doc.setFont('helvetica', 'bold');
+    doc.text('Téléphone:', boxX + 3, y + 5);
+    doc.setFont('helvetica', 'normal');
+    doc.text(invoice.client.phone || '', boxX + 35, y + 5);
+    
+    // Row 6: Email
+    y += rowHeight;
+    doc.rect(boxX, y, boxWidth, rowHeight);
+    doc.setFont('helvetica', 'bold');
+    doc.text('Email:', boxX + 3, y + 5);
+    doc.setFont('helvetica', 'normal');
+    doc.text(invoice.client.email || '', boxX + 35, y + 5);
     
     y += rowHeight + 10;
   }
