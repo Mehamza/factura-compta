@@ -91,12 +91,12 @@ export default function Clients() {
 
   // Show statement for selected client
   const openStatement = async () => {
-    if (!selectedClient || !activeCompanyId) return;
+    if (!selectedClient || !user) return;
     setStatementOpen(true);
     setStatementLoading(true);
     setStatementError(null);
     try {
-      const data = await getClientInvoiceStatement(selectedClient.id, activeCompanyId, statementStart, statementEnd);
+      const data = await getClientInvoiceStatement(selectedClient.id, user.id, statementStart, statementEnd);
       setStatement(data);
     } catch (e: any) {
       setStatementError(e.message || 'Erreur lors du chargement du relevé');
@@ -107,21 +107,21 @@ export default function Clients() {
 
   // Auto-load statement when detail dialog opens
   useEffect(() => {
-    if (detailDialogOpen && selectedClient && activeCompanyId) {
+    if (detailDialogOpen && selectedClient && user) {
       openStatement();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [detailDialogOpen, selectedClient, activeCompanyId, statementStart, statementEnd]);
+  }, [detailDialogOpen, selectedClient, user, statementStart, statementEnd]);
 
   // Date range change handler
   const handleStatementDateChange = async (start?: string, end?: string) => {
     setStatementStart(start);
     setStatementEnd(end);
-    if (statementOpen && selectedClient && activeCompanyId) {
+    if (statementOpen && selectedClient && user) {
       setStatementLoading(true);
       setStatementError(null);
       try {
-        const data = await getClientInvoiceStatement(selectedClient.id, activeCompanyId, start, end);
+        const data = await getClientInvoiceStatement(selectedClient.id, user.id, start, end);
         setStatement(data);
       } catch (e: any) {
         setStatementError(e.message || 'Erreur lors du chargement du relevé');
