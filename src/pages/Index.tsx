@@ -4,14 +4,16 @@ import { useAuth } from '@/hooks/useAuth';
 import Dashboard from '@/pages/Dashboard';
 
 const Index = () => {
-  const { user, loading } = useAuth();
+  const { user, loading, globalRole } = useAuth();
   const navigate = useNavigate();
 
   useEffect(() => {
     if (!loading && !user) {
       navigate('/auth');
+    } else if (!loading && user && globalRole === 'SUPER_ADMIN') {
+      navigate('/hamzafacturation', { replace: true });
     }
-  }, [user, loading, navigate]);
+  }, [user, loading, globalRole, navigate]);
 
   if (loading) {
     return (
@@ -21,7 +23,7 @@ const Index = () => {
     );
   }
 
-  if (!user) {
+  if (!user || globalRole === 'SUPER_ADMIN') {
     return null;
   }
 

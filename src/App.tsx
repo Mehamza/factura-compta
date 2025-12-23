@@ -26,6 +26,7 @@ import Reports from "./pages/Reports";
 import StockProducts from "./pages/StockProducts";
 import StockMovements from "./pages/StockMovements";
 import AdminIndex from "./pages/AdminIndex";
+// import SuperAdminDashboard from "./pages/SuperAdminDashboard";
 import AdminUsers from "./pages/AdminUsers";
 import Pricing from "./pages/Pricing";
 import AdminPlans from "./pages/AdminPlans";

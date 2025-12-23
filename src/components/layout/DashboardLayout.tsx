@@ -1,4 +1,5 @@
 import { ReactNode, useState } from 'react';
+import SuperAdminDashboard from '@/pages/SuperAdminDashboard';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
@@ -54,8 +55,9 @@ const adminNavigation = [
 ];
 
 export function DashboardLayout({ children }: { children: ReactNode }) {
-  const { user, role, globalRole, signOut, isImpersonating, impersonatedUser, stopImpersonation } = useAuth();
+  const { user, profile, role, globalRole, signOut, isImpersonating, impersonatedUser, stopImpersonation } = useAuth();
   const isSuperAdmin = globalRole === 'SUPER_ADMIN';
+  console.log('user', user);
   const location = useLocation();
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -175,41 +177,40 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
 
             {/* Navigation */}
             <nav className="flex-1 flex flex-col gap-1 p-2 overflow-y-auto">
-              {navigation.map((item) => (
-                <NavItem key={item.name} item={item} onClick={() => setSidebarOpen(false)} />
-              ))}
-
-              {/* Stock Section */}
-              <div className="my-2 border-t" />
-              {!collapsed && (
-                <p className="px-3 py-1 text-xs font-semibold text-muted-foreground uppercase">Stock</p>
-              )}
-              {stockNavigation.map((item) => (
-                <NavItem key={item.name} item={item} onClick={() => setSidebarOpen(false)} />
-              ))}
-
-              {/*super admin section*/}
-              {isSuperAdmin && (
+              {isSuperAdmin ? (
                 <>
                   <div className="my-2 border-t" />
-                   {!collapsed && (
+                  {!collapsed && (
                     <p className="px-3 py-1 text-xs font-semibold text-muted-foreground uppercase">Administration</p>
                   )}
                   {superAdminNavigation.map((item) => (
                     <NavItem key={item.name} item={item} onClick={() => setSidebarOpen(false)} />
                   ))}
                 </>
-              )}
-              {/* Admin Section */}
-              {role === 'admin' && !isSuperAdmin && (
+              ) : (
                 <>
-                  <div className="my-2 border-t" />
-                  {!collapsed && (
-                    <p className="px-3 py-1 text-xs font-semibold text-muted-foreground uppercase">Administration</p>
-                  )}
-                  {adminNavigation.map((item) => (
+                  {navigation.map((item) => (
                     <NavItem key={item.name} item={item} onClick={() => setSidebarOpen(false)} />
                   ))}
+                  <div className="my-2 border-t" />
+                  {!collapsed && (
+                    <p className="px-3 py-1 text-xs font-semibold text-muted-foreground uppercase">Stock</p>
+                  )}
+                  {stockNavigation.map((item) => (
+                    <NavItem key={item.name} item={item} onClick={() => setSidebarOpen(false)} />
+                  ))}
+                  {/* Admin Section */}
+                  {role === 'admin' && (
+                    <>
+                      <div className="my-2 border-t" />
+                      {!collapsed && (
+                        <p className="px-3 py-1 text-xs font-semibold text-muted-foreground uppercase">Administration</p>
+                      )}
+                      {adminNavigation.map((item) => (
+                        <NavItem key={item.name} item={item} onClick={() => setSidebarOpen(false)} />
+                      ))}
+                    </>
+                  )}
                 </>
               )}
             </nav>
@@ -225,11 +226,12 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
                 <div className="flex items-center gap-3 my-3 px-3">
                   <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
                     <span className="text-sm font-medium text-primary">
-                      {user?.email?.[0].toUpperCase()}
+                      {(profile?.full_name || user?.user_metadata?.full_name || user?.email || '').toString().toUpperCase()
+                      }
                     </span>
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium truncate">{user?.email}</p>
+                    <p className="text-sm font-medium truncate">{profile?.full_name || user?.user_metadata?.full_name || user?.email}</p>
                   </div>
                 </div>
               )}
@@ -291,7 +293,9 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
             <span className="font-semibold">Facture Pro</span>
           </header>
 
-          <main className="p-6">{children}</main>
+          <main className="p-6">
+            {children}
+          </main>
         </div>
       </div>
     </TooltipProvider>

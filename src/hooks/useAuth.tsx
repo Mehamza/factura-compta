@@ -36,6 +36,7 @@ interface AuthContextType {
   user: User | null;
   session: Session | null;
   role: AppRole | null;
+  profile: { full_name?: string | null } | null;
   globalRole: GlobalRole | null;
   companyRoles: CompanyRoleEntry[];
   activeCompanyId: string | null;
@@ -57,6 +58,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
+  const [profile, setProfile] = useState<{ full_name?: string | null } | null>(null);
   const [role, setRole] = useState<AppRole | null>(null);
   const [globalRole, setGlobalRole] = useState<GlobalRole | null>(null);
   const [companyRoles, setCompanyRoles] = useState<CompanyRoleEntry[]>([]);
@@ -222,6 +224,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (nextSession?.user) {
         loadActiveCompanyFromStorage();
         await fetchUserRoles(nextSession.user.id);
+        // Fetch profile row for the current user and cache it in context
+        try {
+          const { data: profileData } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('user_id', nextSession.user.id)
+            .maybeSingle();
+          setProfile(profileData ?? null);
+        } catch (e) {
+          console.error('Error loading profile for user:', e);
+          setProfile(null);
+        }
       } else {
         setRole(null);
         setGlobalRole(null);
@@ -230,6 +244,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // Clear impersonation on logout
         clearImpersonationStorage();
         setImpersonationState(null);
+        setProfile(null);
       }
 
       setLoading(false);
@@ -414,6 +429,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         : null,
       startImpersonation,
       stopImpersonation,
+      profile,
     }}>
       {children}
     </AuthContext.Provider>
