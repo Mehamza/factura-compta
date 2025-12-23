@@ -17,6 +17,7 @@ interface Invoice {
   total: number;
   notes?: string;
   client?: {
+    id?: string;
     name: string;
     address?: string;
     city?: string;
@@ -25,82 +26,177 @@ interface Invoice {
     siret?: string;
     vat_number?: string;
   };
+  company?: {
+    name?: string;
+    address?: string;
+    city?: string;
+    postal_code?: string;
+    phone?: string;
+    email?: string;
+    tax_id?: string;
+    trade_register?: string;
+    activity?: string;
+  };
 }
 
 export function generateInvoicePDF(invoice: Invoice, items: InvoiceItem[]): void {
   const doc = new jsPDF();
   const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
   
-  // Header
-  doc.setFontSize(24);
-  doc.setFont('helvetica', 'bold');
-  doc.text('FACTURE', 20, 30);
+  let y = 15;
   
-  doc.setFontSize(12);
-  doc.setFont('helvetica', 'normal');
-  doc.text(`N° ${invoice.invoice_number}`, 20, 40);
-  
-  // Dates
+  // Date at top right
   doc.setFontSize(10);
-  doc.text(`Date d'émission: ${new Date(invoice.issue_date).toLocaleDateString('fr-FR')}`, pageWidth - 80, 30);
-  doc.text(`Date d'échéance: ${new Date(invoice.due_date).toLocaleDateString('fr-FR')}`, pageWidth - 80, 38);
+  doc.setFont('helvetica', 'normal');
+  const currentDate = new Date().toLocaleDateString('fr-FR');
+  doc.text(`Le ${currentDate}`, pageWidth - 20, y, { align: 'right' });
   
-  // Client info
-  if (invoice.client) {
+  y = 20;
+  
+  // Company info on left
+  if (invoice.company) {
     doc.setFontSize(12);
     doc.setFont('helvetica', 'bold');
-    doc.text('Client:', 20, 60);
+    doc.text(invoice.company.name || 'Votre Société', 20, y);
+    y += 6;
+    
+    doc.setFontSize(9);
     doc.setFont('helvetica', 'normal');
-    doc.setFontSize(10);
-    let y = 68;
-    doc.text(invoice.client.name, 20, y);
-    if (invoice.client.address) { y += 6; doc.text(invoice.client.address, 20, y); }
-    if (invoice.client.postal_code || invoice.client.city) {
-      y += 6;
-      doc.text(`${invoice.client.postal_code || ''} ${invoice.client.city || ''}`.trim(), 20, y);
+    
+    if (invoice.company.activity) {
+      doc.text(invoice.company.activity, 20, y);
+      y += 5;
     }
-    if (invoice.client.email) { y += 6; doc.text(invoice.client.email, 20, y); }
-    if (invoice.client.siret) { y += 6; doc.text(`SIRET: ${invoice.client.siret}`, 20, y); }
-    if (invoice.client.vat_number) { y += 6; doc.text(`TVA: ${invoice.client.vat_number}`, 20, y); }
+    if (invoice.company.address) {
+      doc.text(invoice.company.address, 20, y);
+      y += 5;
+    }
+    if (invoice.company.postal_code || invoice.company.city) {
+      doc.text(`${invoice.company.postal_code || ''} ${invoice.company.city || ''}`.trim(), 20, y);
+      y += 5;
+    }
+    if (invoice.company.phone) {
+      doc.text(`GSM: ${invoice.company.phone}`, 20, y);
+      y += 5;
+    }
+    if (invoice.company.tax_id) {
+      doc.text(`M.F: ${invoice.company.tax_id}`, 20, y);
+      y += 5;
+    }
+    if (invoice.company.trade_register) {
+      doc.text(`RC: ${invoice.company.trade_register}`, 20, y);
+      y += 5;
+    }
+  }
+  
+  // Title on right
+  doc.setFontSize(16);
+  doc.setFont('helvetica', 'bold');
+  doc.text('FACTURE', pageWidth - 20, 30, { align: 'right' });
+  
+  y = Math.max(y + 10, 55);
+  
+  // Invoice info box
+  const boxX = 20;
+  const boxWidth = pageWidth - 40;
+  
+  doc.setDrawColor(0, 0, 0);
+  doc.setLineWidth(0.3);
+  doc.rect(boxX, y, boxWidth, 20);
+  
+  doc.setFontSize(9);
+  doc.setFont('helvetica', 'bold');
+  doc.text('N° Facture:', boxX + 3, y + 7);
+  doc.setFont('helvetica', 'normal');
+  doc.text(invoice.invoice_number, boxX + 30, y + 7);
+  
+  doc.setFont('helvetica', 'bold');
+  doc.text('Date d\'émission:', boxX + 70, y + 7);
+  doc.setFont('helvetica', 'normal');
+  doc.text(new Date(invoice.issue_date).toLocaleDateString('fr-FR'), boxX + 105, y + 7);
+  
+  doc.setFont('helvetica', 'bold');
+  doc.text('Date d\'échéance:', boxX + 3, y + 14);
+  doc.setFont('helvetica', 'normal');
+  doc.text(new Date(invoice.due_date).toLocaleDateString('fr-FR'), boxX + 38, y + 14);
+  
+  y += 30;
+  
+  // Client info box
+  if (invoice.client) {
+    const rowHeight = 8;
+    
+    // Row 1: Code Client
+    doc.rect(boxX, y, boxWidth, rowHeight);
+    doc.setFont('helvetica', 'bold');
+    doc.text('Code Client:', boxX + 3, y + 5.5);
+    doc.setFont('helvetica', 'normal');
+    const clientCode = invoice.client.id ? invoice.client.id.substring(0, 8).toUpperCase() : 'N/A';
+    doc.text(clientCode, boxX + 35, y + 5.5);
+    
+    // Row 2: Client name
+    y += rowHeight;
+    doc.rect(boxX, y, boxWidth, rowHeight);
+    doc.setFont('helvetica', 'bold');
+    doc.text('Client:', boxX + 3, y + 5.5);
+    doc.setFont('helvetica', 'normal');
+    doc.text(invoice.client.name, boxX + 35, y + 5.5);
+    
+    // Row 3: M.Fiscal
+    y += rowHeight;
+    doc.rect(boxX, y, boxWidth, rowHeight);
+    doc.setFont('helvetica', 'bold');
+    doc.text('M.Fiscal:', boxX + 3, y + 5.5);
+    doc.setFont('helvetica', 'normal');
+    doc.text(invoice.client.vat_number || invoice.client.siret || '', boxX + 35, y + 5.5);
+    
+    y += rowHeight + 10;
   }
   
   // Table header
-  const tableTop = 110;
+  const tableTop = y;
   doc.setFillColor(240, 240, 240);
-  doc.rect(20, tableTop - 6, pageWidth - 40, 10, 'F');
-  doc.setFontSize(10);
-  doc.setFont('helvetica', 'bold');
-  doc.text('Description', 22, tableTop);
-  doc.text('Qté', 120, tableTop);
-  doc.text('Prix unit.', 140, tableTop);
-  doc.text('Total', 170, tableTop);
+  doc.rect(20, tableTop, pageWidth - 40, 8, 'F');
+  doc.setDrawColor(0, 0, 0);
+  doc.rect(20, tableTop, pageWidth - 40, 8);
   
-  // Table rows
+  doc.setFontSize(9);
+  doc.setFont('helvetica', 'bold');
+  doc.text('REF', 25, tableTop + 5.5);
+  doc.text('DESIGNATION', 45, tableTop + 5.5);
+  doc.text('QTE', 120, tableTop + 5.5);
+  doc.text('P.U.T.C', 140, tableTop + 5.5);
+  doc.text('TOTAL', 170, tableTop + 5.5);
+  
+  y = tableTop + 8;
   doc.setFont('helvetica', 'normal');
-  let y = tableTop + 10;
-  items.forEach(item => {
-    doc.text(item.description.substring(0, 40), 22, y);
-    doc.text(item.quantity.toString(), 120, y);
-    doc.text(`${item.unit_price.toFixed(2)} DT`, 140, y);
-    doc.text(`${item.total.toFixed(2)} DT`, 170, y);
+  
+  items.forEach((item, index) => {
+    doc.setDrawColor(200, 200, 200);
+    doc.rect(20, y, pageWidth - 40, 8);
+    
+    doc.text((index + 1).toString(), 25, y + 5.5);
+    doc.text(item.description.substring(0, 35), 45, y + 5.5);
+    doc.text(item.quantity.toString(), 122, y + 5.5);
+    doc.text(`${item.unit_price.toFixed(2)} DT`, 140, y + 5.5);
+    doc.text(`${item.total.toFixed(2)} DT`, 170, y + 5.5);
     y += 8;
   });
   
-  // Line
-  doc.setDrawColor(200, 200, 200);
-  doc.line(20, y + 2, pageWidth - 20, y + 2);
-  
   // Totals
-  y += 12;
+  y += 10;
+  doc.setFontSize(10);
   doc.text('Sous-total HT:', 130, y);
-  doc.text(`${invoice.subtotal.toFixed(2)} DT`, 170, y);
-  y += 8;
+  doc.text(`${invoice.subtotal.toFixed(2)} DT`, pageWidth - 25, y, { align: 'right' });
+  y += 7;
   doc.text(`TVA (${invoice.tax_rate}%):`, 130, y);
-  doc.text(`${invoice.tax_amount.toFixed(2)} DT`, 170, y);
-  y += 8;
+  doc.text(`${invoice.tax_amount.toFixed(2)} DT`, pageWidth - 25, y, { align: 'right' });
+  y += 7;
   doc.setFont('helvetica', 'bold');
+  doc.setFontSize(12);
   doc.text('Total TTC:', 130, y);
-  doc.text(`${invoice.total.toFixed(2)} DT`, 170, y);
+  doc.text(`${invoice.total.toFixed(2)} DT`, pageWidth - 25, y, { align: 'right' });
   
   // Notes
   if (invoice.notes) {
@@ -113,9 +209,23 @@ export function generateInvoicePDF(invoice: Invoice, items: InvoiceItem[]): void
   }
   
   // Footer
-  doc.setFontSize(8);
-  doc.setTextColor(128, 128, 128);
-  doc.text('Document généré automatiquement', pageWidth / 2, 280, { align: 'center' });
+  // Page number at bottom right
+  doc.setFontSize(10);
+  doc.setFont('helvetica', 'normal');
+  doc.text('1', pageWidth - 20, pageHeight - 10, { align: 'right' });
+  
+  // Company info centered at bottom
+  if (invoice.company) {
+    doc.setFontSize(8);
+    doc.setTextColor(100, 100, 100);
+    const footerParts = [];
+    if (invoice.company.name) footerParts.push(invoice.company.name);
+    if (invoice.company.address) footerParts.push(invoice.company.address);
+    if (invoice.company.email) footerParts.push(invoice.company.email);
+    
+    const footerText = footerParts.join(' - ');
+    doc.text(footerText, pageWidth / 2, pageHeight - 10, { align: 'center' });
+  }
   
   doc.save(`facture-${invoice.invoice_number}.pdf`);
 }
