@@ -1,5 +1,12 @@
 import { supabase } from '@/integrations/supabase/client';
 
+export interface InvoiceItem {
+  description: string;
+  quantity: number;
+  unit_price: number;
+  total: number;
+}
+
 export interface InvoiceStatementRow {
   id: string;
   invoice_number: string;
@@ -11,6 +18,7 @@ export interface InvoiceStatementRow {
   status: string;
   paid: number;
   balance: number;
+  items: InvoiceItem[];
 }
 
 export interface InvoiceStatementSummary {
@@ -53,22 +61,44 @@ export async function getClientInvoiceStatement(
   const { data: invoices, error } = await query;
   if (error) throw error;
 
-  // Get payments for these invoices
+  // Get payments and invoice items for these invoices
   const invoiceIds = (invoices || []).map(inv => inv.id);
   let payments: { invoice_id: string; amount: number }[] = [];
+  let invoiceItems: { invoice_id: string; description: string; quantity: number; unit_price: number; total: number }[] = [];
+  
   if (invoiceIds.length > 0) {
-    const { data: paymentData, error: payErr } = await supabase
-      .from('payments')
-      .select('invoice_id, amount')
-      .in('invoice_id', invoiceIds);
-    if (payErr) throw payErr;
-    payments = paymentData || [];
+    // Fetch payments and invoice items in parallel
+    const [paymentResult, itemsResult] = await Promise.all([
+      supabase
+        .from('payments')
+        .select('invoice_id, amount')
+        .in('invoice_id', invoiceIds),
+      supabase
+        .from('invoice_items')
+        .select('invoice_id, description, quantity, unit_price, total')
+        .in('invoice_id', invoiceIds)
+    ]);
+    
+    if (paymentResult.error) throw paymentResult.error;
+    if (itemsResult.error) throw itemsResult.error;
+    
+    payments = paymentResult.data || [];
+    invoiceItems = itemsResult.data || [];
   }
 
   // Aggregate per invoice
   const invoiceRows: InvoiceStatementRow[] = (invoices || []).map(inv => {
     const paid = payments.filter(p => p.invoice_id === inv.id).reduce((sum, p) => sum + Number(p.amount), 0);
     const balance = Number(inv.total) - paid;
+    const items = invoiceItems
+      .filter(item => item.invoice_id === inv.id)
+      .map(item => ({
+        description: item.description,
+        quantity: Number(item.quantity),
+        unit_price: Number(item.unit_price),
+        total: Number(item.total),
+      }));
+    
     return {
       id: inv.id,
       invoice_number: inv.invoice_number,
@@ -80,6 +110,7 @@ export async function getClientInvoiceStatement(
       status: inv.status,
       paid,
       balance,
+      items,
     };
   });
 
