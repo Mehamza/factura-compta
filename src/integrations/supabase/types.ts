@@ -621,39 +621,71 @@ export type Database = {
       }
       products: {
         Row: {
+          category: string | null
           created_at: string
+          description: string | null
           id: string
+          initial_qty: number | null
           min_stock: number
           name: string
+          purchase_price: number | null
           quantity: number
+          sale_price: number | null
           sku: string | null
+          supplier_id: string | null
+          unit: string | null
           unit_price: number
           updated_at: string
           user_id: string
+          vat_rate: number | null
         }
         Insert: {
+          category?: string | null
           created_at?: string
+          description?: string | null
           id?: string
+          initial_qty?: number | null
           min_stock?: number
           name: string
+          purchase_price?: number | null
           quantity?: number
+          sale_price?: number | null
           sku?: string | null
+          supplier_id?: string | null
+          unit?: string | null
           unit_price?: number
           updated_at?: string
           user_id: string
+          vat_rate?: number | null
         }
         Update: {
+          category?: string | null
           created_at?: string
+          description?: string | null
           id?: string
+          initial_qty?: number | null
           min_stock?: number
           name?: string
+          purchase_price?: number | null
           quantity?: number
+          sale_price?: number | null
           sku?: string | null
+          supplier_id?: string | null
+          unit?: string | null
           unit_price?: number
           updated_at?: string
           user_id?: string
+          vat_rate?: number | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "products_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       profiles: {
         Row: {
