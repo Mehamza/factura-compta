@@ -156,6 +156,19 @@ export default function Settings() {
 
     setUploadingLogo(true);
     try {
+      // Delete old logo if exists
+      if (settings?.company_logo_url) {
+        try {
+          const oldUrl = new URL(settings.company_logo_url);
+          const oldPath = oldUrl.pathname.split('/company-assets/')[1];
+          if (oldPath) {
+            await supabase.storage.from('company-assets').remove([decodeURIComponent(oldPath)]);
+          }
+        } catch (e) {
+          // Ignore deletion errors
+        }
+      }
+
       const fileExt = file.name.split('.').pop();
       const fileName = `${user.id}/logo-${Date.now()}.${fileExt}`;
 
@@ -213,6 +226,19 @@ export default function Settings() {
 
   const removeLogo = async () => {
     if (!settings || !user) return;
+    
+    // Delete file from storage
+    if (settings.company_logo_url) {
+      try {
+        const oldUrl = new URL(settings.company_logo_url);
+        const oldPath = oldUrl.pathname.split('/company-assets/')[1];
+        if (oldPath) {
+          await supabase.storage.from('company-assets').remove([decodeURIComponent(oldPath)]);
+        }
+      } catch (e) {
+        // Ignore deletion errors
+      }
+    }
     
     setSettings(prev => prev ? { ...prev, company_logo_url: '' } : null);
     
