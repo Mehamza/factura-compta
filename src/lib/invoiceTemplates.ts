@@ -69,13 +69,72 @@ export const templateDescriptions: Record<TemplateType, string> = {
   minimal: 'Design épuré et minimaliste pour une lecture claire',
 };
 
-// Common header function matching Relevé Client style
-function drawProfessionalHeader(
+// Helper to extract company initials for fallback logo
+function getCompanyInitials(companyName: string): string {
+  if (!companyName) return 'CO';
+  const words = companyName.trim().split(/\s+/);
+  if (words.length >= 2) {
+    return (words[0][0] + words[1][0]).toUpperCase();
+  }
+  return companyName.substring(0, 2).toUpperCase();
+}
+
+// Draw fallback logo with initials
+function drawFallbackLogo(
+  doc: jsPDF,
+  x: number,
+  y: number,
+  size: number,
+  companyName: string
+): void {
+  const initials = getCompanyInitials(companyName || 'Company');
+  const centerX = x + size / 2;
+  const centerY = y + size / 2;
+  const radius = size / 2;
+  
+  // Draw circle background (professional blue)
+  doc.setFillColor(37, 99, 235); // #2563eb
+  doc.circle(centerX, centerY, radius, 'F');
+  
+  // Draw initials in white
+  doc.setTextColor(255, 255, 255);
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(size * 0.45);
+  doc.text(initials, centerX, centerY + size * 0.15, { align: 'center' });
+  
+  // Reset text color
+  doc.setTextColor(0, 0, 0);
+}
+
+// Draw company logo (loads image or uses fallback)
+async function drawCompanyLogo(
+  doc: jsPDF,
+  x: number,
+  y: number,
+  size: number,
+  logoUrl: string | undefined | null,
+  companyName: string
+): Promise<void> {
+  if (logoUrl) {
+    try {
+      const logoData = await loadImage(logoUrl);
+      doc.addImage(logoData, 'PNG', x, y, size, size);
+      return;
+    } catch (e) {
+      console.error('Error loading company logo, using fallback:', e);
+    }
+  }
+  // Fallback to initials
+  drawFallbackLogo(doc, x, y, size, companyName);
+}
+
+// Common header function matching Relevé Client style with logo
+async function drawProfessionalHeader(
   doc: jsPDF, 
   pageWidth: number, 
   company: InvoiceTemplateData['company'],
   title: string
-): number {
+): Promise<number> {
   let y = 15;
   
   // Date at top right
@@ -87,38 +146,46 @@ function drawProfessionalHeader(
   
   y = 20;
   
-  // Company info on left
+  // Company info on left with logo
   if (company) {
+    const logoSize = 18;
+    const logoX = 20;
+    const logoY = y - 3;
+    const textX = 42; // Shift text right to accommodate logo
+    
+    // Draw logo
+    await drawCompanyLogo(doc, logoX, logoY, logoSize, company.logo_url, company.name || 'Company');
+    
     doc.setFontSize(12);
     doc.setFont('helvetica', 'bold');
-    doc.text(company.name || 'Votre Société', 20, y);
+    doc.text(company.name || 'Votre Société', textX, y);
     y += 6;
     
     doc.setFontSize(9);
     doc.setFont('helvetica', 'normal');
     
     if (company.activity) {
-      doc.text(company.activity, 20, y);
+      doc.text(company.activity, textX, y);
       y += 5;
     }
     if (company.address) {
-      doc.text(company.address, 20, y);
+      doc.text(company.address, textX, y);
       y += 5;
     }
     if (company.postal_code || company.city) {
-      doc.text(`${company.postal_code || ''} ${company.city || ''}`.trim(), 20, y);
+      doc.text(`${company.postal_code || ''} ${company.city || ''}`.trim(), textX, y);
       y += 5;
     }
     if (company.phone) {
-      doc.text(`GSM: ${company.phone}`, 20, y);
+      doc.text(`GSM: ${company.phone}`, textX, y);
       y += 5;
     }
     if (company.tax_id) {
-      doc.text(`M.F: ${company.tax_id}`, 20, y);
+      doc.text(`M.F: ${company.tax_id}`, textX, y);
       y += 5;
     }
     if (company.trade_register) {
-      doc.text(`RC: ${company.trade_register}`, 20, y);
+      doc.text(`RC: ${company.trade_register}`, textX, y);
       y += 5;
     }
   }
@@ -233,22 +300,28 @@ function drawInvoiceInfoBox(
   return y + boxHeight + 10;
 }
 
-// Common footer matching Relevé Client style
-function drawProfessionalFooter(
+// Common footer matching Relevé Client style with mini logo
+async function drawProfessionalFooter(
   doc: jsPDF,
   pageWidth: number,
   pageHeight: number,
   pageNumber: number,
   company: InvoiceTemplateData['company']
-) {
+): Promise<void> {
   // Page number at bottom right
   doc.setFontSize(10);
   doc.setFont('helvetica', 'normal');
   doc.setTextColor(0, 0, 0);
   doc.text(pageNumber.toString(), pageWidth - 20, pageHeight - 10, { align: 'right' });
   
-  // Company info centered at bottom
+  // Company info with mini logo at bottom
   if (company) {
+    const miniLogoSize = 6;
+    const footerY = pageHeight - 12;
+    
+    // Draw mini logo
+    await drawCompanyLogo(doc, 15, footerY, miniLogoSize, company.logo_url, company.name || 'Company');
+    
     doc.setFontSize(8);
     doc.setTextColor(100, 100, 100);
     const footerParts = [];
@@ -257,7 +330,7 @@ function drawProfessionalFooter(
     if (company.email) footerParts.push(company.email);
     
     const footerText = footerParts.join(' - ');
-    doc.text(footerText, pageWidth / 2, pageHeight - 10, { align: 'center' });
+    doc.text(footerText, 25, pageHeight - 10);
   }
   
   doc.setTextColor(0, 0, 0);
@@ -340,7 +413,7 @@ export async function generateClassicPDF(invoice: InvoiceTemplateData, items: In
   const currency = currencies[invoice.currency] || currencies.TND;
   
   // Professional header
-  let y = drawProfessionalHeader(doc, pageWidth, invoice.company, 'FACTURE');
+  let y = await drawProfessionalHeader(doc, pageWidth, invoice.company, 'FACTURE');
   
   // Invoice info box
   y = drawInvoiceInfoBox(doc, pageWidth, y, invoice);
@@ -440,7 +513,7 @@ export async function generateClassicPDF(invoice: InvoiceTemplateData, items: In
   }
   
   // Professional footer
-  drawProfessionalFooter(doc, pageWidth, pageHeight, 1, invoice.company);
+  await drawProfessionalFooter(doc, pageWidth, pageHeight, 1, invoice.company);
   
   doc.save(`facture-${invoice.invoice_number}.pdf`);
 }
@@ -452,7 +525,7 @@ export async function generateModernPDF(invoice: InvoiceTemplateData, items: Inv
   const pageHeight = doc.internal.pageSize.getHeight();
   
   // Professional header
-  let y = drawProfessionalHeader(doc, pageWidth, invoice.company, 'FACTURE');
+  let y = await drawProfessionalHeader(doc, pageWidth, invoice.company, 'FACTURE');
   
   // Invoice info box
   y = drawInvoiceInfoBox(doc, pageWidth, y, invoice);
@@ -546,7 +619,7 @@ export async function generateModernPDF(invoice: InvoiceTemplateData, items: Inv
   }
   
   // Professional footer
-  drawProfessionalFooter(doc, pageWidth, pageHeight, 1, invoice.company);
+  await drawProfessionalFooter(doc, pageWidth, pageHeight, 1, invoice.company);
   
   doc.save(`facture-${invoice.invoice_number}.pdf`);
 }
@@ -558,7 +631,7 @@ export async function generateMinimalPDF(invoice: InvoiceTemplateData, items: In
   const pageHeight = doc.internal.pageSize.getHeight();
   
   // Professional header
-  let y = drawProfessionalHeader(doc, pageWidth, invoice.company, 'FACTURE');
+  let y = await drawProfessionalHeader(doc, pageWidth, invoice.company, 'FACTURE');
   
   // Invoice info box
   y = drawInvoiceInfoBox(doc, pageWidth, y, invoice);
@@ -664,7 +737,7 @@ export async function generateMinimalPDF(invoice: InvoiceTemplateData, items: In
   }
   
   // Professional footer
-  drawProfessionalFooter(doc, pageWidth, pageHeight, 1, invoice.company);
+  await drawProfessionalFooter(doc, pageWidth, pageHeight, 1, invoice.company);
   
   doc.save(`facture-${invoice.invoice_number}.pdf`);
 }

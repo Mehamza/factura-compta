@@ -22,6 +22,87 @@ interface CompanySettings {
   activity?: string | null;
 }
 
+// Helper to extract company initials for fallback logo
+function getCompanyInitials(companyName: string): string {
+  if (!companyName) return 'CO';
+  const words = companyName.trim().split(/\s+/);
+  if (words.length >= 2) {
+    return (words[0][0] + words[1][0]).toUpperCase();
+  }
+  return companyName.substring(0, 2).toUpperCase();
+}
+
+// Draw fallback logo with initials
+function drawFallbackLogo(
+  doc: jsPDF,
+  x: number,
+  y: number,
+  size: number,
+  companyName: string
+): void {
+  const initials = getCompanyInitials(companyName || 'Company');
+  const centerX = x + size / 2;
+  const centerY = y + size / 2;
+  const radius = size / 2;
+  
+  // Draw circle background (professional blue)
+  doc.setFillColor(37, 99, 235); // #2563eb
+  doc.circle(centerX, centerY, radius, 'F');
+  
+  // Draw initials in white
+  doc.setTextColor(255, 255, 255);
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(size * 0.45);
+  doc.text(initials, centerX, centerY + size * 0.15, { align: 'center' });
+  
+  // Reset text color
+  doc.setTextColor(0, 0, 0);
+}
+
+// Load image as base64
+function loadImage(url: string): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      canvas.width = img.width;
+      canvas.height = img.height;
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        ctx.drawImage(img, 0, 0);
+        resolve(canvas.toDataURL('image/png'));
+      } else {
+        reject(new Error('Could not get canvas context'));
+      }
+    };
+    img.onerror = reject;
+    img.src = url;
+  });
+}
+
+// Draw company logo (loads image or uses fallback)
+async function drawCompanyLogo(
+  doc: jsPDF,
+  x: number,
+  y: number,
+  size: number,
+  logoUrl: string | undefined | null,
+  companyName: string
+): Promise<void> {
+  if (logoUrl) {
+    try {
+      const logoData = await loadImage(logoUrl);
+      doc.addImage(logoData, 'PNG', x, y, size, size);
+      return;
+    } catch (e) {
+      console.error('Error loading company logo, using fallback:', e);
+    }
+  }
+  // Fallback to initials
+  drawFallbackLogo(doc, x, y, size, companyName);
+}
+
 export async function generateClientStatementPDF(
   statement: ClientInvoiceStatement,
   client: ClientInfo,
@@ -47,8 +128,8 @@ export async function generateClientStatementPDF(
     return false;
   };
 
-  // Helper to draw page footer
-  const drawFooter = (pageNum: number) => {
+  // Helper to draw page footer with mini logo
+  const drawFooter = async (pageNum: number) => {
     doc.setFontSize(8);
     doc.setTextColor(100, 100, 100);
     doc.text(`${pageNum}`, pageWidth - margin - 5, pageHeight - 10);
@@ -60,33 +141,41 @@ export async function generateClientStatementPDF(
   doc.setTextColor(0, 0, 0);
   doc.text(`Le ${new Date().toLocaleDateString('fr-FR')}`, pageWidth - margin, y, { align: 'right' });
   
-  // Company Info (left side)
+  // Company Info (left side) with logo
   y = 20;
+  const logoSize = 18;
+  const logoX = margin;
+  const logoY = y - 3;
+  const textX = margin + 22; // Shift text right to accommodate logo
+  
+  // Draw logo
+  await drawCompanyLogo(doc, logoX, logoY, logoSize, companySettings.company_logo_url, companySettings.company_name || 'Company');
+  
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(12);
-  doc.text(companySettings.company_name || 'Entreprise', margin, y);
+  doc.text(companySettings.company_name || 'Entreprise', textX, y);
   
   y += 5;
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(9);
   if (companySettings.activity) {
-    doc.text(companySettings.activity, margin, y);
+    doc.text(companySettings.activity, textX, y);
     y += 4;
   }
   if (companySettings.company_address) {
-    doc.text(companySettings.company_address, margin, y);
+    doc.text(companySettings.company_address, textX, y);
     y += 4;
   }
   if (companySettings.company_city) {
-    doc.text(`${companySettings.company_postal_code || ''} ${companySettings.company_city}`.trim(), margin, y);
+    doc.text(`${companySettings.company_postal_code || ''} ${companySettings.company_city}`.trim(), textX, y);
     y += 4;
   }
   if (companySettings.company_phone) {
-    doc.text(`GSM: ${companySettings.company_phone}`, margin, y);
+    doc.text(`GSM: ${companySettings.company_phone}`, textX, y);
     y += 4;
   }
   if (companySettings.company_tax_id) {
-    doc.text(`M.F: ${companySettings.company_tax_id}`, margin, y);
+    doc.text(`M.F: ${companySettings.company_tax_id}`, textX, y);
     y += 4;
   }
 
@@ -282,18 +371,26 @@ export async function generateClientStatementPDF(
   const numPages = doc.getNumberOfPages();
   for (let i = 1; i <= numPages; i++) {
     doc.setPage(i);
-    drawFooter(i);
+    
+    // Page number
+    doc.setFontSize(8);
+    doc.setTextColor(100, 100, 100);
+    doc.text(`${i}`, pageWidth - margin - 5, pageHeight - 10);
+    
+    // Mini logo in footer
+    const miniLogoSize = 6;
+    const footerLogoY = pageHeight - 12;
+    await drawCompanyLogo(doc, margin, footerLogoY, miniLogoSize, companySettings.company_logo_url, companySettings.company_name || 'Company');
     
     // Company footer info
     doc.setFontSize(7);
     doc.setTextColor(100, 100, 100);
-    const footerY = pageHeight - 8;
     const footerText = [
       companySettings.company_name,
       companySettings.company_address,
       companySettings.company_email
     ].filter(Boolean).join(' - ');
-    doc.text(footerText, pageWidth / 2, footerY, { align: 'center' });
+    doc.text(footerText, margin + 10, pageHeight - 10);
   }
 
   doc.save(`releve-ventes-${client.name.replace(/\s+/g, '_')}.pdf`);
