@@ -1,7 +1,7 @@
 import { supabase } from '@/integrations/supabase/client';
 import type { Tables } from '@/integrations/supabase/types';
 
-type AccountRow = Tables<'accounts'>['Row'];
+type AccountRow = Tables<'accounts'>;
 
 const ADJUSTMENT_CODE = '9999';
 const ADJUSTMENT_NAME = 'Ajustements';
