@@ -33,7 +33,10 @@ import { useToast } from '@/hooks/use-toast';
 import { downloadCSV, mapInvoicesToCSV, exportServerCSV } from '@/lib/export';
 import { canExportData } from '@/lib/permissions';
 import { Select as UiSelect, SelectContent as UiSelectContent, SelectItem as UiSelectItem, SelectTrigger as UiSelectTrigger, SelectValue as UiSelectValue } from '@/components/ui/select';
-import { Plus, Search, Download, Trash2, Eye, FileText, Printer } from 'lucide-react';
+import { Plus, Search, Download, Trash2, Eye, FileText, Printer, Check, ChevronsUpDown } from 'lucide-react';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
+import { cn } from '@/lib/utils';
 import { openPdfForPrint } from '@/lib/print';
 import { 
   generateInvoiceWithTemplate, 
@@ -177,6 +180,7 @@ export default function Invoices() {
   const [items, setItems] = useState<InvoiceItem[]>([{ description: '', quantity: 1, unit_price: 0, total: 0 }]);
   const [itemProductMap, setItemProductMap] = useState<Record<number, string>>({});
   const [documentType, setDocumentType] = useState<'sale' | 'purchase'>('sale');
+  const [openProductPopover, setOpenProductPopover] = useState<number | null>(null);
   const canExport = canExportData(role ?? 'cashier');
 
   useEffect(() => {
@@ -791,16 +795,58 @@ export default function Invoices() {
                   </div>
                   {items.map((item, index) => (
                     <div key={index} className="grid grid-cols-12 gap-2 items-center">
-                      <UiSelect value={itemProductMap[index] || ''} onValueChange={(v) => handleProductSelect(index, v)}>
-                        <UiSelectTrigger className="col-span-3"><UiSelectValue placeholder="Produit" /></UiSelectTrigger>
-                        <UiSelectContent>
-                          {products.map(p => (
-                            <UiSelectItem key={p.id} value={p.id}>
-                              {p.name} {p.unit ? `(${p.unit})` : ''} — Stock: {p.quantity}
-                            </UiSelectItem>
-                          ))}
-                        </UiSelectContent>
-                      </UiSelect>
+                      <Popover 
+                        open={openProductPopover === index} 
+                        onOpenChange={(open) => setOpenProductPopover(open ? index : null)}
+                      >
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant="outline"
+                            role="combobox"
+                            className="col-span-3 justify-between font-normal"
+                          >
+                            <span className="truncate">
+                              {itemProductMap[index] 
+                                ? products.find(p => p.id === itemProductMap[index])?.name 
+                                : "Rechercher..."}
+                            </span>
+                            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-[300px] p-0" align="start">
+                          <Command>
+                            <CommandInput placeholder="Tapez pour rechercher..." />
+                            <CommandList>
+                              <CommandEmpty>Aucun produit trouvé.</CommandEmpty>
+                              <CommandGroup>
+                                {products.map(product => (
+                                  <CommandItem
+                                    key={product.id}
+                                    value={`${product.name} ${product.sku || ''}`}
+                                    onSelect={() => {
+                                      handleProductSelect(index, product.id);
+                                      setOpenProductPopover(null);
+                                    }}
+                                  >
+                                    <Check
+                                      className={cn(
+                                        "mr-2 h-4 w-4",
+                                        itemProductMap[index] === product.id ? "opacity-100" : "opacity-0"
+                                      )}
+                                    />
+                                    <div className="flex flex-col">
+                                      <span>{product.name}</span>
+                                      <span className="text-xs text-muted-foreground">
+                                        {product.sku ? `SKU: ${product.sku} — ` : ''}Stock: {product.quantity}
+                                      </span>
+                                    </div>
+                                  </CommandItem>
+                                ))}
+                              </CommandGroup>
+                            </CommandList>
+                          </Command>
+                        </PopoverContent>
+                      </Popover>
                       <Input
                         placeholder="Description"
                         className="col-span-4"
