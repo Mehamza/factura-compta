@@ -7,20 +7,46 @@ import { canExportData } from '@/lib/permissions';
 import { Button } from '@/components/ui/button';
 import { Plus, Download } from 'lucide-react';
 import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { canManageProducts, canDeleteProducts, NO_PERMISSION_MSG } from '@/lib/permissions';
-import type { Tables } from '@/integrations/supabase/types';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Separator } from '@/components/ui/separator';
 
-type Product = Tables<'products'>;
+interface Product {
+  id: string;
+  name: string;
+  sku: string | null;
+  quantity: number;
+  min_stock: number;
+  unit_price: number;
+  initial_qty: number | null;
+  unit: string | null;
+  purchase_price: number | null;
+  sale_price: number | null;
+  vat_rate: number | null;
+  category: string | null;
+  description: string | null;
+  supplier_id: string | null;
+  user_id: string;
+  created_at: string;
+  updated_at: string;
+}
+
+interface Supplier {
+  id: string;
+  name: string;
+}
 
 export default function StockProducts() {
   const { user, role } = useAuth();
   const { toast } = useToast();
   const [products, setProducts] = useState<Product[]>([]);
+  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -28,9 +54,17 @@ export default function StockProducts() {
   const [form, setForm] = useState({
     name: '',
     sku: '',
+    initial_qty: '',
     quantity: '',
     min_stock: '',
+    unit: 'pièce',
+    purchase_price: '',
+    sale_price: '',
     unit_price: '',
+    vat_rate: '19',
+    category: '',
+    description: '',
+    supplier_id: '',
   });
 
   const canExport = canExportData(role);
@@ -44,7 +78,7 @@ export default function StockProducts() {
       await exportServerCSV('products');
       toast({ title: 'Export serveur', description: 'Le téléchargement va démarrer.' });
     } catch (e) {
-      const rows = mapProductsToCSV(products);
+      const rows = mapProductsToCSV(products as any);
       downloadCSV('produits', rows);
       toast({ title: 'Export CSV (local)', description: `${rows.length} ligne(s)` });
     }
@@ -56,15 +90,20 @@ export default function StockProducts() {
 
   const load = async () => {
     setLoading(true);
-    const { data, error } = await supabase.from('products').select('*').order('name');
-    if (error) {
-      toast({ variant: 'destructive', title: 'Erreur', description: error.message });
+    const [prodRes, suppRes] = await Promise.all([
+      supabase.from('products').select('*').order('name'),
+      supabase.from('suppliers').select('id, name').order('name')
+    ]);
+    
+    if (prodRes.error) {
+      toast({ variant: 'destructive', title: 'Erreur', description: prodRes.error.message });
     }
-    setProducts(data || []);
+    setProducts((prodRes.data as Product[]) || []);
+    setSuppliers((suppRes.data as Supplier[]) || []);
     setLoading(false);
 
     // Check for low stock
-    const low = (data || []).filter(p => Number(p.quantity) <= Number(p.min_stock));
+    const low = (prodRes.data || []).filter(p => Number(p.quantity) <= Number(p.min_stock));
     if (low.length > 0) {
       toast({ title: 'Stock faible', description: `${low.length} produit(s) en dessous du stock minimum` });
     }
@@ -76,7 +115,21 @@ export default function StockProducts() {
       return;
     }
     setEditing(null);
-    setForm({ name: '', sku: '', quantity: '', min_stock: '', unit_price: '' });
+    setForm({
+      name: '',
+      sku: '',
+      initial_qty: '',
+      quantity: '',
+      min_stock: '',
+      unit: 'pièce',
+      purchase_price: '',
+      sale_price: '',
+      unit_price: '',
+      vat_rate: '19',
+      category: '',
+      description: '',
+      supplier_id: '',
+    });
     setDialogOpen(true);
   };
 
@@ -89,9 +142,17 @@ export default function StockProducts() {
     setForm({
       name: p.name,
       sku: p.sku || '',
+      initial_qty: String(p.initial_qty ?? ''),
       quantity: String(p.quantity),
       min_stock: String(p.min_stock),
+      unit: p.unit || 'pièce',
+      purchase_price: String(p.purchase_price ?? ''),
+      sale_price: String(p.sale_price ?? ''),
       unit_price: String(p.unit_price),
+      vat_rate: String(p.vat_rate ?? '19'),
+      category: p.category || '',
+      description: p.description || '',
+      supplier_id: p.supplier_id || '',
     });
     setDialogOpen(true);
   };
@@ -108,9 +169,13 @@ export default function StockProducts() {
       return;
     }
 
-    const quantity = Number(form.quantity || 0);
+    const initial_qty = form.initial_qty ? Number(form.initial_qty) : null;
+    const quantity = editing ? Number(form.quantity || 0) : (initial_qty ?? 0);
     const min_stock = Number(form.min_stock || 0);
-    const unit_price = Number(form.unit_price || 0);
+    const unit_price = Number(form.unit_price || form.sale_price || 0);
+    const purchase_price = form.purchase_price ? Number(form.purchase_price) : null;
+    const sale_price = form.sale_price ? Number(form.sale_price) : null;
+    const vat_rate = form.vat_rate ? Number(form.vat_rate) : null;
 
     if (quantity < 0 || min_stock < 0 || unit_price < 0) {
       toast({ variant: 'destructive', title: 'Valeurs invalides', description: 'Les valeurs numériques doivent être positives.' });
@@ -128,14 +193,26 @@ export default function StockProducts() {
       }
     }
 
-    const payload = {
+    const payload: any = {
       user_id: user?.id!,
       name: form.name.trim(),
       sku: form.sku.trim() || null,
       quantity,
       min_stock,
       unit_price,
+      unit: form.unit || null,
+      purchase_price,
+      sale_price,
+      vat_rate,
+      category: form.category.trim() || null,
+      description: form.description.trim() || null,
+      supplier_id: form.supplier_id || null,
     };
+
+    // For new products, set initial_qty
+    if (!editing) {
+      payload.initial_qty = initial_qty;
+    }
 
     if (editing) {
       const { error } = await supabase.from('products').update(payload).eq('id', editing.id);
@@ -178,13 +255,28 @@ export default function StockProducts() {
       products.filter(
         p =>
           p.name.toLowerCase().includes(search.toLowerCase()) ||
-          (p.sku && p.sku.toLowerCase().includes(search.toLowerCase()))
+          (p.sku && p.sku.toLowerCase().includes(search.toLowerCase())) ||
+          (p.category && p.category.toLowerCase().includes(search.toLowerCase()))
       ),
     [products, search]
   );
 
   const canManage = canManageProducts(role);
   const canDelete = canDeleteProducts(role);
+
+  // Calculate TTC price
+  const ttc = useMemo(() => {
+    const price = Number(form.sale_price || 0);
+    const rate = Number(form.vat_rate || 0);
+    if (isNaN(price) || isNaN(rate)) return 0;
+    return price * (1 + rate / 100);
+  }, [form.sale_price, form.vat_rate]);
+
+  const getSupplierName = (supplierId: string | null) => {
+    if (!supplierId) return '-';
+    const supplier = suppliers.find(s => s.id === supplierId);
+    return supplier?.name || '-';
+  };
 
   if (loading) {
     return (
@@ -215,7 +307,7 @@ export default function StockProducts() {
           <div className="flex flex-col md:flex-row gap-4">
             <div className="relative flex-1">
               <Input
-                placeholder="Rechercher par nom ou SKU"
+                placeholder="Rechercher par nom, SKU ou catégorie"
                 value={search}
                 onChange={e => setSearch(e.target.value)}
               />
@@ -233,9 +325,10 @@ export default function StockProducts() {
               <TableRow>
                 <TableHead>Nom</TableHead>
                 <TableHead>SKU</TableHead>
+                <TableHead>Catégorie</TableHead>
                 <TableHead>Quantité</TableHead>
-                <TableHead>Stock minimum</TableHead>
-                <TableHead>Prix unitaire</TableHead>
+                <TableHead>Stock min.</TableHead>
+                <TableHead>Prix vente</TableHead>
                 <TableHead>Statut</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
@@ -243,7 +336,7 @@ export default function StockProducts() {
             <TableBody>
               {filtered.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={7} className="text-center text-muted-foreground">
+                  <TableCell colSpan={8} className="text-center text-muted-foreground">
                     Aucun produit
                   </TableCell>
                 </TableRow>
@@ -252,13 +345,15 @@ export default function StockProducts() {
                   const qty = Number(p.quantity);
                   const min = Number(p.min_stock);
                   const low = qty <= min;
+                  const displayPrice = p.sale_price ?? p.unit_price;
                   return (
                     <TableRow key={p.id}>
                       <TableCell className="font-medium">{p.name}</TableCell>
                       <TableCell>{p.sku || '-'}</TableCell>
-                      <TableCell>{qty.toLocaleString('fr-FR')}</TableCell>
+                      <TableCell>{p.category || '-'}</TableCell>
+                      <TableCell>{qty.toLocaleString('fr-FR')} {p.unit || ''}</TableCell>
                       <TableCell>{min.toLocaleString('fr-FR')}</TableCell>
-                      <TableCell>{Number(p.unit_price).toLocaleString('fr-FR')} DT</TableCell>
+                      <TableCell>{Number(displayPrice).toLocaleString('fr-FR')} DT</TableCell>
                       <TableCell>
                         {low ? (
                           <Badge variant="destructive">Stock faible</Badge>
@@ -298,64 +393,180 @@ export default function StockProducts() {
       </Card>
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{editing ? 'Modifier le produit' : 'Ajouter un produit'}</DialogTitle>
           </DialogHeader>
-          <form onSubmit={submit} className="space-y-4">
-            <div className="space-y-2">
-              <Label>Nom du produit *</Label>
-              <Input
-                value={form.name}
-                onChange={e => setForm({ ...form, name: e.target.value })}
-                placeholder="Nom du produit"
-                required
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label>SKU (Référence)</Label>
-              <Input
-                value={form.sku}
-                onChange={e => setForm({ ...form, sku: e.target.value })}
-                placeholder="SKU ou référence"
-              />
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>Quantité</Label>
-                <Input
-                  type="number"
-                  min="0"
-                  value={form.quantity}
-                  onChange={e => setForm({ ...form, quantity: e.target.value })}
-                  placeholder="0"
+          <form onSubmit={submit} className="space-y-6">
+            {/* Basic Information */}
+            <div>
+              <h3 className="text-sm font-medium text-muted-foreground mb-3">Informations de base</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Nom du produit *</Label>
+                  <Input
+                    value={form.name}
+                    onChange={e => setForm({ ...form, name: e.target.value })}
+                    placeholder="Nom du produit"
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>SKU (Référence)</Label>
+                  <Input
+                    value={form.sku}
+                    onChange={e => setForm({ ...form, sku: e.target.value })}
+                    placeholder="SKU ou référence"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Catégorie</Label>
+                  <Input
+                    value={form.category}
+                    onChange={e => setForm({ ...form, category: e.target.value })}
+                    placeholder="Ex: Électronique, Alimentation..."
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Fournisseur</Label>
+                  <Select value={form.supplier_id} onValueChange={v => setForm({ ...form, supplier_id: v === 'none' ? '' : v })}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Sélectionner un fournisseur" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">Aucun</SelectItem>
+                      {suppliers.map(s => (
+                        <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <div className="mt-4 space-y-2">
+                <Label>Description</Label>
+                <Textarea
+                  value={form.description}
+                  onChange={e => setForm({ ...form, description: e.target.value })}
+                  placeholder="Description du produit..."
+                  rows={2}
                 />
               </div>
+            </div>
 
-              <div className="space-y-2">
-                <Label>Stock minimum</Label>
-                <Input
-                  type="number"
-                  min="0"
-                  value={form.min_stock}
-                  onChange={e => setForm({ ...form, min_stock: e.target.value })}
-                  placeholder="0"
-                />
+            <Separator />
+
+            {/* Stock Information */}
+            <div>
+              <h3 className="text-sm font-medium text-muted-foreground mb-3">Stock</h3>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                {!editing && (
+                  <div className="space-y-2">
+                    <Label>Quantité initiale</Label>
+                    <Input
+                      type="number"
+                      min="0"
+                      value={form.initial_qty}
+                      onChange={e => setForm({ ...form, initial_qty: e.target.value })}
+                      placeholder="0"
+                    />
+                  </div>
+                )}
+                {editing && (
+                  <div className="space-y-2">
+                    <Label>Quantité actuelle</Label>
+                    <Input
+                      type="number"
+                      min="0"
+                      value={form.quantity}
+                      onChange={e => setForm({ ...form, quantity: e.target.value })}
+                      placeholder="0"
+                    />
+                  </div>
+                )}
+                <div className="space-y-2">
+                  <Label>Stock minimum</Label>
+                  <Input
+                    type="number"
+                    min="0"
+                    value={form.min_stock}
+                    onChange={e => setForm({ ...form, min_stock: e.target.value })}
+                    placeholder="0"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Unité</Label>
+                  <Select value={form.unit} onValueChange={v => setForm({ ...form, unit: v })}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="pièce">Pièce</SelectItem>
+                      <SelectItem value="kg">Kilogramme (kg)</SelectItem>
+                      <SelectItem value="g">Gramme (g)</SelectItem>
+                      <SelectItem value="l">Litre (l)</SelectItem>
+                      <SelectItem value="ml">Millilitre (ml)</SelectItem>
+                      <SelectItem value="m">Mètre (m)</SelectItem>
+                      <SelectItem value="m²">Mètre carré (m²)</SelectItem>
+                      <SelectItem value="carton">Carton</SelectItem>
+                      <SelectItem value="paquet">Paquet</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
             </div>
 
-            <div className="space-y-2">
-              <Label>Prix unitaire (DT)</Label>
-              <Input
-                type="number"
-                min="0"
-                step="0.01"
-                value={form.unit_price}
-                onChange={e => setForm({ ...form, unit_price: e.target.value })}
-                placeholder="0.00"
-              />
+            <Separator />
+
+            {/* Pricing Information */}
+            <div>
+              <h3 className="text-sm font-medium text-muted-foreground mb-3">Prix</h3>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="space-y-2">
+                  <Label>Prix d'achat HT (DT)</Label>
+                  <Input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={form.purchase_price}
+                    onChange={e => setForm({ ...form, purchase_price: e.target.value })}
+                    placeholder="0.00"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Prix de vente HT (DT)</Label>
+                  <Input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={form.sale_price}
+                    onChange={e => setForm({ ...form, sale_price: e.target.value, unit_price: e.target.value })}
+                    placeholder="0.00"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Taux TVA (%)</Label>
+                  <Select value={form.vat_rate} onValueChange={v => setForm({ ...form, vat_rate: v })}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="0">0% (Exonéré)</SelectItem>
+                      <SelectItem value="7">7%</SelectItem>
+                      <SelectItem value="13">13%</SelectItem>
+                      <SelectItem value="19">19%</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>Prix TTC (DT)</Label>
+                  <Input
+                    type="text"
+                    value={ttc.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    disabled
+                    className="bg-muted"
+                  />
+                </div>
+              </div>
             </div>
 
             <div className="flex justify-end gap-2 pt-4">
