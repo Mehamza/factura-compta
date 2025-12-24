@@ -82,25 +82,41 @@ function loadImage(url: string): Promise<string> {
 }
 
 // Draw company logo (loads image or uses fallback)
+// For PDFs, preserve original aspect ratio (not circular)
 async function drawCompanyLogo(
   doc: jsPDF,
   x: number,
   y: number,
-  size: number,
+  maxHeight: number,
   logoUrl: string | undefined | null,
   companyName: string
-): Promise<void> {
+): Promise<{ width: number; height: number }> {
   if (logoUrl) {
     try {
       const logoData = await loadImage(logoUrl);
-      doc.addImage(logoData, 'PNG', x, y, size, size);
-      return;
+      
+      // Get image dimensions to preserve aspect ratio
+      const img = new Image();
+      await new Promise<void>((resolve, reject) => {
+        img.onload = () => resolve();
+        img.onerror = reject;
+        img.src = logoData;
+      });
+      
+      const aspectRatio = img.width / img.height;
+      const height = maxHeight;
+      const width = height * aspectRatio;
+      
+      // Draw with original aspect ratio (rectangular)
+      doc.addImage(logoData, 'PNG', x, y, width, height);
+      return { width, height };
     } catch (e) {
       console.error('Error loading company logo, using fallback:', e);
     }
   }
-  // Fallback to initials
-  drawFallbackLogo(doc, x, y, size, companyName);
+  // Fallback to initials (circular)
+  drawFallbackLogo(doc, x, y, maxHeight, companyName);
+  return { width: maxHeight, height: maxHeight };
 }
 
 export async function generateClientStatementPDF(
@@ -143,13 +159,13 @@ export async function generateClientStatementPDF(
   
   // Company Info (left side) with logo
   y = 20;
-  const logoSize = 18;
+  const logoMaxHeight = 18;
   const logoX = margin;
   const logoY = y - 3;
-  const textX = margin + 22; // Shift text right to accommodate logo
   
-  // Draw logo
-  await drawCompanyLogo(doc, logoX, logoY, logoSize, companySettings.company_logo_url, companySettings.company_name || 'Company');
+  // Draw logo and get actual width
+  const logoResult = await drawCompanyLogo(doc, logoX, logoY, logoMaxHeight, companySettings.company_logo_url, companySettings.company_name || 'Company');
+  const textX = logoX + logoResult.width + 4; // Dynamic spacing based on logo width
   
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(12);
@@ -377,10 +393,10 @@ export async function generateClientStatementPDF(
     doc.setTextColor(100, 100, 100);
     doc.text(`${i}`, pageWidth - margin - 5, pageHeight - 10);
     
-    // Mini logo in footer
+    // Mini logo in footer and get width
     const miniLogoSize = 6;
     const footerLogoY = pageHeight - 12;
-    await drawCompanyLogo(doc, margin, footerLogoY, miniLogoSize, companySettings.company_logo_url, companySettings.company_name || 'Company');
+    const logoResult = await drawCompanyLogo(doc, margin, footerLogoY, miniLogoSize, companySettings.company_logo_url, companySettings.company_name || 'Company');
     
     // Company footer info
     doc.setFontSize(7);
@@ -390,7 +406,7 @@ export async function generateClientStatementPDF(
       companySettings.company_address,
       companySettings.company_email
     ].filter(Boolean).join(' - ');
-    doc.text(footerText, margin + 10, pageHeight - 10);
+    doc.text(footerText, margin + logoResult.width + 3, pageHeight - 10);
   }
 
   doc.save(`releve-ventes-${client.name.replace(/\s+/g, '_')}.pdf`);
