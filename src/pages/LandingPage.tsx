@@ -101,7 +101,7 @@ export default function LandingPage() {
               </p>
               <div className="mt-6 flex flex-wrap items-center gap-3 opacity-0 animate-fade-in-up [animation-delay:400ms]">
                 <Button asChild size="lg" className="transition-transform hover:scale-105">
-                  <Link to="/signup">Commencer gratuitement</Link>
+                  <Link to="/dashboard">Commencer gratuitement</Link>
                 </Button>
                 <Button asChild variant="outline" size="lg" className="transition-transform hover:scale-105">
                   <Link to="#tarifs">Voir les tarifs</Link>

@@ -70,7 +70,7 @@ type SortField = 'name' | 'email' | 'city';
 type SortOrder = 'asc' | 'desc';
 
 const statusLabels: Record<string, string> = {
-  draft: 'Brouillon',
+  draft: 'Devis',
   sent: 'Envoyée',
   paid: 'Payée',
   cancelled: 'Annulée',

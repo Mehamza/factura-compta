@@ -119,7 +119,7 @@ const statusColors: Record<string, string> = {
 };
 
 const statusLabels: Record<string, string> = {
-  draft: 'Brouillon',
+  draft: 'Devis',
   sent: 'Envoyée',
   paid: 'Payée',
   overdue: 'En retard',
@@ -657,7 +657,7 @@ export default function Invoices() {
                   <Select value={formData.status} onValueChange={v => setFormData({ ...formData, status: v })}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="draft">Brouillon</SelectItem>
+                      <SelectItem value="draft">Devis</SelectItem>
                       <SelectItem value="sent">Envoyée</SelectItem>
                       <SelectItem value="paid">Payée</SelectItem>
                     </SelectContent>

@@ -107,7 +107,7 @@ export default function AccountTab({ profile, onProfileUpdate }: AccountTabProps
             </div>
             <div className="space-y-2">
               <Label>Email</Label>
-              <div className="flex items-center gap-2 p-2 bg-muted rounded-md">
+              <div className="flex items-center gap-2 p-2 bg-primary/10 rounded-md">
                 <Mail className="h-4 w-4 text-muted-foreground" />
                 <span className="text-sm">{user?.email}</span>
               </div>

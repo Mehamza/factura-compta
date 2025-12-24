@@ -186,7 +186,7 @@ export default function AdminIndex() {
                 <div className="flex justify-between text-sm"><span>Payées</span><span>{invoiceStatusCounts.paid}</span></div>
                 <div className="flex justify-between text-sm"><span>Envoyées</span><span>{invoiceStatusCounts.sent}</span></div>
                 <div className="flex justify-between text-sm"><span>En retard</span><span>{invoiceStatusCounts.overdue}</span></div>
-                <div className="flex justify-between text-sm"><span>Brouillons</span><span>{invoiceStatusCounts.draft}</span></div>
+                <div className="flex justify-between text-sm"><span>Deviss</span><span>{invoiceStatusCounts.draft}</span></div>
               </div>
             )}
           </CardContent>

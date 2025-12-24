@@ -446,7 +446,7 @@ export default function Settings() {
       </div>
 
       <Tabs defaultValue="company" className="space-y-4">
-        <TabsList className="grid w-full grid-cols-4">
+        <TabsList className="grid w-full grid-cols-4 bg-primary/10">
           <TabsTrigger value="company" className="flex items-center gap-2">
             <Building2 className="h-4 w-4" />
             Entreprise
@@ -790,7 +790,7 @@ export default function Settings() {
                   <SelectTrigger className="w-full md:w-[300px]">
                     <SelectValue placeholder="Sélectionner un taux" />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className='bg-primary/10'>
                     {settings.vat_rates.map((vat) => (
                       <SelectItem key={vat.rate} value={String(vat.rate)}>
                         {vat.label} ({vat.rate}%)
@@ -806,7 +806,7 @@ export default function Settings() {
                   {settings.vat_rates.map((vat) => (
                     <div
                       key={vat.rate}
-                      className="flex items-center justify-between p-3 bg-muted rounded-lg"
+                      className="flex items-center justify-between p-3 bg-primary/10 rounded-lg"
                     >
                       <div>
                         <span className="font-medium">{vat.rate}%</span>
@@ -924,7 +924,7 @@ export default function Settings() {
                 </div>
               </div>
 
-              <div className="p-4 bg-muted rounded-lg">
+              <div className="p-4 bg-primary/10 rounded-lg">
                 <Label className="text-muted-foreground">Aperçu de la prochaine facture</Label>
                 <p className="text-2xl font-mono font-bold mt-2">{getInvoicePreview()}</p>
               </div>
