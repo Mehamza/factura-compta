@@ -159,16 +159,18 @@ export default function Settings() {
       const fileExt = file.name.split('.').pop();
       const fileName = `${user.id}/logo-${Date.now()}.${fileExt}`;
 
+      // Upload to company-assets bucket (public)
       const { error: uploadError } = await supabase.storage
-        .from('documents')
+        .from('company-assets')
         .upload(fileName, file, { upsert: true });
 
       if (uploadError) throw uploadError;
 
       const { data: { publicUrl } } = supabase.storage
-        .from('documents')
+        .from('company-assets')
         .getPublicUrl(fileName);
 
+      // Update local state
       setSettings(prev => prev ? { ...prev, company_logo_url: publicUrl } : null);
       toast.success('Logo téléchargé avec succès');
     } catch (error) {
