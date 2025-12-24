@@ -324,8 +324,11 @@ export type Database = {
           id: string
           invoice_id: string
           quantity: number
+          reference: string | null
           total: number
           unit_price: number
+          vat_amount: number | null
+          vat_rate: number | null
         }
         Insert: {
           created_at?: string
@@ -333,8 +336,11 @@ export type Database = {
           id?: string
           invoice_id: string
           quantity?: number
+          reference?: string | null
           total: number
           unit_price: number
+          vat_amount?: number | null
+          vat_rate?: number | null
         }
         Update: {
           created_at?: string
@@ -342,8 +348,11 @@ export type Database = {
           id?: string
           invoice_id?: string
           quantity?: number
+          reference?: string | null
           total?: number
           unit_price?: number
+          vat_amount?: number | null
+          vat_rate?: number | null
         }
         Relationships: [
           {
