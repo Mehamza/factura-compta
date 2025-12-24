@@ -142,7 +142,7 @@ export default function Invoices() {
   const { toast } = useToast();
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
-  const [products, setProducts] = useState<{id:string; name:string; sku:string; quantity:number; min_stock:number}[]>([]);
+  const [products, setProducts] = useState<{id:string; name:string; sku:string; quantity:number; min_stock:number; sale_price:number|null; unit_price:number; description:string|null; unit:string|null}[]>([]);
   const [companySettings, setCompanySettings] = useState<CompanySettings | null>(null);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [userRole, setUserRole] = useState<string>('cashier');
@@ -252,8 +252,24 @@ export default function Invoices() {
   };
 
   const fetchProducts = async () => {
-    const { data, error } = await supabase.from('products').select('id,name,sku,quantity,min_stock').order('name');
+    const { data, error } = await supabase.from('products').select('id,name,sku,quantity,min_stock,sale_price,unit_price,description,unit').order('name');
     if (!error) setProducts(data || []);
+  };
+
+  const handleProductSelect = (index: number, productId: string) => {
+    setItemProductMap(prev => ({ ...prev, [index]: productId }));
+    const product = products.find(p => p.id === productId);
+    if (product) {
+      const newItems = [...items];
+      const price = Number(product.sale_price) || Number(product.unit_price) || 0;
+      newItems[index] = {
+        ...newItems[index],
+        description: product.name + (product.description ? ` - ${product.description}` : ''),
+        unit_price: price,
+        total: newItems[index].quantity * price,
+      };
+      setItems(newItems);
+    }
   };
 
   const fetchUserInfo = async () => {
@@ -764,11 +780,30 @@ export default function Invoices() {
                       </UiSelectContent>
                     </UiSelect>
                   </div>
+                  {/* Header row */}
+                  <div className="grid grid-cols-12 gap-2 items-center font-medium text-sm text-muted-foreground border-b pb-2">
+                    <span className="col-span-3">Produit</span>
+                    <span className="col-span-4">Description</span>
+                    <span className="col-span-1">Qté</span>
+                    <span className="col-span-2">Prix U.</span>
+                    <span className="col-span-1 text-right">Total</span>
+                    <span className="col-span-1"></span>
+                  </div>
                   {items.map((item, index) => (
                     <div key={index} className="grid grid-cols-12 gap-2 items-center">
+                      <UiSelect value={itemProductMap[index] || ''} onValueChange={(v) => handleProductSelect(index, v)}>
+                        <UiSelectTrigger className="col-span-3"><UiSelectValue placeholder="Produit" /></UiSelectTrigger>
+                        <UiSelectContent>
+                          {products.map(p => (
+                            <UiSelectItem key={p.id} value={p.id}>
+                              {p.name} {p.unit ? `(${p.unit})` : ''} — Stock: {p.quantity}
+                            </UiSelectItem>
+                          ))}
+                        </UiSelectContent>
+                      </UiSelect>
                       <Input
                         placeholder="Description"
-                        className="col-span-5"
+                        className="col-span-4"
                         value={item.description}
                         onChange={e => updateItemTotal(index, 'description', e.target.value)}
                         required
@@ -776,7 +811,7 @@ export default function Invoices() {
                       <Input
                         type="number"
                         placeholder="Qté"
-                        className="col-span-2"
+                        className="col-span-1"
                         value={item.quantity}
                         onChange={e => updateItemTotal(index, 'quantity', Number(e.target.value))}
                         min={1}
@@ -789,17 +824,7 @@ export default function Invoices() {
                         onChange={e => updateItemTotal(index, 'unit_price', Number(e.target.value))}
                         step="0.01"
                       />
-                      <UiSelect value={itemProductMap[index] || ''} onValueChange={(v) => setItemProductMap(prev => ({ ...prev, [index]: v }))}>
-                        <UiSelectTrigger className="col-span-2"><UiSelectValue placeholder="Produit" /></UiSelectTrigger>
-                        <UiSelectContent>
-                          {products.map(p => (
-                            <UiSelectItem key={p.id} value={p.id}>
-                              {p.name} ({p.sku}) — Stock: {p.quantity}
-                            </UiSelectItem>
-                          ))}
-                        </UiSelectContent>
-                      </UiSelect>
-                      <div className="col-span-2 text-right font-medium text-sm">
+                      <div className="col-span-1 text-right font-medium text-sm">
                         {formatCurrency(item.total, formData.currency)}
                       </div>
                       <Button type="button" variant="ghost" size="icon" onClick={() => removeItem(index)} className="col-span-1">
