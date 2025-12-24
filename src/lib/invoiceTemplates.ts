@@ -107,25 +107,41 @@ function drawFallbackLogo(
 }
 
 // Draw company logo (loads image or uses fallback)
+// For PDFs, preserve original aspect ratio (not circular)
 async function drawCompanyLogo(
   doc: jsPDF,
   x: number,
   y: number,
-  size: number,
+  maxHeight: number,
   logoUrl: string | undefined | null,
   companyName: string
-): Promise<void> {
+): Promise<{ width: number; height: number }> {
   if (logoUrl) {
     try {
       const logoData = await loadImage(logoUrl);
-      doc.addImage(logoData, 'PNG', x, y, size, size);
-      return;
+      
+      // Get image dimensions to preserve aspect ratio
+      const img = new Image();
+      await new Promise<void>((resolve, reject) => {
+        img.onload = () => resolve();
+        img.onerror = reject;
+        img.src = logoData;
+      });
+      
+      const aspectRatio = img.width / img.height;
+      const height = maxHeight;
+      const width = height * aspectRatio;
+      
+      // Draw with original aspect ratio (rectangular)
+      doc.addImage(logoData, 'PNG', x, y, width, height);
+      return { width, height };
     } catch (e) {
       console.error('Error loading company logo, using fallback:', e);
     }
   }
-  // Fallback to initials
-  drawFallbackLogo(doc, x, y, size, companyName);
+  // Fallback to initials (circular)
+  drawFallbackLogo(doc, x, y, maxHeight, companyName);
+  return { width: maxHeight, height: maxHeight };
 }
 
 // Common header function matching Relevé Client style with logo
@@ -148,13 +164,13 @@ async function drawProfessionalHeader(
   
   // Company info on left with logo
   if (company) {
-    const logoSize = 18;
+    const logoMaxHeight = 18;
     const logoX = 20;
     const logoY = y - 3;
-    const textX = 42; // Shift text right to accommodate logo
     
-    // Draw logo
-    await drawCompanyLogo(doc, logoX, logoY, logoSize, company.logo_url, company.name || 'Company');
+    // Draw logo and get actual width
+    const logoResult = await drawCompanyLogo(doc, logoX, logoY, logoMaxHeight, company.logo_url, company.name || 'Company');
+    const textX = logoX + logoResult.width + 4; // Dynamic spacing based on logo width
     
     doc.setFontSize(12);
     doc.setFont('helvetica', 'bold');
@@ -319,8 +335,8 @@ async function drawProfessionalFooter(
     const miniLogoSize = 6;
     const footerY = pageHeight - 12;
     
-    // Draw mini logo
-    await drawCompanyLogo(doc, 15, footerY, miniLogoSize, company.logo_url, company.name || 'Company');
+    // Draw mini logo and get width
+    const logoResult = await drawCompanyLogo(doc, 15, footerY, miniLogoSize, company.logo_url, company.name || 'Company');
     
     doc.setFontSize(8);
     doc.setTextColor(100, 100, 100);
@@ -330,7 +346,7 @@ async function drawProfessionalFooter(
     if (company.email) footerParts.push(company.email);
     
     const footerText = footerParts.join(' - ');
-    doc.text(footerText, 25, pageHeight - 10);
+    doc.text(footerText, 15 + logoResult.width + 3, pageHeight - 10);
   }
   
   doc.setTextColor(0, 0, 0);
