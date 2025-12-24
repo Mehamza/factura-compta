@@ -15,6 +15,7 @@ import {
   BarChart,
   Bar,
 } from 'recharts';
+import { InvoiceStatus } from '@/lib/documentStatus';
 import { format, startOfMonth, endOfMonth, subMonths } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { logger } from '@/lib/logger';
@@ -46,16 +47,16 @@ export default function AdminIndex() {
         const totalRevenue = paidInvoices.reduce((sum: number, inv: any) => sum + Number(inv.total || 0), 0);
         setRevenue(totalRevenue);
 
-        // unpaid count (sent or overdue)
-        const unpaid = allInvoices.filter((i: any) => i.status === 'sent' || i.status === 'overdue');
+        // unpaid count (sent or overdue) - exclude purchase quotes
+        const unpaid = allInvoices.filter((i: any) => (i.status === 'sent' || i.status === 'overdue') );
         setUnpaidCount(unpaid.length);
 
         // invoice status counts
         const statusCounts = {
-          paid: allInvoices.filter((i: any) => i.status === 'paid').length,
-          sent: allInvoices.filter((i: any) => i.status === 'sent').length,
-          overdue: allInvoices.filter((i: any) => i.status === 'overdue').length,
-          draft: allInvoices.filter((i: any) => i.status === 'draft').length,
+          paid: allInvoices.filter((i: any) => i.status === InvoiceStatus.PAID).length,
+          sent: allInvoices.filter((i: any) => i.status === InvoiceStatus.SENT).length,
+          overdue: allInvoices.filter((i: any) => i.status === InvoiceStatus.OVERDUE).length,
+          draft: allInvoices.filter((i: any) => i.status === InvoiceStatus.DRAFT || i.status === InvoiceStatus.PURCHASE_QUOTE).length,
         };
         setInvoiceStatusCounts(statusCounts);
 

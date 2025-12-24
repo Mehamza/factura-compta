@@ -110,20 +110,24 @@ interface UserRole {
   role: string;
 }
 
+import { InvoiceStatus } from '@/lib/documentStatus';
+
 const statusColors: Record<string, string> = {
-  draft: 'bg-muted text-muted-foreground',
-  sent: 'bg-blue-100 text-blue-800',
-  paid: 'bg-green-100 text-green-800',
-  overdue: 'bg-red-100 text-red-800',
-  cancelled: 'bg-gray-100 text-gray-800',
+  [InvoiceStatus.DRAFT]: 'bg-muted text-muted-foreground',
+  [InvoiceStatus.PURCHASE_QUOTE]: 'bg-muted text-muted-foreground',
+  [InvoiceStatus.SENT]: 'bg-blue-100 text-blue-800',
+  [InvoiceStatus.PAID]: 'bg-green-100 text-green-800',
+  [InvoiceStatus.OVERDUE]: 'bg-red-100 text-red-800',
+  [InvoiceStatus.CANCELLED]: 'bg-gray-100 text-gray-800',
 };
 
 const statusLabels: Record<string, string> = {
-  draft: 'Devis',
-  sent: 'Envoyée',
-  paid: 'Payée',
-  overdue: 'En retard',
-  cancelled: 'Annulée',
+  [InvoiceStatus.DRAFT]: 'Brouillon',
+  [InvoiceStatus.PURCHASE_QUOTE]: 'Devis d\'achat',
+  [InvoiceStatus.SENT]: 'Envoyée',
+  [InvoiceStatus.PAID]: 'Payée',
+  [InvoiceStatus.OVERDUE]: 'En retard',
+  [InvoiceStatus.CANCELLED]: 'Annulée',
 };
 
 const roleLabels: Record<string, string> = {
@@ -156,7 +160,7 @@ export default function Invoices() {
     tax_rate: 19,
     stamp_included: false,
     notes: '',
-    status: 'draft',
+    status: InvoiceStatus.DRAFT,
     currency: 'TND',
     template_type: 'classic' as TemplateType,
   });
@@ -335,6 +339,14 @@ export default function Invoices() {
       return;
     }
 
+    // If this is a purchase quote, we do not generate stock movements or further processing
+    if (formData.status === InvoiceStatus.PURCHASE_QUOTE) {
+      toast({ title: 'Devis d\'achat enregistré', description: 'Les mouvements de stock ne sont pas générés pour un Devis d\'achat.' });
+      await fetchInvoices();
+      closeDialog();
+      return;
+    }
+
     const invoiceItems = items.map(item => ({
       invoice_id: invoiceData.id,
       description: item.description,
@@ -404,6 +416,19 @@ export default function Invoices() {
     } else {
       toast({ title: 'Succès', description: 'Facture supprimée' });
       fetchInvoices();
+    }
+  };
+
+  const handleConvertQuote = async (invoiceId: string) => {
+    if (!invoiceId) return;
+    try {
+      const { data, error } = await supabase.rpc('convert_purchase_quote_to_invoice', { p_invoice_id: invoiceId });
+      if (error) throw error;
+      toast({ title: 'Devis converti', description: 'Le devis a été converti en facture.' });
+      await fetchInvoices();
+      setViewDialogOpen(false);
+    } catch (err: any) {
+      toast({ variant: 'destructive', title: 'Erreur', description: err?.message || 'Impossible de convertir le devis.' });
     }
   };
 
@@ -581,7 +606,7 @@ export default function Invoices() {
       tax_rate: companySettings?.default_vat_rate || 19,
       stamp_included: false,
       notes: '',
-      status: 'draft',
+      status: InvoiceStatus.DRAFT,
       currency: companySettings?.default_currency || 'TND',
       template_type: 'classic' as TemplateType,
     });
@@ -657,7 +682,8 @@ export default function Invoices() {
                   <Select value={formData.status} onValueChange={v => setFormData({ ...formData, status: v })}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="draft">Devis</SelectItem>
+                      <SelectItem value={InvoiceStatus.DRAFT}>Brouillon</SelectItem>
+                      <SelectItem value={InvoiceStatus.PURCHASE_QUOTE}>Devis d'achat</SelectItem>
                       <SelectItem value="sent">Envoyée</SelectItem>
                       <SelectItem value="paid">Payée</SelectItem>
                     </SelectContent>
@@ -665,11 +691,23 @@ export default function Invoices() {
                 </div>
                 <div>
                   <Label>Date d'émission</Label>
-                  <Input type="date" value={formData.issue_date} onChange={e => setFormData({ ...formData, issue_date: e.target.value })} />
+                  <Input
+                    type="date"
+                    value={formData.issue_date}
+                    onChange={e => setFormData({ ...formData, issue_date: e.target.value })}
+                    disabled={formData.status === InvoiceStatus.PURCHASE_QUOTE}
+                    title={formData.status === InvoiceStatus.PURCHASE_QUOTE ? "Désactivé pour un Devis d'achat" : undefined}
+                  />
                 </div>
                 <div>
                   <Label>Date d'échéance</Label>
-                  <Input type="date" value={formData.due_date} onChange={e => setFormData({ ...formData, due_date: e.target.value })} />
+                  <Input
+                    type="date"
+                    value={formData.due_date}
+                    onChange={e => setFormData({ ...formData, due_date: e.target.value })}
+                    disabled={formData.status === InvoiceStatus.PURCHASE_QUOTE}
+                    title={formData.status === InvoiceStatus.PURCHASE_QUOTE ? "Désactivé pour un Devis d'achat" : undefined}
+                  />
                 </div>
                 <div>
                   <Label>Taux TVA (%)</Label>
@@ -920,6 +958,11 @@ export default function Invoices() {
                 <Download className="h-4 w-4 mr-2" />
                 Télécharger le PDF
               </Button>
+              {selectedInvoice?.status === InvoiceStatus.PURCHASE_QUOTE && (role === 'admin' || role === 'comptable' || role === 'accountant') && (
+                <Button onClick={() => handleConvertQuote(selectedInvoice.id)} className="w-full mt-2">
+                  Convertir en facture d'achat
+                </Button>
+              )}
             </div>
           )}
         </DialogContent>

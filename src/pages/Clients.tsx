@@ -69,8 +69,11 @@ interface ClientInvoice {
 type SortField = 'name' | 'email' | 'city';
 type SortOrder = 'asc' | 'desc';
 
+import { InvoiceStatus } from '@/lib/documentStatus';
+
 const statusLabels: Record<string, string> = {
-  draft: 'Devis',
+  [InvoiceStatus.DRAFT]: 'Brouillon',
+  [InvoiceStatus.PURCHASE_QUOTE]: 'Devis d\'achat',
   sent: 'Envoyée',
   paid: 'Payée',
   cancelled: 'Annulée',

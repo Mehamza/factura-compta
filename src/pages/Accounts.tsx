@@ -11,6 +11,7 @@ import { Plus, Download, Edit, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { logger } from '@/lib/logger';
 import AccountDialog from '@/components/accounts/AccountDialog';
+import { ensureAdjustmentAccount, createBalanceAdjustmentEntry, computeAccountCurrentBalance } from '@/lib/accountAdjustments';
 import type { Tables } from '@/integrations/supabase/types';
 
 type Account = Tables<'accounts'>;
@@ -74,23 +75,61 @@ export default function Accounts() {
     return map;
   }, [filteredLines]);
 
-  const handleSaveAccount = async (data: { code: string; name: string; type: string }) => {
+  const handleSaveAccount = async (data: { code: string; name: string; type: string; balance?: number; counterparty_account_id?: string | null }) => {
     if (!user) return;
     setSaving(true);
     try {
       if (editingAccount) {
+        // Only update account columns (avoid passing balance/counterparty)
+        const payload = { code: data.code, name: data.name, type: data.type };
         const { error } = await supabase
           .from('accounts')
-          .update(data)
+          .update(payload)
           .eq('id', editingAccount.id);
         if (error) throw error;
         toast.success('Compte modifié');
+        // If balance provided, create adjustment entry to reach desired balance
+        if (data.balance !== undefined) {
+          try {
+            const current = (balances.get(editingAccount.id) || { debit: 0, credit: 0 });
+            const currentBalance = current.debit - current.credit;
+            const desired = Number(Number(data.balance).toFixed(2));
+            const delta = Math.round((desired - currentBalance) * 100) / 100;
+            if (Math.abs(delta) >= 0.01) {
+              const counterpart = data.counterparty_account_id || await ensureAdjustmentAccount(user.id);
+              await createBalanceAdjustmentEntry({ userId: user.id, accountId: editingAccount.id, delta, counterpartAccountId: counterpart });
+              toast.success('Ajustement de solde appliqué');
+            }
+          } catch (err) {
+            logger.error('Erreur création écriture ajustement:', err);
+            toast.error('Erreur lors de la création de l\'écriture d\'ajustement');
+          }
+        }
       } else {
-        const { error } = await supabase
+        // create account and get inserted row
+        const { data: inserted, error: insertError } = await supabase
           .from('accounts')
-          .insert({ ...data, user_id: user.id });
-        if (error) throw error;
+          .insert({ code: data.code, name: data.name, type: data.type, user_id: user.id })
+          .select()
+          .single();
+        if (insertError) throw insertError;
         toast.success('Compte créé');
+
+        // If initial balance provided, create adjustment entry
+        if (data.balance !== undefined && inserted && inserted.id) {
+          try {
+            const desired = Number(Number(data.balance).toFixed(2));
+            const delta = Math.round(desired * 100) / 100; // current is 0
+            if (Math.abs(delta) >= 0.01) {
+              const counterpart = data.counterparty_account_id || await ensureAdjustmentAccount(user.id);
+              await createBalanceAdjustmentEntry({ userId: user.id, accountId: inserted.id, delta, counterpartAccountId: counterpart });
+              toast.success('Ajustement initial appliqué');
+            }
+          } catch (err) {
+            logger.error('Erreur création écriture ajustement initial:', err);
+            toast.error('Erreur lors de la création de l\'écriture d\'ajustement initial');
+          }
+        }
       }
       setDialogOpen(false);
       setEditingAccount(null);
@@ -265,6 +304,8 @@ export default function Accounts() {
         open={dialogOpen}
         onOpenChange={setDialogOpen}
         account={editingAccount}
+        accountBalance={editingAccount ? ((balances.get(editingAccount.id) || { debit: 0, credit: 0 }).debit - (balances.get(editingAccount.id) || { debit: 0, credit: 0 }).credit) : undefined}
+        defaultCounterpartyAccountId={null}
         onSave={handleSaveAccount}
         loading={saving}
       />

@@ -7,15 +7,18 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import type { Tables } from '@/integrations/supabase/types';
+import { InvoiceStatus } from '@/lib/documentStatus';
 
 type Invoice = Tables<'invoices'>;
 type Client = Tables<'clients'>;
+type Account = Tables<'accounts'>;
 
 interface PaymentDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   invoices: Invoice[];
   clients: Client[];
+  accounts: Account[];
   onSave: (data: {
     invoice_id: string | null;
     amount: number;
@@ -23,6 +26,7 @@ interface PaymentDialogProps {
     payment_method: string;
     reference: string;
     notes: string;
+    account_id: string;
   }) => void;
   loading: boolean;
   editPayment?: {
@@ -33,6 +37,7 @@ interface PaymentDialogProps {
     payment_method: string;
     reference: string | null;
     notes: string | null;
+    account_id?: string | null;
   } | null;
 }
 
@@ -45,8 +50,9 @@ const paymentMethods = [
   { value: 'autre', label: 'Autre' },
 ];
 
-export default function PaymentDialog({ open, onOpenChange, invoices, clients, onSave, loading, editPayment }: PaymentDialogProps) {
+export default function PaymentDialog({ open, onOpenChange, invoices, clients, accounts, onSave, loading, editPayment }: PaymentDialogProps) {
   const [invoiceId, setInvoiceId] = useState<string | null>(null);
+  const [accountId, setAccountId] = useState<string>('');
   const [amount, setAmount] = useState('');
   const [paymentDate, setPaymentDate] = useState(new Date().toISOString().slice(0, 10));
   const [paymentMethod, setPaymentMethod] = useState('espèces');
@@ -56,20 +62,23 @@ export default function PaymentDialog({ open, onOpenChange, invoices, clients, o
   useEffect(() => {
     if (editPayment) {
       setInvoiceId(editPayment.invoice_id);
+      setAccountId(editPayment.account_id || '');
       setAmount(String(editPayment.amount));
       setPaymentDate(editPayment.payment_date);
       setPaymentMethod(editPayment.payment_method);
       setReference(editPayment.reference || '');
       setNotes(editPayment.notes || '');
     } else {
+      const accountList = accounts ?? [];
       setInvoiceId(null);
+      setAccountId(accountList.length ? accountList[0].id : '');
       setAmount('');
       setPaymentDate(new Date().toISOString().slice(0, 10));
       setPaymentMethod('espèces');
       setReference('');
       setNotes('');
     }
-  }, [editPayment, open]);
+  }, [editPayment, open, accounts]);
 
   const handleInvoiceSelect = (value: string) => {
     const inv = invoices.find(i => i.id === value);
@@ -81,6 +90,7 @@ export default function PaymentDialog({ open, onOpenChange, invoices, clients, o
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!accountId) return;
     onSave({
       invoice_id: invoiceId,
       amount: Number(amount),
@@ -88,6 +98,7 @@ export default function PaymentDialog({ open, onOpenChange, invoices, clients, o
       payment_method: paymentMethod,
       reference,
       notes,
+      account_id: accountId,
     });
   };
 
@@ -96,10 +107,10 @@ export default function PaymentDialog({ open, onOpenChange, invoices, clients, o
     return clients.find(c => c.id === clientId)?.name || '-';
   };
 
-  // Filter unpaid invoices for new payments
+  // Filter unpaid invoices for new payments and exclude purchase quotes
   const availableInvoices = editPayment 
     ? invoices 
-    : invoices.filter(i => i.status !== 'paid');
+    : invoices.filter(i => i.status !== 'paid' && i.status !== InvoiceStatus.PURCHASE_QUOTE);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -123,6 +134,22 @@ export default function PaymentDialog({ open, onOpenChange, invoices, clients, o
                   {availableInvoices.map((inv) => (
                     <SelectItem key={inv.id} value={inv.id}>
                       {inv.invoice_number} - {getClientName(inv.client_id)} ({Number(inv.total).toLocaleString('fr-FR')} {inv.currency})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="account">Compte bancaire *</Label>
+              <Select value={accountId || ''} onValueChange={(v) => setAccountId(v)}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Sélectionner un compte bancaire" />
+                </SelectTrigger>
+                <SelectContent>
+                  {(accounts ?? []).map((a) => (
+                    <SelectItem key={a.id} value={a.id}>
+                      {a.code ? `${a.code} - ${a.name}` : a.name}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -196,7 +223,7 @@ export default function PaymentDialog({ open, onOpenChange, invoices, clients, o
           <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
             Annuler
           </Button>
-          <Button type="submit" form="payment-form" disabled={loading || !amount}>
+          <Button type="submit" form="payment-form" disabled={loading || !amount || !accountId}>
             {loading ? 'Enregistrement...' : 'Enregistrer'}
           </Button>
         </DialogFooter>

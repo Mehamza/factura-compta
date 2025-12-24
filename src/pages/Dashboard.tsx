@@ -7,6 +7,7 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 import { format, startOfMonth, endOfMonth, startOfYear, endOfYear, subMonths, parseISO } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { logger } from '@/lib/logger';
+import { InvoiceStatus } from '@/lib/documentStatus';
 
 interface DashboardStats {
   totalClients: number;
@@ -73,8 +74,9 @@ export default function Dashboard() {
       const invoices = invoicesRes.data || [];
       const clients = clientsRes.data || [];
       
-      const paidInvoices = invoices.filter(i => i.status === 'paid');
-      const pendingInvoices = invoices.filter(i => i.status === 'sent' || i.status === 'draft');
+      const paidInvoices = invoices.filter(i => i.status === InvoiceStatus.PAID);
+      const pendingInvoices = invoices.filter(i => (i.status === InvoiceStatus.SENT || i.status === InvoiceStatus.DRAFT) );
+      // Note: purchase quotes are excluded from pending/revenue calculations
       const overdueInvoices = invoices.filter(i => {
         if (i.status === 'paid' || i.status === 'cancelled') return false;
         return new Date(i.due_date) < today;

@@ -9,6 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from 'recharts';
 import { Download, FileText, TrendingUp, Users } from 'lucide-react';
 import type { Tables } from '@/integrations/supabase/types';
+import { InvoiceStatus } from '@/lib/documentStatus';
 
 type Invoice = Tables<'invoices'>;
 type Client = Tables<'clients'>;
@@ -54,16 +55,16 @@ export default function Reports() {
   // Summary stats
   const summary = {
     issued: invoices.length,
-    paid: invoices.filter(i => i.status === 'paid').length,
-    outstanding: invoices.filter(i => i.status !== 'paid' && i.status !== 'cancelled').length,
-    overdue: invoices.filter(i => i.status === 'overdue').length,
-    totalRevenue: invoices.filter(i => i.status === 'paid').reduce((s, i) => s + Number(i.total), 0),
-    totalPending: invoices.filter(i => i.status !== 'paid').reduce((s, i) => s + Number(i.total), 0),
+    paid: invoices.filter(i => i.status === InvoiceStatus.PAID).length,
+    outstanding: invoices.filter(i => i.status !== InvoiceStatus.PAID && i.status !== InvoiceStatus.CANCELLED && i.status !== InvoiceStatus.PURCHASE_QUOTE).length,
+    overdue: invoices.filter(i => i.status === InvoiceStatus.OVERDUE).length,
+    totalRevenue: invoices.filter(i => i.status === InvoiceStatus.PAID).reduce((s, i) => s + Number(i.total), 0),
+    totalPending: invoices.filter(i => i.status !== InvoiceStatus.PAID && i.status !== InvoiceStatus.PURCHASE_QUOTE).reduce((s, i) => s + Number(i.total), 0),
     totalPayments: payments.reduce((s, p) => s + Number(p.amount), 0),
   };
 
-  // VAT Report
-  const vatCollected = invoices.reduce((s, i) => s + Number(i.tax_amount), 0);
+  // VAT Report (exclude purchase quotes)
+  const vatCollected = invoices.filter(i => i.status !== InvoiceStatus.PURCHASE_QUOTE).reduce((s, i) => s + Number(i.tax_amount), 0);
 
   // Monthly revenue chart data (last 6 months)
   const getMonthlyData = () => {
@@ -84,21 +85,22 @@ export default function Reports() {
 
   // Status distribution
   const statusData = [
-    { name: 'Payées', value: invoices.filter(i => i.status === 'paid').length },
-    { name: 'En attente', value: invoices.filter(i => i.status === 'sent' || i.status === 'draft').length },
-    { name: 'En retard', value: invoices.filter(i => i.status === 'overdue').length },
-    { name: 'Annulées', value: invoices.filter(i => i.status === 'cancelled').length },
+    { name: 'Payées', value: invoices.filter(i => i.status === InvoiceStatus.PAID).length },
+    { name: 'En attente', value: invoices.filter(i => i.status === InvoiceStatus.SENT).length },
+    { name: 'Devis', value: invoices.filter(i => i.status === InvoiceStatus.PURCHASE_QUOTE || i.status === InvoiceStatus.DRAFT).length },
+    { name: 'En retard', value: invoices.filter(i => i.status === InvoiceStatus.OVERDUE).length },
+    { name: 'Annulées', value: invoices.filter(i => i.status === InvoiceStatus.CANCELLED).length },
   ].filter(d => d.value > 0);
 
   // Client revenue
   const clientRevenue = clients.map(c => {
-    const clientInvoices = allInvoices.filter(i => i.client_id === c.id && i.status === 'paid');
+    const clientInvoices = allInvoices.filter(i => i.client_id === c.id && i.status === InvoiceStatus.PAID);
     return {
       id: c.id,
       name: c.name,
       revenue: clientInvoices.reduce((s, i) => s + Number(i.total), 0),
       invoiceCount: clientInvoices.length,
-      pending: allInvoices.filter(i => i.client_id === c.id && i.status !== 'paid').length,
+      pending: allInvoices.filter(i => i.client_id === c.id && i.status !== InvoiceStatus.PAID && i.status !== InvoiceStatus.PURCHASE_QUOTE).length,
     };
   }).filter(c => c.revenue > 0 || c.pending > 0).sort((a, b) => b.revenue - a.revenue);
 

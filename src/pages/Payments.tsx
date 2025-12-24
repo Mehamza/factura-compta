@@ -13,15 +13,18 @@ import { Plus, Download, Edit, Trash2, Banknote, CreditCard, Building } from 'lu
 import { toast } from 'sonner';
 import { logger } from '@/lib/logger';
 import PaymentDialog from '@/components/payments/PaymentDialog';
+import { InvoiceStatus } from '@/lib/documentStatus';
 import type { Tables } from '@/integrations/supabase/types';
 
 type Invoice = Tables<'invoices'>;
 type Client = Tables<'clients'>;
+type Account = Tables<'accounts'>;
 
 interface Payment {
   id: string;
   user_id: string;
   invoice_id: string | null;
+  account_id?: string | null;
   amount: number;
   payment_date: string;
   payment_method: string;
@@ -51,6 +54,7 @@ export default function Payments() {
   const [payments, setPayments] = useState<Payment[]>([]);
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
+  const [accounts, setAccounts] = useState<Account[]>([]);
   const [loading, setLoading] = useState(true);
   const [period, setPeriod] = useState({ start: '', end: '' });
   const [methodFilter, setMethodFilter] = useState('all');
@@ -64,14 +68,16 @@ export default function Payments() {
 
   const load = async () => {
     setLoading(true);
-    const [payRes, invRes, cliRes] = await Promise.all([
+    const [payRes, invRes, cliRes, accRes] = await Promise.all([
       supabase.from('payments').select('*').order('payment_date', { ascending: false }),
       supabase.from('invoices').select('*'),
       supabase.from('clients').select('*'),
+      supabase.from('accounts').select('*').order('code'),
     ]);
     setPayments((payRes.data as Payment[]) || []);
     setInvoices(invRes.data || []);
     setClients(cliRes.data || []);
+    setAccounts(accRes.data || []);
     setLoading(false);
   };
 
@@ -101,6 +107,7 @@ export default function Payments() {
     payment_method: string;
     reference: string;
     notes: string;
+    account_id: string;
   }) => {
     if (!user) return;
     setSaving(true);
@@ -110,6 +117,7 @@ export default function Payments() {
           .from('payments')
           .update({
             invoice_id: data.invoice_id || null,
+            account_id: data.account_id || null,
             amount: data.amount,
             payment_date: data.payment_date,
             payment_method: data.payment_method,
@@ -120,37 +128,54 @@ export default function Payments() {
         if (error) throw error;
         toast.success('Paiement modifié');
       } else {
-        const { error } = await supabase
-          .from('payments')
-          .insert({
-            user_id: user.id,
-            invoice_id: data.invoice_id || null,
-            amount: data.amount,
-            payment_date: data.payment_date,
-            payment_method: data.payment_method,
-            reference: data.reference || null,
-            notes: data.notes || null
-          });
-        if (error) throw error;
+        // Prefer server-side RPC to ensure atomicity: insert payment + update account balance
+        const rpcParams = {
+          user_id: user.id,
+          invoice_id: data.invoice_id || null,
+          amount: data.amount,
+          payment_date: data.payment_date,
+          payment_method: data.payment_method,
+          reference: data.reference || null,
+          notes: data.notes || null,
+          account_id: data.account_id
+        };
+        const { data: rpcData, error: rpcError } = await supabase.rpc('create_payment_with_account', rpcParams);
+        if (rpcError) {
+          // Fallback: direct insert + client-side account update
+          logger.warn('RPC create_payment_with_account failed, falling back to direct insert:', rpcError);
+          const { error } = await supabase
+            .from('payments')
+            .insert({
+              user_id: user.id,
+              invoice_id: data.invoice_id || null,
+              account_id: data.account_id || null,
+              amount: data.amount,
+              payment_date: data.payment_date,
+              payment_method: data.payment_method,
+              reference: data.reference || null,
+              notes: data.notes || null
+            });
+          if (error) throw error;
 
-        // Update invoice status if fully paid
-        if (data.invoice_id) {
-          const invoice = invoices.find(i => i.id === data.invoice_id);
-          if (invoice) {
-            // Get total payments for this invoice
-            const { data: invPayments } = await supabase
-              .from('payments')
-              .select('amount')
-              .eq('invoice_id', data.invoice_id);
-            const totalPaid = (invPayments || []).reduce((s, p) => s + Number(p.amount), 0) + data.amount;
-            
-            if (totalPaid >= Number(invoice.total)) {
-              await supabase.from('invoices').update({ status: 'paid' }).eq('id', data.invoice_id);
+          // Update invoice status if fully paid (fallback path)
+          if (data.invoice_id) {
+            const invoice = invoices.find(i => i.id === data.invoice_id);
+            if (invoice) {
+              const { data: invPayments } = await supabase
+                .from('payments')
+                .select('amount')
+                .eq('invoice_id', data.invoice_id);
+              const totalPaid = (invPayments || []).reduce((s, p) => s + Number(p.amount), 0) + data.amount;
+              if (totalPaid >= Number(invoice.total)) {
+                await supabase.from('invoices').update({ status: 'paid' }).eq('id', data.invoice_id);
+              }
             }
           }
-        }
 
-        toast.success('Paiement enregistré');
+          toast.success('Paiement enregistré');
+        } else {
+          toast.success('Paiement enregistré');
+        }
       }
       setDialogOpen(false);
       setEditingPayment(null);
@@ -221,7 +246,11 @@ export default function Payments() {
             <Download className="h-4 w-4 mr-2" />
             Exporter CSV
           </Button>
-          <Button onClick={() => { setEditingPayment(null); setDialogOpen(true); }}>
+          <Button
+            onClick={() => { setEditingPayment(null); setDialogOpen(true); }}
+            disabled={accounts.length === 0}
+            title={accounts.length === 0 ? "Ajoutez un compte bancaire avant d'enregistrer un paiement" : ''}
+          >
             <Plus className="h-4 w-4 mr-2" />
             Nouveau paiement
           </Button>
@@ -244,7 +273,7 @@ export default function Payments() {
         </Card>
         <Card>
           <CardContent className="pt-6">
-            <div className="text-2xl font-bold">{invoices.filter(i => i.status !== 'paid').length}</div>
+            <div className="text-2xl font-bold">{invoices.filter(i => i.status !== InvoiceStatus.PAID).length}</div>
             <p className="text-sm text-muted-foreground">Factures en attente</p>
           </CardContent>
         </Card>
@@ -370,6 +399,7 @@ export default function Payments() {
         onOpenChange={setDialogOpen}
         invoices={invoices}
         clients={clients}
+        accounts={accounts}
         onSave={handleSavePayment}
         loading={saving}
         editPayment={editingPayment}

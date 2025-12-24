@@ -13,7 +13,11 @@ interface AccountDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   account: Account | null;
-  onSave: (data: { code: string; name: string; type: string }) => void;
+  // accountBalance: current computed balance (debit - credit)
+  accountBalance?: number;
+  // optional preselected counterpart account id
+  defaultCounterpartyAccountId?: string | null;
+  onSave: (data: { code: string; name: string; type: string; balance?: number; counterparty_account_id?: string | null }) => void;
   loading: boolean;
 }
 
@@ -24,16 +28,20 @@ const accountTypes = [
   { value: 'produit', label: 'Produit' },
 ];
 
-export default function AccountDialog({ open, onOpenChange, account, onSave, loading }: AccountDialogProps) {
+export default function AccountDialog({ open, onOpenChange, account, accountBalance, defaultCounterpartyAccountId, onSave, loading }: AccountDialogProps) {
   const [code, setCode] = useState('');
   const [name, setName] = useState('');
   const [type, setType] = useState('actif');
+  const [balance, setBalance] = useState<string>('');
+  const [counterparty, setCounterparty] = useState<string | null>(null);
 
   useEffect(() => {
     if (account) {
       setCode(account.code);
       setName(account.name);
       setType(account.type);
+      setBalance('');
+      setCounterparty(defaultCounterpartyAccountId ?? null);
     } else {
       setCode('');
       setName('');
@@ -43,7 +51,8 @@ export default function AccountDialog({ open, onOpenChange, account, onSave, loa
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    onSave({ code, name, type });
+    const parsedBalance = balance === '' ? undefined : Number(parseFloat(balance).toFixed(2));
+    onSave({ code, name, type, balance: parsedBalance, counterparty_account_id: counterparty });
   };
 
   return (
@@ -89,6 +98,19 @@ export default function AccountDialog({ open, onOpenChange, account, onSave, loa
                   ))}
                 </SelectContent>
               </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="balance">Solde (optionnel)</Label>
+              <Input
+                id="balance"
+                type="number"
+                step="0.01"
+                value={balance}
+                onChange={(e) => setBalance(e.target.value)}
+                placeholder={account ? 'Laisser vide pour ne pas ajuster' : '0.00'}
+              />
+              <p className="text-sm text-muted-foreground">Si vous renseignez un solde, une écriture d'ajustement sera créée.</p>
             </div>
           </form>
         </ScrollArea>
