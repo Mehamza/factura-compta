@@ -750,6 +750,21 @@ export default function Invoices() {
                     title={formData.status === InvoiceStatus.PURCHASE_QUOTE ? "Désactivé pour un Devis d'achat" : undefined}
                   />
                 </div>
+<<<<<<< HEAD
+=======
+                {/* <div>
+                  <Label>Taux TVA (%)</Label>
+                  <Select value={String(formData.tax_rate)} onValueChange={v => setFormData({ ...formData, tax_rate: Number(v) })}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="0">0 % (Exonérée)</SelectItem>
+                      <SelectItem value="7">7 %</SelectItem>
+                      <SelectItem value="13">13 %</SelectItem>
+                      <SelectItem value="19">19 %</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div> */}
+>>>>>>> 6662ecb (fix some lignes)
                 <div>
                   <Label>Devise</Label>
                   <Select value={formData.currency} onValueChange={v => setFormData({ ...formData, currency: v })}>
@@ -763,17 +778,10 @@ export default function Invoices() {
                     </SelectContent>
                   </Select>
                 </div>
-                <div className="col-span-2 flex items-center gap-2 pt-2">
-                  <input id="stamp" type="checkbox" className="h-4 w-4" checked={formData.stamp_included} onChange={e => setFormData({ ...formData, stamp_included: e.target.checked })} />
-                  <Label htmlFor="stamp">Inclure le timbre fiscal (1 TND)</Label>
-                </div>
-              </div>
-
-              <div>
-                <Label className="mb-2 block">Lignes de facture</Label>
-                <div className="space-y-2">
-                  <div className="grid grid-cols-12 gap-2 items-center">
-                    <UiSelect value={documentType} onValueChange={(v) => setDocumentType(v as 'sale' | 'purchase')}>
+                <div >
+                  <Label>Type de facture</Label>
+                  <div className="items-center">
+                       <UiSelect value={documentType} onValueChange={(v) => setDocumentType(v as 'sale' | 'purchase')}>
                       <UiSelectTrigger className="col-span-4">
                         <UiSelectValue placeholder="Type de document" />
                       </UiSelectTrigger>
@@ -783,6 +791,18 @@ export default function Invoices() {
                       </UiSelectContent>
                     </UiSelect>
                   </div>
+                   
+                </div>
+                <div className="col-span-2 flex items-center gap-2 pt-2">
+                  <input id="stamp" type="checkbox" className="h-4 w-4" checked={formData.stamp_included} onChange={e => setFormData({ ...formData, stamp_included: e.target.checked })} />
+                  <Label htmlFor="stamp">Inclure le timbre fiscal (1 TND)</Label>
+                </div>
+              </div>
+
+              <div>
+                <Label className="mb-2 block">Lignes de facture</Label>
+                <div className="space-y-2">
+                  
                   {/* Header row */}
                   <div className="grid grid-cols-12 gap-2 items-center font-medium text-sm text-muted-foreground border-b pb-2">
                     <span className="col-span-3">Produit</span>

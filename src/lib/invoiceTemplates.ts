@@ -395,7 +395,7 @@ async function drawStampZone(doc: jsPDF, y: number, pageWidth: number, signature
     doc.setFontSize(8);
     doc.setFont('helvetica', 'normal');
     doc.setTextColor(150, 150, 150);
-    doc.text('Cachet de l\'entreprise', pageWidth - 55, y + 25, { align: 'center' });
+    doc.text('', pageWidth - 55, y + 25, { align: 'center' });
     doc.setTextColor(0, 0, 0);
   }
   
