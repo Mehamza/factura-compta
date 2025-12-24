@@ -153,7 +153,17 @@ export default function Invoices() {
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
   const [selectedInvoiceItems, setSelectedInvoiceItems] = useState<InvoiceItem[]>([]);
   
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<{
+    client_id: string;
+    issue_date: string;
+    due_date: string;
+    tax_rate: number;
+    stamp_included: boolean;
+    notes: string;
+    status: string;
+    currency: string;
+    template_type: TemplateType;
+  }>({
     client_id: '',
     issue_date: new Date().toISOString().split('T')[0],
     due_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
@@ -958,7 +968,7 @@ export default function Invoices() {
                 <Download className="h-4 w-4 mr-2" />
                 Télécharger le PDF
               </Button>
-              {selectedInvoice?.status === InvoiceStatus.PURCHASE_QUOTE && (role === 'admin' || role === 'comptable' || role === 'accountant') && (
+              {selectedInvoice?.status === InvoiceStatus.PURCHASE_QUOTE && (role === 'admin' || role === 'accountant') && (
                 <Button onClick={() => handleConvertQuote(selectedInvoice.id)} className="w-full mt-2">
                   Convertir en facture d'achat
                 </Button>
