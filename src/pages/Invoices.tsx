@@ -60,9 +60,12 @@ interface Client {
 
 interface InvoiceItem {
   id?: string;
+  reference: string;
   description: string;
   quantity: number;
   unit_price: number;
+  vat_rate: number;
+  vat_amount: number;
   total: number;
 }
 
@@ -145,7 +148,7 @@ export default function Invoices() {
   const { toast } = useToast();
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
-  const [products, setProducts] = useState<{id:string; name:string; sku:string; quantity:number; min_stock:number; sale_price:number|null; unit_price:number; description:string|null; unit:string|null}[]>([]);
+  const [products, setProducts] = useState<{id:string; name:string; sku:string; quantity:number; min_stock:number; sale_price:number|null; unit_price:number; description:string|null; unit:string|null; vat_rate:number|null}[]>([]);
   const [companySettings, setCompanySettings] = useState<CompanySettings | null>(null);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [userRole, setUserRole] = useState<string>('cashier');
@@ -160,7 +163,6 @@ export default function Invoices() {
     client_id: string;
     issue_date: string;
     due_date: string;
-    tax_rate: number;
     stamp_included: boolean;
     notes: string;
     status: string;
@@ -170,14 +172,13 @@ export default function Invoices() {
     client_id: '',
     issue_date: new Date().toISOString().split('T')[0],
     due_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-    tax_rate: 19,
     stamp_included: false,
     notes: '',
     status: InvoiceStatus.DRAFT,
     currency: 'TND',
     template_type: 'classic' as TemplateType,
   });
-  const [items, setItems] = useState<InvoiceItem[]>([{ description: '', quantity: 1, unit_price: 0, total: 0 }]);
+  const [items, setItems] = useState<InvoiceItem[]>([{ reference: '', description: '', quantity: 1, unit_price: 0, vat_rate: 0, vat_amount: 0, total: 0 }]);
   const [itemProductMap, setItemProductMap] = useState<Record<number, string>>({});
   const [documentType, setDocumentType] = useState<'sale' | 'purchase'>('sale');
   const [openProductPopover, setOpenProductPopover] = useState<number | null>(null);
@@ -250,13 +251,12 @@ export default function Invoices() {
       setFormData(prev => ({
         ...prev,
         currency: data.default_currency || 'TND',
-        tax_rate: data.default_vat_rate || 19,
       }));
     }
   };
 
   const fetchProducts = async () => {
-    const { data, error } = await supabase.from('products').select('id,name,sku,quantity,min_stock,sale_price,unit_price,description,unit').order('name');
+    const { data, error } = await supabase.from('products').select('id,name,sku,quantity,min_stock,sale_price,unit_price,description,unit,vat_rate').order('name');
     if (!error) setProducts(data || []);
   };
 
@@ -266,11 +266,17 @@ export default function Invoices() {
     if (product) {
       const newItems = [...items];
       const price = Number(product.sale_price) || Number(product.unit_price) || 0;
+      const vatRate = Number(product.vat_rate) || 0;
+      const lineTotal = newItems[index].quantity * price;
+      const vatAmount = lineTotal * (vatRate / 100);
       newItems[index] = {
         ...newItems[index],
+        reference: product.sku || '',
         description: product.name + (product.description ? ` - ${product.description}` : ''),
         unit_price: price,
-        total: newItems[index].quantity * price,
+        vat_rate: vatRate,
+        vat_amount: vatAmount,
+        total: lineTotal,
       };
       setItems(newItems);
     }
@@ -309,9 +315,9 @@ export default function Invoices() {
   };
 
   const STAMP_AMOUNT = 1; // TND
-  const calculateTotals = (invoiceItems: InvoiceItem[], taxRate: number, stampIncluded: boolean) => {
+  const calculateTotals = (invoiceItems: InvoiceItem[], stampIncluded: boolean) => {
     const subtotal = invoiceItems.reduce((sum, item) => sum + item.total, 0);
-    const taxAmount = subtotal * (taxRate / 100);
+    const taxAmount = invoiceItems.reduce((sum, item) => sum + item.vat_amount, 0);
     const stamp = stampIncluded ? STAMP_AMOUNT : 0;
     const total = subtotal + taxAmount + stamp;
     return { subtotal, taxAmount, stamp, total };
@@ -321,13 +327,16 @@ export default function Invoices() {
     const newItems = [...items];
     newItems[index] = { ...newItems[index], [field]: value };
     if (field === 'quantity' || field === 'unit_price') {
-      newItems[index].total = newItems[index].quantity * newItems[index].unit_price;
+      const lineTotal = newItems[index].quantity * newItems[index].unit_price;
+      const vatAmount = lineTotal * (newItems[index].vat_rate / 100);
+      newItems[index].total = lineTotal;
+      newItems[index].vat_amount = vatAmount;
     }
     setItems(newItems);
   };
 
   const addItem = () => {
-    setItems([...items, { description: '', quantity: 1, unit_price: 0, total: 0 }]);
+    setItems([...items, { reference: '', description: '', quantity: 1, unit_price: 0, vat_rate: 0, vat_amount: 0, total: 0 }]);
   };
 
   const removeItem = (index: number) => {
@@ -338,7 +347,7 @@ export default function Invoices() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const { subtotal, taxAmount, stamp, total } = calculateTotals(items, formData.tax_rate, formData.stamp_included);
+    const { subtotal, taxAmount, stamp, total } = calculateTotals(items, formData.stamp_included);
     const invoiceNumber = generateInvoiceNumber();
 
     const { data: invoiceData, error: invoiceError } = await supabase
@@ -351,7 +360,7 @@ export default function Invoices() {
         due_date: formData.due_date,
         status: formData.status,
         subtotal,
-        tax_rate: formData.tax_rate,
+        tax_rate: 0, // Per-item TVA now
         tax_amount: taxAmount,
         total,
         stamp_included: formData.stamp_included,
@@ -379,9 +388,12 @@ export default function Invoices() {
 
     const invoiceItems = items.map(item => ({
       invoice_id: invoiceData.id,
+      reference: item.reference,
       description: item.description,
       quantity: item.quantity,
       unit_price: item.unit_price,
+      vat_rate: item.vat_rate,
+      vat_amount: item.vat_amount,
       total: item.total,
     }));
 
@@ -633,14 +645,13 @@ export default function Invoices() {
       client_id: '',
       issue_date: new Date().toISOString().split('T')[0],
       due_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-      tax_rate: companySettings?.default_vat_rate || 19,
       stamp_included: false,
       notes: '',
       status: InvoiceStatus.DRAFT,
       currency: companySettings?.default_currency || 'TND',
       template_type: 'classic' as TemplateType,
     });
-    setItems([{ description: '', quantity: 1, unit_price: 0, total: 0 }]);
+    setItems([{ reference: '', description: '', quantity: 1, unit_price: 0, vat_rate: 0, vat_amount: 0, total: 0 }]);
   };
 
   const filteredInvoices = invoices.filter(i =>
@@ -648,7 +659,7 @@ export default function Invoices() {
     i.clients?.name.toLowerCase().includes(search.toLowerCase())
   );
 
-  const { subtotal, taxAmount, stamp, total } = calculateTotals(items, formData.tax_rate, formData.stamp_included);
+  const { subtotal, taxAmount, stamp, total } = calculateTotals(items, formData.stamp_included);
 
   if (loading) {
     return <div className="flex items-center justify-center h-64"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div></div>;
@@ -740,18 +751,6 @@ export default function Invoices() {
                   />
                 </div>
                 <div>
-                  <Label>Taux TVA (%)</Label>
-                  <Select value={String(formData.tax_rate)} onValueChange={v => setFormData({ ...formData, tax_rate: Number(v) })}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="0">0 % (Exonérée)</SelectItem>
-                      <SelectItem value="7">7 %</SelectItem>
-                      <SelectItem value="13">13 %</SelectItem>
-                      <SelectItem value="19">19 %</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
                   <Label>Devise</Label>
                   <Select value={formData.currency} onValueChange={v => setFormData({ ...formData, currency: v })}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
@@ -785,16 +784,18 @@ export default function Invoices() {
                     </UiSelect>
                   </div>
                   {/* Header row */}
-                  <div className="grid grid-cols-12 gap-2 items-center font-medium text-sm text-muted-foreground border-b pb-2">
-                    <span className="col-span-3">Produit</span>
-                    <span className="col-span-4">Description</span>
+                  <div className="grid grid-cols-14 gap-2 items-center font-medium text-sm text-muted-foreground border-b pb-2">
+                    <span className="col-span-2">Produit</span>
+                    <span className="col-span-1">Réf.</span>
+                    <span className="col-span-3">Description</span>
                     <span className="col-span-1">Qté</span>
                     <span className="col-span-2">Prix U.</span>
-                    <span className="col-span-1 text-right">Total</span>
+                    <span className="col-span-1">TVA</span>
+                    <span className="col-span-2 text-right">Total HT</span>
                     <span className="col-span-1"></span>
                   </div>
                   {items.map((item, index) => (
-                    <div key={index} className="grid grid-cols-12 gap-2 items-center">
+                    <div key={index} className="grid grid-cols-14 gap-2 items-center">
                       <Popover 
                         open={openProductPopover === index} 
                         onOpenChange={(open) => setOpenProductPopover(open ? index : null)}
@@ -803,7 +804,7 @@ export default function Invoices() {
                           <Button
                             variant="outline"
                             role="combobox"
-                            className="col-span-3 justify-between font-normal"
+                            className="col-span-2 justify-between font-normal"
                           >
                             <span className="truncate">
                               {itemProductMap[index] 
@@ -848,8 +849,15 @@ export default function Invoices() {
                         </PopoverContent>
                       </Popover>
                       <Input
+                        placeholder="Réf."
+                        className="col-span-1"
+                        value={item.reference}
+                        readOnly
+                        disabled
+                      />
+                      <Input
                         placeholder="Description"
-                        className="col-span-4"
+                        className="col-span-3"
                         value={item.description}
                         onChange={e => updateItemTotal(index, 'description', e.target.value)}
                         required
@@ -870,7 +878,10 @@ export default function Invoices() {
                         onChange={e => updateItemTotal(index, 'unit_price', Number(e.target.value))}
                         step="0.01"
                       />
-                      <div className="col-span-1 text-right font-medium text-sm">
+                      <div className="col-span-1 text-center text-sm">
+                        {item.vat_rate > 0 ? `${item.vat_rate}%` : 'Exo'}
+                      </div>
+                      <div className="col-span-2 text-right font-medium text-sm">
                         {formatCurrency(item.total, formData.currency)}
                       </div>
                       <Button type="button" variant="ghost" size="icon" onClick={() => removeItem(index)} className="col-span-1">
@@ -886,7 +897,7 @@ export default function Invoices() {
 
               <div className="bg-muted p-4 rounded-lg space-y-1 text-right">
                 <p>Sous-total HT: <span className="font-medium">{formatCurrency(subtotal, formData.currency)}</span></p>
-                <p>TVA ({formData.tax_rate}%): <span className="font-medium">{formatCurrency(taxAmount, formData.currency)}</span></p>
+                <p>Montant TVA: <span className="font-medium">{formatCurrency(taxAmount, formData.currency)}</span></p>
                 {formData.stamp_included && (
                   <p>Timbre fiscal: <span className="font-medium">{formatCurrency(stamp, formData.currency)}</span></p>
                 )}
