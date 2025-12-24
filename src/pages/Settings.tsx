@@ -171,8 +171,38 @@ export default function Settings() {
         .getPublicUrl(fileName);
 
       // Update local state
-      setSettings(prev => prev ? { ...prev, company_logo_url: publicUrl } : null);
-      toast.success('Logo téléchargé avec succès');
+      const newSettings = settings ? { ...settings, company_logo_url: publicUrl } : null;
+      setSettings(newSettings);
+      
+      // Auto-save to database
+      if (newSettings && user) {
+        const { id, ...settingsWithoutId } = newSettings;
+        const settingsToSave = {
+          ...settingsWithoutId,
+          user_id: user.id,
+          vat_rates: JSON.parse(JSON.stringify(newSettings.vat_rates))
+        };
+
+        if (newSettings.id) {
+          const { error } = await supabase
+            .from('company_settings')
+            .update({ company_logo_url: publicUrl })
+            .eq('id', newSettings.id);
+
+          if (error) throw error;
+        } else {
+          const { data, error } = await supabase
+            .from('company_settings')
+            .insert(settingsToSave)
+            .select()
+            .single();
+
+          if (error) throw error;
+          setSettings({ ...newSettings, id: data.id });
+        }
+      }
+      
+      toast.success('Logo téléchargé et enregistré');
     } catch (error) {
       logger.error('Erreur upload logo:', error);
       toast.error('Erreur lors du téléchargement du logo');
@@ -181,8 +211,26 @@ export default function Settings() {
     }
   };
 
-  const removeLogo = () => {
+  const removeLogo = async () => {
+    if (!settings || !user) return;
+    
     setSettings(prev => prev ? { ...prev, company_logo_url: '' } : null);
+    
+    // Auto-save removal to database
+    if (settings.id) {
+      try {
+        const { error } = await supabase
+          .from('company_settings')
+          .update({ company_logo_url: null })
+          .eq('id', settings.id);
+
+        if (error) throw error;
+        toast.success('Logo supprimé');
+      } catch (error) {
+        logger.error('Erreur suppression logo:', error);
+        toast.error('Erreur lors de la suppression du logo');
+      }
+    }
   };
 
   const handleSignatureUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
