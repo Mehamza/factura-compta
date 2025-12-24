@@ -784,18 +784,16 @@ export default function Invoices() {
                     </UiSelect>
                   </div>
                   {/* Header row */}
-                  <div className="grid grid-cols-14 gap-2 items-center font-medium text-sm text-muted-foreground border-b pb-2">
-                    <span className="col-span-2">Produit</span>
-                    <span className="col-span-1">Réf.</span>
-                    <span className="col-span-3">Description</span>
+                  <div className="grid grid-cols-12 gap-2 items-center font-medium text-sm text-muted-foreground border-b pb-2">
+                    <span className="col-span-3">Produit</span>
+                    <span className="col-span-4">Description</span>
                     <span className="col-span-1">Qté</span>
                     <span className="col-span-2">Prix U.</span>
-                    <span className="col-span-1">TVA</span>
-                    <span className="col-span-2 text-right">Total HT</span>
+                    <span className="col-span-1 text-right">Total HT</span>
                     <span className="col-span-1"></span>
                   </div>
                   {items.map((item, index) => (
-                    <div key={index} className="grid grid-cols-14 gap-2 items-center">
+                    <div key={index} className="grid grid-cols-12 gap-2 items-center">
                       <Popover 
                         open={openProductPopover === index} 
                         onOpenChange={(open) => setOpenProductPopover(open ? index : null)}
@@ -804,7 +802,7 @@ export default function Invoices() {
                           <Button
                             variant="outline"
                             role="combobox"
-                            className="col-span-2 justify-between font-normal"
+                            className="col-span-3 justify-between font-normal"
                           >
                             <span className="truncate">
                               {itemProductMap[index] 
@@ -849,15 +847,8 @@ export default function Invoices() {
                         </PopoverContent>
                       </Popover>
                       <Input
-                        placeholder="Réf."
-                        className="col-span-1"
-                        value={item.reference}
-                        readOnly
-                        disabled
-                      />
-                      <Input
                         placeholder="Description"
-                        className="col-span-3"
+                        className="col-span-4"
                         value={item.description}
                         onChange={e => updateItemTotal(index, 'description', e.target.value)}
                         required
@@ -878,10 +869,7 @@ export default function Invoices() {
                         onChange={e => updateItemTotal(index, 'unit_price', Number(e.target.value))}
                         step="0.01"
                       />
-                      <div className="col-span-1 text-center text-sm">
-                        {item.vat_rate > 0 ? `${item.vat_rate}%` : 'Exo'}
-                      </div>
-                      <div className="col-span-2 text-right font-medium text-sm">
+                      <div className="col-span-1 text-right font-medium text-sm">
                         {formatCurrency(item.total, formData.currency)}
                       </div>
                       <Button type="button" variant="ghost" size="icon" onClick={() => removeItem(index)} className="col-span-1">

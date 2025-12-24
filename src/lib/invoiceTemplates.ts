@@ -49,9 +49,12 @@ export interface InvoiceTemplateData {
 }
 
 export interface InvoiceItem {
+  reference?: string;
   description: string;
   quantity: number;
   unit_price: number;
+  vat_rate?: number;
+  vat_amount?: number;
   total: number;
 }
 
@@ -445,27 +448,29 @@ export async function generateClassicPDF(invoice: InvoiceTemplateData, items: In
   doc.setLineWidth(0.3);
   doc.rect(20, tableTop, pageWidth - 40, 8);
   
-  doc.setFontSize(9);
+  doc.setFontSize(8);
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(0, 0, 0);
-  doc.text('REF', 25, tableTop + 5.5);
-  doc.text('DESIGNATION', 45, tableTop + 5.5);
-  doc.text('QTE', 120, tableTop + 5.5);
-  doc.text('P.U.T.C', 140, tableTop + 5.5);
-  doc.text('TOTAL', 170, tableTop + 5.5);
+  doc.text('REF', 22, tableTop + 5.5);
+  doc.text('DESIGNATION', 40, tableTop + 5.5);
+  doc.text('QTE', 105, tableTop + 5.5);
+  doc.text('P.U.HT', 120, tableTop + 5.5);
+  doc.text('TVA', 145, tableTop + 5.5);
+  doc.text('TOTAL HT', 165, tableTop + 5.5);
   
   y = tableTop + 8;
   doc.setFont('helvetica', 'normal');
   
-  items.forEach((item, index) => {
+  items.forEach((item) => {
     doc.setDrawColor(200, 200, 200);
     doc.rect(20, y, pageWidth - 40, 8);
     
-    doc.text((index + 1).toString(), 25, y + 5.5);
-    doc.text(item.description.substring(0, 35), 45, y + 5.5);
-    doc.text(item.quantity.toString(), 122, y + 5.5);
-    doc.text(formatCurrency(item.unit_price, invoice.currency), 140, y + 5.5);
-    doc.text(formatCurrency(item.total, invoice.currency), 170, y + 5.5);
+    doc.text((item.reference || '').substring(0, 10), 22, y + 5.5);
+    doc.text(item.description.substring(0, 30), 40, y + 5.5);
+    doc.text(item.quantity.toString(), 107, y + 5.5);
+    doc.text(formatCurrency(item.unit_price, invoice.currency), 120, y + 5.5);
+    doc.text(item.vat_rate ? `${item.vat_rate}%` : 'Exo', 145, y + 5.5);
+    doc.text(formatCurrency(item.total, invoice.currency), 165, y + 5.5);
     y += 8;
   });
   
@@ -475,7 +480,7 @@ export async function generateClassicPDF(invoice: InvoiceTemplateData, items: In
   doc.text('Sous-total HT:', 130, y);
   doc.text(formatCurrency(invoice.subtotal, invoice.currency), pageWidth - 25, y, { align: 'right' });
   y += 7;
-  doc.text(`TVA (${invoice.tax_rate}%):`, 130, y);
+  doc.text('Montant TVA:', 130, y);
   doc.text(formatCurrency(invoice.tax_amount, invoice.currency), pageWidth - 25, y, { align: 'right' });
   if (invoice.stamp_included) {
     y += 7;
@@ -554,12 +559,13 @@ export async function generateModernPDF(invoice: InvoiceTemplateData, items: Inv
   doc.rect(20, y, pageWidth - 40, 8, 'F');
   doc.setTextColor(255, 255, 255);
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(9);
-  doc.text('REF', 25, y + 5.5);
-  doc.text('DESIGNATION', 45, y + 5.5);
-  doc.text('QTE', 120, y + 5.5);
-  doc.text('P.U.T.C', 140, y + 5.5);
-  doc.text('TOTAL', 170, y + 5.5);
+  doc.setFontSize(8);
+  doc.text('REF', 22, y + 5.5);
+  doc.text('DESIGNATION', 40, y + 5.5);
+  doc.text('QTE', 105, y + 5.5);
+  doc.text('P.U.HT', 120, y + 5.5);
+  doc.text('TVA', 145, y + 5.5);
+  doc.text('TOTAL HT', 165, y + 5.5);
   
   y += 8;
   doc.setTextColor(0, 0, 0);
@@ -570,11 +576,12 @@ export async function generateModernPDF(invoice: InvoiceTemplateData, items: Inv
       doc.setFillColor(245, 247, 250);
       doc.rect(20, y, pageWidth - 40, 8, 'F');
     }
-    doc.text((index + 1).toString(), 25, y + 5.5);
-    doc.text(item.description.substring(0, 35), 45, y + 5.5);
-    doc.text(item.quantity.toString(), 122, y + 5.5);
-    doc.text(formatCurrency(item.unit_price, invoice.currency), 140, y + 5.5);
-    doc.text(formatCurrency(item.total, invoice.currency), 170, y + 5.5);
+    doc.text((item.reference || '').substring(0, 10), 22, y + 5.5);
+    doc.text(item.description.substring(0, 30), 40, y + 5.5);
+    doc.text(item.quantity.toString(), 107, y + 5.5);
+    doc.text(formatCurrency(item.unit_price, invoice.currency), 120, y + 5.5);
+    doc.text(item.vat_rate ? `${item.vat_rate}%` : 'Exo', 145, y + 5.5);
+    doc.text(formatCurrency(item.total, invoice.currency), 165, y + 5.5);
     y += 8;
   });
   
@@ -586,7 +593,7 @@ export async function generateModernPDF(invoice: InvoiceTemplateData, items: Inv
   doc.setFontSize(10);
   doc.text('Sous-total HT:', 125, y + 5);
   doc.text(formatCurrency(invoice.subtotal, invoice.currency), 185, y + 5, { align: 'right' });
-  doc.text(`TVA (${invoice.tax_rate}%):`, 125, y + 13);
+  doc.text('Montant TVA:', 125, y + 13);
   doc.text(formatCurrency(invoice.tax_amount, invoice.currency), 185, y + 13, { align: 'right' });
   if (invoice.stamp_included) {
     doc.text('Timbre fiscal:', 125, y + 21);
@@ -658,11 +665,12 @@ export async function generateMinimalPDF(invoice: InvoiceTemplateData, items: In
   // Simple table header
   doc.setFontSize(8);
   doc.setTextColor(120, 120, 120);
-  doc.text('REF', 25, y);
-  doc.text('DESCRIPTION', 45, y);
-  doc.text('QTÉ', 120, y);
-  doc.text('PRIX', 140, y);
-  doc.text('TOTAL', pageWidth - 25, y, { align: 'right' });
+  doc.text('REF', 22, y);
+  doc.text('DESCRIPTION', 40, y);
+  doc.text('QTÉ', 105, y);
+  doc.text('P.U.HT', 120, y);
+  doc.text('TVA', 145, y);
+  doc.text('TOTAL HT', pageWidth - 25, y, { align: 'right' });
   
   y += 3;
   doc.setDrawColor(230, 230, 230);
@@ -671,13 +679,14 @@ export async function generateMinimalPDF(invoice: InvoiceTemplateData, items: In
   
   y += 8;
   doc.setTextColor(0, 0, 0);
-  doc.setFontSize(10);
+  doc.setFontSize(9);
   
-  items.forEach((item, index) => {
-    doc.text((index + 1).toString(), 25, y);
-    doc.text(item.description.substring(0, 35), 45, y);
-    doc.text(item.quantity.toString(), 122, y);
-    doc.text(formatCurrency(item.unit_price, invoice.currency), 140, y);
+  items.forEach((item) => {
+    doc.text((item.reference || '').substring(0, 10), 22, y);
+    doc.text(item.description.substring(0, 28), 40, y);
+    doc.text(item.quantity.toString(), 107, y);
+    doc.text(formatCurrency(item.unit_price, invoice.currency), 120, y);
+    doc.text(item.vat_rate ? `${item.vat_rate}%` : 'Exo', 145, y);
     doc.text(formatCurrency(item.total, invoice.currency), pageWidth - 25, y, { align: 'right' });
     y += 8;
   });
@@ -696,7 +705,7 @@ export async function generateMinimalPDF(invoice: InvoiceTemplateData, items: In
   
   y += 7;
   doc.setTextColor(120, 120, 120);
-  doc.text(`TVA ${invoice.tax_rate}%`, 140, y);
+  doc.text('Montant TVA', 140, y);
   doc.setTextColor(0, 0, 0);
   doc.text(formatCurrency(invoice.tax_amount, invoice.currency), pageWidth - 25, y, { align: 'right' });
   if (invoice.stamp_included) {
