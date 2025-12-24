@@ -469,7 +469,7 @@ export async function generateClassicPDF(invoice: InvoiceTemplateData, items: In
     doc.text(item.description.substring(0, 30), 40, y + 5.5);
     doc.text(item.quantity.toString(), 107, y + 5.5);
     doc.text(formatCurrency(item.unit_price, invoice.currency), 120, y + 5.5);
-    doc.text(item.vat_rate ? `${item.vat_rate}%` : 'Exo', 145, y + 5.5);
+    doc.text(item.vat_rate ? `${item.vat_rate}%` : '00', 145, y + 5.5);
     doc.text(formatCurrency(item.total, invoice.currency), 165, y + 5.5);
     y += 8;
   });

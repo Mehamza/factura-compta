@@ -750,21 +750,6 @@ export default function Invoices() {
                     title={formData.status === InvoiceStatus.PURCHASE_QUOTE ? "Désactivé pour un Devis d'achat" : undefined}
                   />
                 </div>
-<<<<<<< HEAD
-=======
-                {/* <div>
-                  <Label>Taux TVA (%)</Label>
-                  <Select value={String(formData.tax_rate)} onValueChange={v => setFormData({ ...formData, tax_rate: Number(v) })}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="0">0 % (Exonérée)</SelectItem>
-                      <SelectItem value="7">7 %</SelectItem>
-                      <SelectItem value="13">13 %</SelectItem>
-                      <SelectItem value="19">19 %</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div> */}
->>>>>>> 6662ecb (fix some lignes)
                 <div>
                   <Label>Devise</Label>
                   <Select value={formData.currency} onValueChange={v => setFormData({ ...formData, currency: v })}>
