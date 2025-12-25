@@ -405,24 +405,30 @@ export default function Invoices() {
       toast({ title: 'Succès', description: 'Facture créée' });
       // Auto-création des mouvements de stock selon type document (vente → sortie, achat → entrée)
       try {
-        // Build movements for lines with a product selected
-        const selectedMovements = items.map((item, idx) => ({ idx, product_id: itemProductMap[idx], quantity: item.quantity }))
-          .filter(m => m.product_id);
+        // Aggregate quantities per product_id before creating movements
+        const movementMap: Record<string, number> = {};
+        items.forEach((item, idx) => {
+          const pid = itemProductMap[idx];
+          if (!pid) return;
+          const q = Number(item.quantity) || 0;
+          movementMap[pid] = (movementMap[pid] || 0) + q;
+        });
+        const selectedMovements = Object.entries(movementMap).map(([product_id, quantity]) => ({ product_id, quantity }));
+        console.debug('invoice: aggregated movements', selectedMovements);
         if (selectedMovements.length > 0) {
-          // Check stock availability
-          const ids = selectedMovements.map(m => m.product_id!);
+          // Check stock availability using aggregated quantities
+          const ids = selectedMovements.map(m => m.product_id);
           const { data: prodData } = await supabase.from('products').select('id,quantity,min_stock').in('id', ids);
-          const prodMap = Object.fromEntries((prodData || []).map(p => [p.id, p]));
-          // Only check insufficiency for sales (exits)
+          const prodMap = Object.fromEntries((prodData || []).map((p: any) => [p.id, p]));
           const insufficient = documentType === 'sale'
-            ? selectedMovements.filter(m => (prodMap[m.product_id!]?.quantity ?? 0) < Number(m.quantity))
+            ? selectedMovements.filter(m => (prodMap[m.product_id]?.quantity ?? 0) < Number(m.quantity))
             : [];
           if (insufficient.length > 0) {
-            toast({ variant: 'destructive', title: 'Stock insuffisant', description: `${insufficient.length} ligne(s) dépassent le stock disponible.` });
+            toast({ variant: 'destructive', title: 'Stock insuffisant', description: `${insufficient.length} produit(s) dépassent le stock disponible.` });
           } else {
             const inserts = selectedMovements.map(m => ({
               user_id: user?.id,
-              product_id: m.product_id!,
+              product_id: m.product_id,
               movement_type: documentType === 'sale' ? 'exit' : 'entry',
               quantity: Number(m.quantity),
               note: `Facture ${invoiceNumber}`,
@@ -432,7 +438,7 @@ export default function Invoices() {
               toast({ variant: 'destructive', title: 'Erreur', description: movErr.message });
             } else {
               const { data: updated } = await supabase.from('products').select('id,quantity,min_stock').in('id', ids);
-              const low = (updated || []).filter(p => Number(p.quantity) <= Number(p.min_stock));
+              const low = (updated || []).filter((p: any) => Number(p.quantity) <= Number(p.min_stock));
               if (low.length > 0) {
                 toast({ title: 'Stock faible', description: `${low.length} produit(s) ont atteint un niveau bas après la facture.` });
               }
@@ -539,15 +545,23 @@ export default function Invoices() {
       },
     };
     
-    await generateInvoiceWithTemplate(
-      invoiceData,
-      (items || []).map(i => ({
+    const mapped = (items || []).map((i: any) => {
+      const quantity = Number(i.quantity) || 0;
+      const unit_price = Number(i.unit_price) || 0;
+      const total = Number(i.total) || (quantity * unit_price);
+      const vat_rate = i.vat_rate !== undefined && i.vat_rate !== null ? Number(i.vat_rate) : (invoice.tax_rate ?? 0);
+      const vat_amount = i.vat_amount !== undefined && i.vat_amount !== null ? Number(i.vat_amount) : (total * (Number(vat_rate) / 100));
+      return {
         description: i.description,
-        quantity: Number(i.quantity),
-        unit_price: Number(i.unit_price),
-        total: Number(i.total),
-      }))
-    );
+        quantity,
+        unit_price,
+        total,
+        vat_rate: Number(vat_rate) || 0,
+        vat_amount: Number(vat_amount) || 0,
+      };
+    });
+
+    await generateInvoiceWithTemplate(invoiceData, mapped);
   };
 
   /**
