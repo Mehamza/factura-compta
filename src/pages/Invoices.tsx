@@ -180,6 +180,7 @@ export default function Invoices() {
   });
   const [items, setItems] = useState<InvoiceItem[]>([{ reference: '', description: '', quantity: 1, unit_price: 0, vat_rate: 0, vat_amount: 0, total: 0 }]);
   const [itemProductMap, setItemProductMap] = useState<Record<number, string>>({});
+  const [manualLines, setManualLines] = useState<Record<number, boolean>>({});
   const [documentType, setDocumentType] = useState<'sale' | 'purchase'>('sale');
   const [openProductPopover, setOpenProductPopover] = useState<number | null>(null);
   const canExport = canExportData(role ?? 'cashier');
@@ -262,6 +263,7 @@ export default function Invoices() {
 
   const handleProductSelect = (index: number, productId: string) => {
     setItemProductMap(prev => ({ ...prev, [index]: productId }));
+    setManualLines(prev => ({ ...prev, [index]: false }));
     const product = products.find(p => p.id === productId);
     if (product) {
       const newItems = [...items];
@@ -280,6 +282,18 @@ export default function Invoices() {
       };
       setItems(newItems);
     }
+  };
+
+  const handleManualEntry = (index: number) => {
+    setManualLines(prev => ({ ...prev, [index]: true }));
+    setItemProductMap(prev => {
+      const newMap = { ...prev };
+      delete newMap[index];
+      return newMap;
+    });
+    const newItems = [...items];
+    newItems[index] = { reference: '', description: '', quantity: 1, unit_price: 0, vat_rate: 0, vat_amount: 0, total: 0 };
+    setItems(newItems);
   };
 
   const fetchUserInfo = async () => {
@@ -326,7 +340,7 @@ export default function Invoices() {
   const updateItemTotal = (index: number, field: keyof InvoiceItem, value: string | number) => {
     const newItems = [...items];
     newItems[index] = { ...newItems[index], [field]: value };
-    if (field === 'quantity' || field === 'unit_price') {
+    if (field === 'quantity' || field === 'unit_price' || field === 'vat_rate') {
       const lineTotal = newItems[index].quantity * newItems[index].unit_price;
       const vatAmount = lineTotal * (newItems[index].vat_rate / 100);
       newItems[index].total = lineTotal;
@@ -449,6 +463,8 @@ export default function Invoices() {
       } catch (err: any) {
         toast({ variant: 'destructive', title: 'Erreur', description: err?.message || 'Problème lors de la génération des mouvements de stock' });
       }
+      // Refresh products to show updated stock quantities
+      await fetchProducts();
       fetchInvoices();
       closeDialog();
     }
@@ -805,9 +821,10 @@ export default function Invoices() {
                   {/* Header row */}
                   <div className="grid grid-cols-12 gap-2 items-center font-medium text-sm text-muted-foreground border-b pb-2">
                     <span className="col-span-3">Produit</span>
-                    <span className="col-span-4">Description</span>
+                    <span className="col-span-3">Description</span>
                     <span className="col-span-1">Qté</span>
                     <span className="col-span-2">Prix U.</span>
+                    <span className="col-span-1">TVA %</span>
                     <span className="col-span-1 text-right">Total HT</span>
                     <span className="col-span-1"></span>
                   </div>
@@ -824,9 +841,11 @@ export default function Invoices() {
                             className="col-span-3 justify-between font-normal"
                           >
                             <span className="truncate">
-                              {itemProductMap[index] 
-                                ? products.find(p => p.id === itemProductMap[index])?.name 
-                                : "Rechercher..."}
+                              {manualLines[index] 
+                                ? "📝 Saisie manuelle"
+                                : itemProductMap[index] 
+                                  ? products.find(p => p.id === itemProductMap[index])?.name 
+                                  : "Rechercher..."}
                             </span>
                             <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                           </Button>
@@ -836,7 +855,29 @@ export default function Invoices() {
                             <CommandInput placeholder="Tapez pour rechercher..." />
                             <CommandList>
                               <CommandEmpty>Aucun produit trouvé.</CommandEmpty>
-                              <CommandGroup>
+                              <CommandGroup heading="Options">
+                                <CommandItem
+                                  value="__manual__"
+                                  onSelect={() => {
+                                    handleManualEntry(index);
+                                    setOpenProductPopover(null);
+                                  }}
+                                >
+                                  <Check
+                                    className={cn(
+                                      "mr-2 h-4 w-4",
+                                      manualLines[index] ? "opacity-100" : "opacity-0"
+                                    )}
+                                  />
+                                  <div className="flex flex-col">
+                                    <span>📝 Saisie manuelle</span>
+                                    <span className="text-xs text-muted-foreground">
+                                      Produit non référencé en stock
+                                    </span>
+                                  </div>
+                                </CommandItem>
+                              </CommandGroup>
+                              <CommandGroup heading="Produits en stock">
                                 {products.map(product => (
                                   <CommandItem
                                     key={product.id}
@@ -867,7 +908,7 @@ export default function Invoices() {
                       </Popover>
                       <Input
                         placeholder="Description"
-                        className="col-span-4"
+                        className="col-span-3"
                         value={item.description}
                         onChange={e => updateItemTotal(index, 'description', e.target.value)}
                         required
@@ -887,6 +928,15 @@ export default function Invoices() {
                         value={item.unit_price}
                         onChange={e => updateItemTotal(index, 'unit_price', Number(e.target.value))}
                         step="0.01"
+                      />
+                      <Input
+                        type="number"
+                        placeholder="TVA"
+                        className="col-span-1"
+                        value={item.vat_rate}
+                        onChange={e => updateItemTotal(index, 'vat_rate', Number(e.target.value))}
+                        min={0}
+                        step="0.1"
                       />
                       <div className="col-span-1 text-right font-medium text-sm">
                         {formatCurrency(item.total, formData.currency)}
