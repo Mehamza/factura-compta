@@ -391,7 +391,7 @@ export default function StockProducts() {
                 <TableHead>Nom</TableHead>
                 <TableHead>SKU</TableHead>
                 <TableHead>Catégorie</TableHead>
-                <TableHead>Quantité</TableHead>
+                <TableHead>Quantité actuelle</TableHead>
                 <TableHead>Stock min.</TableHead>
                 <TableHead>Prix vente</TableHead>
                 <TableHead>Statut</TableHead>
