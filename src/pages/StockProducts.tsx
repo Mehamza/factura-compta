@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { downloadCSV, mapProductsToCSV, exportServerCSV } from '@/lib/export';
 import { canExportData } from '@/lib/permissions';
 import { Button } from '@/components/ui/button';
-import { Plus, Download } from 'lucide-react';
+import { Plus, Download, Package, AlertTriangle, TrendingUp, Boxes } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
@@ -278,6 +278,15 @@ export default function StockProducts() {
     return supplier?.name || '-';
   };
 
+  // Stock summary statistics
+  const stockStats = useMemo(() => {
+    const totalProducts = products.length;
+    const totalQuantity = products.reduce((sum, p) => sum + Number(p.quantity), 0);
+    const lowStockCount = products.filter(p => Number(p.quantity) <= Number(p.min_stock)).length;
+    const totalValue = products.reduce((sum, p) => sum + (Number(p.quantity) * Number(p.sale_price || p.unit_price || 0)), 0);
+    return { totalProducts, totalQuantity, lowStockCount, totalValue };
+  }, [products]);
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -300,6 +309,62 @@ export default function StockProducts() {
             </Button>
           )}
         </div>
+      </div>
+
+      {/* Stock Summary Cards */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <Card>
+          <CardContent className="pt-6">
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-lg bg-primary/10">
+                <Package className="h-5 w-5 text-primary" />
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">Produits</p>
+                <p className="text-2xl font-bold">{stockStats.totalProducts}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="pt-6">
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-lg bg-blue-500/10">
+                <Boxes className="h-5 w-5 text-blue-500" />
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">Stock total</p>
+                <p className="text-2xl font-bold">{stockStats.totalQuantity.toLocaleString('fr-FR')}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="pt-6">
+            <div className="flex items-center gap-3">
+              <div className={`p-2 rounded-lg ${stockStats.lowStockCount > 0 ? 'bg-destructive/10' : 'bg-green-500/10'}`}>
+                <AlertTriangle className={`h-5 w-5 ${stockStats.lowStockCount > 0 ? 'text-destructive' : 'text-green-500'}`} />
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">Stock faible</p>
+                <p className={`text-2xl font-bold ${stockStats.lowStockCount > 0 ? 'text-destructive' : ''}`}>{stockStats.lowStockCount}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="pt-6">
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-lg bg-green-500/10">
+                <TrendingUp className="h-5 w-5 text-green-500" />
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">Valeur totale</p>
+                <p className="text-2xl font-bold">{stockStats.totalValue.toLocaleString('fr-FR')} DT</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
       <Card>

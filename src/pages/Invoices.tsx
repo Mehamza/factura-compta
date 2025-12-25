@@ -291,9 +291,12 @@ export default function Invoices() {
       delete newMap[index];
       return newMap;
     });
+    // Keep existing values if user already typed something
     const newItems = [...items];
-    newItems[index] = { reference: '', description: '', quantity: 1, unit_price: 0, vat_rate: 0, vat_amount: 0, total: 0 };
-    setItems(newItems);
+    if (!newItems[index].description) {
+      newItems[index] = { reference: '', description: '', quantity: 1, unit_price: 0, vat_rate: companySettings?.default_vat_rate || 19, vat_amount: 0, total: 0 };
+      setItems(newItems);
+    }
   };
 
   const fetchUserInfo = async () => {
@@ -350,7 +353,10 @@ export default function Invoices() {
   };
 
   const addItem = () => {
-    setItems([...items, { reference: '', description: '', quantity: 1, unit_price: 0, vat_rate: 0, vat_amount: 0, total: 0 }]);
+    const newIndex = items.length;
+    setItems([...items, { reference: '', description: '', quantity: 1, unit_price: 0, vat_rate: companySettings?.default_vat_rate || 19, vat_amount: 0, total: 0 }]);
+    // New lines are manual by default
+    setManualLines(prev => ({ ...prev, [newIndex]: true }));
   };
 
   const removeItem = (index: number) => {
