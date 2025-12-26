@@ -122,6 +122,7 @@ serve(async (req: Request) => {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${serviceKey}`,
+        'apikey': serviceKey,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({ email, password, email_confirm: true, user_metadata: { full_name: fullName } }),
