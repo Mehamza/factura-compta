@@ -163,14 +163,21 @@ export function numberToWords(amount: number, currencyCode: string = 'TND'): str
 export function formatCurrency(amount: number, currencyCode: string = 'TND'): string {
   const currency = currencies[currencyCode];
   if (!currency) return `${amount.toFixed(2)} ${currencyCode}`;
-  
+
   const decimals = currencyCode === 'TND' ? 3 : 2;
-  
-  // Formatage selon la locale
+
   const formatted = new Intl.NumberFormat('fr-TN', {
     minimumFractionDigits: decimals,
     maximumFractionDigits: decimals,
   }).format(amount);
-  
-  return `${formatted} ${currency.symbol}`;
+
+  // jsPDF core fonts often break on NBSP / narrow NBSP from Intl formatting
+  const pdfSafeNumber = formatted.replace(/\u202F|\u00A0/g, ' ');
+
+  // Also avoid symbols that may not exist in the font; prefer ISO/code text
+  const pdfSafeCurrency =
+    currencyCode === 'TND' ? 'DT' : (currencyCode || currency?.symbol || '');
+
+  return `${pdfSafeNumber} ${pdfSafeCurrency}`;
 }
+

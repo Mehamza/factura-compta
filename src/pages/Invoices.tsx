@@ -130,7 +130,6 @@ const statusColors: Record<string, string> = {
 const statusLabels: Record<string, string> = {
   [InvoiceStatus.DRAFT]: 'Brouillon',
   [InvoiceStatus.PURCHASE_QUOTE]: 'Devis d\'achat',
-  [InvoiceStatus.SENT]: 'Envoyée',
   [InvoiceStatus.PAID]: 'Payée',
   [InvoiceStatus.OVERDUE]: 'En retard',
   [InvoiceStatus.CANCELLED]: 'Annulée',
@@ -146,6 +145,7 @@ const roleLabels: Record<string, string> = {
 export default function Invoices() {
   const { user, role } = useAuth();
   const { toast } = useToast();
+  const [submitting, setSubmitting] = useState(false);
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
   const [products, setProducts] = useState<{id:string; name:string; sku:string; quantity:number; min_stock:number; sale_price:number|null; unit_price:number; description:string|null; unit:string|null; vat_rate:number|null}[]>([]);
@@ -285,19 +285,35 @@ export default function Invoices() {
   };
 
   const handleManualEntry = (index: number) => {
-    setManualLines(prev => ({ ...prev, [index]: true }));
-    setItemProductMap(prev => {
-      const newMap = { ...prev };
-      delete newMap[index];
-      return newMap;
-    });
-    // Keep existing values if user already typed something
-    const newItems = [...items];
-    if (!newItems[index].description) {
-      newItems[index] = { reference: '', description: '', quantity: 1, unit_price: 0, vat_rate: companySettings?.default_vat_rate || 19, vat_amount: 0, total: 0 };
-      setItems(newItems);
-    }
+  setManualLines((prev) => ({ ...prev, [index]: true }));
+
+  setItemProductMap((prev) => {
+    const newMap = { ...prev };
+    delete newMap[index];
+    return newMap;
+  });
+
+  const newItems = [...items];
+
+  // Ensure manual line has something valid to submit
+  newItems[index] = {
+    ...newItems[index],
+    reference: newItems[index].reference || 'MANUAL',
+    description: newItems[index].description || '',
+    quantity: Number(newItems[index].quantity || 1),
+    unit_price: Number(newItems[index].unit_price || 0),
+    vat_rate: Number(newItems[index].vat_rate ?? companySettings?.default_vat_rate ?? 19),
   };
+
+  // Recompute totals
+  const lineTotal = newItems[index].quantity * newItems[index].unit_price;
+  const vatAmount = lineTotal * (newItems[index].vat_rate / 100);
+  newItems[index].total = lineTotal;
+  newItems[index].vat_amount = vatAmount;
+
+  setItems(newItems);
+};
+
 
   const fetchUserInfo = async () => {
     // Fetch profile
@@ -367,6 +383,7 @@ export default function Invoices() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setSubmitting(true);
     const { subtotal, taxAmount, stamp, total } = calculateTotals(items, formData.stamp_included);
     const invoiceNumber = generateInvoiceNumber();
 
@@ -409,7 +426,7 @@ export default function Invoices() {
     const invoiceItems = items.map(item => ({
       invoice_id: invoiceData.id,
       reference: item.reference,
-      description: item.description,
+      description: item.description || '',
       quantity: item.quantity,
       unit_price: item.unit_price,
       vat_rate: item.vat_rate,
@@ -428,46 +445,109 @@ export default function Invoices() {
         // Aggregate quantities per product_id before creating movements
         const movementMap: Record<string, number> = {};
         items.forEach((item, idx) => {
-          const pid = itemProductMap[idx];
-          if (!pid) return;
-          const q = Number(item.quantity) || 0;
-          movementMap[pid] = (movementMap[pid] || 0) + q;
-        });
-        const selectedMovements = Object.entries(movementMap).map(([product_id, quantity]) => ({ product_id, quantity }));
-        console.debug('invoice: aggregated movements', selectedMovements);
+          const pid = itemProductMap[idx]
+          if (!pid) return
+          const q = Number(item.quantity || 0)
+          movementMap[pid] = (movementMap[pid] || 0) + q
+        })
+
+        const selectedMovements = Object.entries(movementMap).map(([productid, quantity]) => ({
+          productid,
+          quantity,
+        }))
+
+        console.debug("invoice aggregated movements", selectedMovements)
+
         if (selectedMovements.length > 0) {
-          // Check stock availability using aggregated quantities
-          const ids = selectedMovements.map(m => m.product_id);
-          const { data: prodData } = await supabase.from('products').select('id,quantity,min_stock').in('id', ids);
-          const prodMap = Object.fromEntries((prodData || []).map((p: any) => [p.id, p]));
-          const insufficient = documentType === 'sale'
-            ? selectedMovements.filter(m => (prodMap[m.product_id]?.quantity ?? 0) < Number(m.quantity))
-            : [];
+          // Fetch current stock for involved products
+          const ids = selectedMovements.map((m) => m.productid)
+
+          const { data: prodData, error: prodErr } = await supabase
+            .from("products")
+            .select("id,quantity,min_stock")
+            .in("id", ids)
+
+          if (prodErr) throw prodErr
+
+          const prodMap: Record<string, any> = Object.fromEntries((prodData || []).map((p: any) => [p.id, p]))
+
+          // Check stock availability ONLY for sale (exit)
+          const insufficient =
+            documentType === "sale"
+              ? selectedMovements.filter((m) => {
+                  const available = Number(prodMap[m.productid]?.quantity ?? 0)
+                  return available < Number(m.quantity)
+                })
+              : []
+
           if (insufficient.length > 0) {
-            toast({ variant: 'destructive', title: 'Stock insuffisant', description: `${insufficient.length} produit(s) dépassent le stock disponible.` });
+            toast({
+              variant: "destructive",
+              title: "Stock insuffisant",
+              description: `${insufficient.length} produits dépassent le stock disponible.`,
+            })
           } else {
-            const inserts = selectedMovements.map(m => ({
+            // 1) Update products.quantity (subtract for sale, add for purchase)
+            for (const m of selectedMovements) {
+              const currentQty = Number(prodMap[m.productid]?.quantity ?? 0)
+              const q = Number(m.quantity ?? 0)
+
+              const newQty = documentType === "sale" ? currentQty - q : currentQty + q
+
+              const { error: updErr } = await supabase
+                .from("products")
+                .update({ quantity: newQty })
+                .eq("id", m.productid)
+
+              if (updErr) throw updErr
+            }
+
+            // 2) Insert stock movements
+            const inserts = selectedMovements.map((m) => ({
               user_id: user?.id,
-              product_id: m.product_id,
-              movement_type: documentType === 'sale' ? 'exit' : 'entry',
+              product_id: m.productid,
+              movement_type: documentType === "sale" ? "exit" : "entry",
               quantity: Number(m.quantity),
               note: `Facture ${invoiceNumber}`,
-            }));
-            const { error: movErr } = await supabase.from('stock_movements').insert(inserts);
+            }))
+
+            const { error: movErr } = await supabase.from("stock_movements").insert(inserts)
+
             if (movErr) {
-              toast({ variant: 'destructive', title: 'Erreur', description: movErr.message });
+              toast({
+                variant: "destructive",
+                title: "Erreur",
+                description: movErr.message,
+              })
             } else {
-              const { data: updated } = await supabase.from('products').select('id,quantity,min_stock').in('id', ids);
-              const low = (updated || []).filter((p: any) => Number(p.quantity) <= Number(p.min_stock));
-              if (low.length > 0) {
-                toast({ title: 'Stock faible', description: `${low.length} produit(s) ont atteint un niveau bas après la facture.` });
+              // Re-fetch to compute low-stock warnings based on updated quantities
+              const { data: updated, error: updFetchErr } = await supabase
+                .from("products")
+                .select("id,quantity,min_stock")
+                .in("id", ids)
+
+              if (!updFetchErr && updated) {
+                const low = updated.filter((p: any) => Number(p.quantity) <= Number(p.min_stock))
+                if (low.length > 0) {
+                  toast({
+                    title: "Stock faible",
+                    description: `${low.length} produits ont atteint un niveau bas après la facture.`,
+                  })
+                }
               }
-              toast({ title: 'Succès', description: `Mouvements de stock générés (${documentType === 'sale' ? 'sorties' : 'entrées'}).` });
+
+              toast({
+                title: "Succès",
+                description: `Mouvements de stock générés (${documentType === "sale" ? "sorties" : "entrées"}).`,
+              })
             }
           }
         }
+
       } catch (err: any) {
         toast({ variant: 'destructive', title: 'Erreur', description: err?.message || 'Problème lors de la génération des mouvements de stock' });
+      } finally {
+        setSubmitting(false);
       }
       // Refresh products to show updated stock quantities
       await fetchProducts();
@@ -568,12 +648,14 @@ export default function Invoices() {
     };
     
     const mapped = (items || []).map((i: any) => {
+      const reference = String(i.reference) || '';
       const quantity = Number(i.quantity) || 0;
       const unit_price = Number(i.unit_price) || 0;
       const total = Number(i.total) || (quantity * unit_price);
       const vat_rate = i.vat_rate !== undefined && i.vat_rate !== null ? Number(i.vat_rate) : (invoice.tax_rate ?? 0);
       const vat_amount = i.vat_amount !== undefined && i.vat_amount !== null ? Number(i.vat_amount) : (total * (Number(vat_rate) / 100));
       return {
+        reference,
         description: i.description,
         quantity,
         unit_price,
@@ -740,7 +822,17 @@ export default function Invoices() {
                   ))}
                 </div>
               </div>
-
+              <div>
+                  <Label>Statut</Label>
+                  <Select value={formData.status} onValueChange={v => setFormData({ ...formData, status: v })}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value={InvoiceStatus.DRAFT}>Brouillon</SelectItem>
+                      <SelectItem value={InvoiceStatus.PURCHASE_QUOTE}>Devis d'achat</SelectItem>
+                      <SelectItem value="paid">Payée</SelectItem>
+                    </SelectContent>
+                  </Select>
+              </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <Label>Client</Label>
@@ -754,25 +846,14 @@ export default function Invoices() {
                     </SelectContent>
                   </Select>
                 </div>
-                <div>
-                  <Label>Statut</Label>
-                  <Select value={formData.status} onValueChange={v => setFormData({ ...formData, status: v })}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value={InvoiceStatus.DRAFT}>Brouillon</SelectItem>
-                      <SelectItem value={InvoiceStatus.PURCHASE_QUOTE}>Devis d'achat</SelectItem>
-                      <SelectItem value="sent">Envoyée</SelectItem>
-                      <SelectItem value="paid">Payée</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
+               
                 <div>
                   <Label>Date d'émission</Label>
                   <Input
                     type="date"
                     value={formData.issue_date}
                     onChange={e => setFormData({ ...formData, issue_date: e.target.value })}
-                    disabled={formData.status === InvoiceStatus.PURCHASE_QUOTE}
+                    disabled={formData.status === InvoiceStatus.PURCHASE_QUOTE || formData.status === InvoiceStatus.DRAFT}
                     title={formData.status === InvoiceStatus.PURCHASE_QUOTE ? "Désactivé pour un Devis d'achat" : undefined}
                   />
                 </div>
@@ -782,7 +863,7 @@ export default function Invoices() {
                     type="date"
                     value={formData.due_date}
                     onChange={e => setFormData({ ...formData, due_date: e.target.value })}
-                    disabled={formData.status === InvoiceStatus.PURCHASE_QUOTE}
+                    disabled={formData.status === InvoiceStatus.PURCHASE_QUOTE || formData.status === InvoiceStatus.DRAFT}
                     title={formData.status === InvoiceStatus.PURCHASE_QUOTE ? "Désactivé pour un Devis d'achat" : undefined}
                   />
                 </div>
@@ -799,7 +880,7 @@ export default function Invoices() {
                     </SelectContent>
                   </Select>
                 </div>
-                <div >
+                {/* <div >
                   <Label>Type de facture</Label>
                   <div className="items-center">
                        <UiSelect value={documentType} onValueChange={(v) => setDocumentType(v as 'sale' | 'purchase')}>
@@ -813,10 +894,13 @@ export default function Invoices() {
                     </UiSelect>
                   </div>
                    
-                </div>
-                <div className="col-span-2 flex items-center gap-2 pt-2">
-                  <input id="stamp" type="checkbox" className="h-4 w-4" checked={formData.stamp_included} onChange={e => setFormData({ ...formData, stamp_included: e.target.checked })} />
-                  <Label htmlFor="stamp">Inclure le timbre fiscal (1 TND)</Label>
+                </div> */}
+                <div>
+                  <Label>Timbre fiscal</Label>
+                  <div className="col-span-2 flex items-center gap-2 pt-2">
+                    <input id="stamp" type="checkbox" className="h-4 w-4" checked={formData.stamp_included} onChange={e => setFormData({ ...formData, stamp_included: e.target.checked })} />
+                    <Label htmlFor="stamp">Inclure le timbre fiscal (1 TND)</Label>
+                  </div>
                 </div>
               </div>
 
@@ -917,7 +1001,6 @@ export default function Invoices() {
                         className="col-span-3"
                         value={item.description}
                         onChange={e => updateItemTotal(index, 'description', e.target.value)}
-                        required
                       />
                       <Input
                         type="number"
@@ -972,7 +1055,11 @@ export default function Invoices() {
                 <Textarea value={formData.notes} onChange={e => setFormData({ ...formData, notes: e.target.value })} />
               </div>
 
-              <Button type="submit" className="w-full">Créer la facture</Button>
+              <Button type="submit" className="w-full" disabled={submitting}>
+                {submitting && <span className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />}
+                {submitting ? 'Création...' : 'Créer la facture'}
+              </Button>
+
             </form>
           </DialogContent>
         </Dialog>

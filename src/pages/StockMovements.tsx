@@ -60,20 +60,77 @@ export default function StockMovements() {
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!form.product_id) { toast({ variant: 'destructive', title: 'Erreur', description: 'Le produit est obligatoire.' }); return; }
+
+    if (!form.product_id) {
+      toast({ variant: 'destructive', title: 'Erreur', description: 'Le produit est obligatoire.' });
+      return;
+    }
+
     const qty = Number(form.quantity);
-    if (isNaN(qty) || qty <= 0) { toast({ variant: 'destructive', title: 'Erreur', description: 'La quantité doit être supérieure à 0.' }); return; }
-    const payload = {
+    if (isNaN(qty) || qty <= 0) {
+      toast({ variant: 'destructive', title: 'Erreur', description: 'La quantité doit être supérieure à 0.' });
+      return;
+    }
+
+    if (form.movement_type !== 'entry' && form.movement_type !== 'exit') {
+      toast({ variant: 'destructive', title: 'Erreur', description: 'Type de mouvement invalide.' });
+      return;
+    }
+
+    // 1) Load current stock
+    const { data: product, error: pErr } = await supabase
+      .from('products')
+      .select('id, quantity')
+      .eq('id', form.product_id)
+      .single();
+
+    if (pErr) {
+      toast({ variant: 'destructive', title: 'Erreur', description: pErr.message });
+      return;
+    }
+
+    const oldStock = Number(product?.quantity ?? 0);
+
+    // 2) Compute new stock
+    const newStock = form.movement_type === 'entry' ? oldStock + qty : oldStock - qty;
+
+    if (newStock < 0) {
+      toast({ variant: 'destructive', title: 'Erreur', description: 'Stock insuffisant pour une sortie.' });
+      return;
+    }
+
+    // 3) Update product stock
+    const { error: uErr } = await supabase
+      .from('products')
+      .update({ quantity: newStock })
+      .eq('id', form.product_id);
+
+    if (uErr) {
+      toast({ variant: 'destructive', title: 'Erreur', description: uErr.message });
+      return;
+    }
+
+    // 4) Insert movement
+    const { error: mErr } = await supabase.from('stock_movements').insert({
       user_id: user?.id!,
       product_id: form.product_id,
       movement_type: form.movement_type,
       quantity: qty,
       note: form.note || null,
-    };
-    const { error } = await supabase.from('stock_movements').insert(payload);
-    if (error) toast({ variant: 'destructive', title: 'Erreur', description: error.message });
-    else { toast({ title: 'Succès', description: 'Mouvement enregistré' }); setDialogOpen(false); setForm({ product_id: '', movement_type: 'entry', quantity: '', note: '' }); load(); }
+    });
+
+    if (mErr) {
+      // Optional: rollback stock here (update back to oldStock) if you want
+      toast({ variant: 'destructive', title: 'Erreur', description: mErr.message });
+      return;
+    }
+
+    toast({ title: 'Succès', description: 'Mouvement enregistré' });
+    setDialogOpen(false);
+    setForm({ product_id: '', movement_type: 'entry', quantity: '', note: '' });
+    load();
   };
+
 
   const filtered = useMemo(() => (
     movements.filter(m => (
@@ -114,7 +171,6 @@ export default function StockMovements() {
                 <SelectItem value="all">Tous</SelectItem>
                 <SelectItem value="entry">Entrée</SelectItem>
                 <SelectItem value="exit">Sortie</SelectItem>
-                <SelectItem value="adjust">Ajustement</SelectItem>
               </SelectContent>
             </Select>
             <Select value={productFilter} onValueChange={setProductFilter}>
@@ -149,7 +205,7 @@ export default function StockMovements() {
                 {filtered.map(m => (
                   <TableRow key={m.id}>
                     <TableCell>{productLabel(m.product_id)}</TableCell>
-                    <TableCell>{m.movement_type === 'entry' ? 'Entrée' : m.movement_type === 'exit' ? 'Sortie' : 'Ajustement'}</TableCell>
+                    <TableCell>{m.movement_type === 'entry' ? 'Entrée' : 'Sortie'}</TableCell>
                     <TableCell>{Number(m.quantity).toLocaleString('fr-FR')}</TableCell>
                     <TableCell>{m.note || '—'}</TableCell>
                     <TableCell>{new Date(m.created_at!).toLocaleString()}</TableCell>
@@ -183,7 +239,6 @@ export default function StockMovements() {
                 <SelectContent>
                   <SelectItem value="entry">Entrée</SelectItem>
                   <SelectItem value="exit">Sortie</SelectItem>
-                  <SelectItem value="adjust">Ajustement</SelectItem>
                 </SelectContent>
               </Select>
             </div>

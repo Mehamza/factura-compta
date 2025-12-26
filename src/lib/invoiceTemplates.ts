@@ -339,7 +339,7 @@ async function drawProfessionalFooter(
     const footerY = pageHeight - 12;
     
     // Draw mini logo and get width
-    const logoResult = await drawCompanyLogo(doc, 15, footerY, miniLogoSize, company.logo_url, company.name || 'Company');
+    // const logoResult = await drawCompanyLogo(doc, 15, footerY, miniLogoSize, company.logo_url, company.name || 'Company');
     
     doc.setFontSize(8);
     doc.setTextColor(100, 100, 100);
@@ -349,7 +349,7 @@ async function drawProfessionalFooter(
     if (company.email) footerParts.push(company.email);
     
     const footerText = footerParts.join(' - ');
-    doc.text(footerText, 15 + logoResult.width + 3, pageHeight - 10);
+    doc.text(footerText, 18, pageHeight - 10);
   }
   
   doc.setTextColor(0, 0, 0);
