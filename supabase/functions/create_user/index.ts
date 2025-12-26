@@ -148,12 +148,13 @@ serve(async (req: Request) => {
       'Prefer': 'resolution=merge-duplicates,return=representation',
     };
 
-    // Create/update profile with email + full_name using upsert
-    console.log('create_user: Upserting profile');
+    // Create/update profile with email + full_name + owner_id using upsert
+    // owner_id links this user to the admin/manager who created them (for team visibility)
+    console.log('create_user: Upserting profile with owner_id', caller.id);
     const profileResp = await fetch(`${supabaseUrl}/rest/v1/profiles?on_conflict=user_id`, {
       method: 'POST',
       headers: postgrestHeaders,
-      body: JSON.stringify({ user_id: createdUserId, full_name: fullName, email }),
+      body: JSON.stringify({ user_id: createdUserId, full_name: fullName, email, owner_id: caller.id }),
     });
 
     if (!profileResp.ok) {
