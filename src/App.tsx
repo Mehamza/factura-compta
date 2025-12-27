@@ -7,6 +7,7 @@ import { AnimatePresence, motion, MotionConfig } from "framer-motion";
 import { AuthProvider } from "@/hooks/useAuth";
 import { ProtectedRoute } from "@/components/layout/ProtectedRoute";
 import { SuperAdminRoute } from "@/components/layout/ProtectedRoute";
+import { ModuleProtectedRoute } from "@/components/layout/ModuleProtectedRoute";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import Index from "./pages/Index";
 import LandingPage from "./pages/LandingPage";
@@ -26,7 +27,6 @@ import Reports from "./pages/Reports";
 import StockProducts from "./pages/StockProducts";
 import StockMovements from "./pages/StockMovements";
 import AdminIndex from "./pages/AdminIndex";
-// import SuperAdminDashboard from "./pages/SuperAdminDashboard";
 import AdminUsers from "./pages/AdminUsers";
 import Pricing from "./pages/Pricing";
 import AdminPlans from "./pages/AdminPlans";
@@ -36,30 +36,60 @@ import PublicLayout from "@/components/layout/PublicLayout";
 
 const queryClient = new QueryClient();
 
+// Animation wrapper for page transitions
+const PageTransition = ({ children }: { children: React.ReactNode }) => (
+  <motion.div 
+    initial={{ opacity: 0, y: 8 }} 
+    animate={{ opacity: 1, y: 0 }} 
+    exit={{ opacity: 0, y: -8 }} 
+    transition={{ duration: 0.2, ease: 'easeOut' }}
+  >
+    {children}
+  </motion.div>
+);
+
 const router = createBrowserRouter(
   createRoutesFromElements(
     <Route>
+      {/* Public routes */}
       <Route path="/" element={<PublicLayout><LandingPage /></PublicLayout>} />
       <Route path="/auth" element={<PublicLayout><Auth /></PublicLayout>} />
-      <Route path="/tarif" element={<PublicLayout><motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.2, ease: 'easeOut' }}><Tarif /></motion.div></PublicLayout>} />
-      <Route path="/contact" element={<PublicLayout><motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.2, ease: 'easeOut' }}><Contact /></motion.div></PublicLayout>} />
+      <Route path="/tarif" element={<PublicLayout><PageTransition><Tarif /></PageTransition></PublicLayout>} />
+      <Route path="/contact" element={<PublicLayout><PageTransition><Contact /></PageTransition></PublicLayout>} />
       <Route path="/blog" element={<PublicLayout><div>Blog page coming soon</div></PublicLayout>} />
-      <Route path="/dashboard" element={<ProtectedRoute><motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.2, ease: 'easeOut' }}><Index /></motion.div></ProtectedRoute>} />
-      <Route path="/clients" element={<ProtectedRoute><motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.2, ease: 'easeOut' }}><Clients /></motion.div></ProtectedRoute>} />
-      <Route path="/suppliers" element={<ProtectedRoute><motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.2, ease: 'easeOut' }}><Suppliers /></motion.div></ProtectedRoute>} />
-      <Route path="/invoices" element={<ProtectedRoute><motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.2, ease: 'easeOut' }}><Invoices /></motion.div></ProtectedRoute>} />
-      <Route path="/documents" element={<ProtectedRoute><motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.2, ease: 'easeOut' }}><Documents /></motion.div></ProtectedRoute>} />
-      <Route path="/settings" element={<ProtectedRoute><motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.2, ease: 'easeOut' }}><Settings /></motion.div></ProtectedRoute>} />
-      <Route path="/settings/utilisateurs" element={<ProtectedRoute><motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.2, ease: 'easeOut' }}><SettingsUsers /></motion.div></ProtectedRoute>} />
-      <Route path="/payments" element={<ProtectedRoute><motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.2, ease: 'easeOut' }}><Payments /></motion.div></ProtectedRoute>} />
-      <Route path="/journal" element={<ProtectedRoute><motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.2, ease: 'easeOut' }}><Journal /></motion.div></ProtectedRoute>} />
-      <Route path="/accounts" element={<ProtectedRoute><motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.2, ease: 'easeOut' }}><Accounts /></motion.div></ProtectedRoute>} />
-      <Route path="/reports" element={<ProtectedRoute><motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.2, ease: 'easeOut' }}><Reports /></motion.div></ProtectedRoute>} />
-      <Route path="/stock/produits" element={<ProtectedRoute><motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.2, ease: 'easeOut' }}><StockProducts /></motion.div></ProtectedRoute>} />
-      <Route path="/stock/mouvements" element={<ProtectedRoute><motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.2, ease: 'easeOut' }}><StockMovements /></motion.div></ProtectedRoute>} />
-      <Route path="/hamzafacturation" element={<ProtectedRoute><SuperAdminRoute><motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.2, ease: 'easeOut' }}><AdminIndex /></motion.div></SuperAdminRoute></ProtectedRoute>} />
-      <Route path="/hamzafacturation/plans" element={<ProtectedRoute><SuperAdminRoute><motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.2, ease: 'easeOut' }}><AdminPlans /></motion.div></SuperAdminRoute></ProtectedRoute>} />
-      <Route path="/hamzafacturation/utilisateurs" element={<ProtectedRoute><SuperAdminRoute><motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.2, ease: 'easeOut' }}><AdminUsers /></motion.div></SuperAdminRoute></ProtectedRoute>} />
+      
+      {/* Protected routes - accessible by all roles */}
+      <Route path="/dashboard" element={<ProtectedRoute><PageTransition><Index /></PageTransition></ProtectedRoute>} />
+      <Route path="/clients" element={<ProtectedRoute><PageTransition><Clients /></PageTransition></ProtectedRoute>} />
+      <Route path="/suppliers" element={<ProtectedRoute><PageTransition><Suppliers /></PageTransition></ProtectedRoute>} />
+      <Route path="/documents" element={<ProtectedRoute><PageTransition><Documents /></PageTransition></ProtectedRoute>} />
+      <Route path="/settings" element={<ProtectedRoute><PageTransition><Settings /></PageTransition></ProtectedRoute>} />
+      <Route path="/payments" element={<ProtectedRoute><PageTransition><Payments /></PageTransition></ProtectedRoute>} />
+      
+      {/* Invoices routes (dropdown children) */}
+      <Route path="/invoices" element={<ProtectedRoute><PageTransition><Invoices /></PageTransition></ProtectedRoute>} />
+      <Route path="/invoices/devis" element={<ProtectedRoute><PageTransition><Invoices /></PageTransition></ProtectedRoute>} />
+      <Route path="/invoices/bon-commande" element={<ProtectedRoute><PageTransition><Invoices /></PageTransition></ProtectedRoute>} />
+      <Route path="/invoices/bon-livraison" element={<ProtectedRoute><PageTransition><Invoices /></PageTransition></ProtectedRoute>} />
+      <Route path="/invoices/credit" element={<ProtectedRoute><PageTransition><Invoices /></PageTransition></ProtectedRoute>} />
+      <Route path="/invoices/recu" element={<ProtectedRoute><PageTransition><Invoices /></PageTransition></ProtectedRoute>} />
+      
+      {/* Stock routes */}
+      <Route path="/stock/produits" element={<ProtectedRoute><PageTransition><StockProducts /></PageTransition></ProtectedRoute>} />
+      <Route path="/stock/mouvements" element={<ProtectedRoute><PageTransition><StockMovements /></PageTransition></ProtectedRoute>} />
+      
+      {/* Protected routes - locked for cashier role */}
+      <Route path="/journal" element={<ProtectedRoute><ModuleProtectedRoute><PageTransition><Journal /></PageTransition></ModuleProtectedRoute></ProtectedRoute>} />
+      <Route path="/accounts" element={<ProtectedRoute><ModuleProtectedRoute><PageTransition><Accounts /></PageTransition></ModuleProtectedRoute></ProtectedRoute>} />
+      <Route path="/reports" element={<ProtectedRoute><ModuleProtectedRoute><PageTransition><Reports /></PageTransition></ModuleProtectedRoute></ProtectedRoute>} />
+      <Route path="/settings/utilisateurs" element={<ProtectedRoute><ModuleProtectedRoute><PageTransition><SettingsUsers /></PageTransition></ModuleProtectedRoute></ProtectedRoute>} />
+      
+      {/* Super admin routes */}
+      <Route path="/hamzafacturation" element={<ProtectedRoute><SuperAdminRoute><PageTransition><AdminIndex /></PageTransition></SuperAdminRoute></ProtectedRoute>} />
+      <Route path="/hamzafacturation/plans" element={<ProtectedRoute><SuperAdminRoute><PageTransition><AdminPlans /></PageTransition></SuperAdminRoute></ProtectedRoute>} />
+      <Route path="/hamzafacturation/utilisateurs" element={<ProtectedRoute><SuperAdminRoute><PageTransition><AdminUsers /></PageTransition></SuperAdminRoute></ProtectedRoute>} />
+      
+      {/* 404 */}
       <Route path="*" element={<motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }}><NotFound /></motion.div>} />
     </Route>
   ),
