@@ -5,6 +5,9 @@ import { DashboardLayout } from './DashboardLayout';
 import { Button } from '@/components/ui/button';
 import { NO_ACCESS_MSG } from '@/lib/permissions';
 
+// Re-export ModuleProtectedRoute for convenience
+export { ModuleProtectedRoute } from './ModuleProtectedRoute';
+
 export function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
   const navigate = useNavigate();
