@@ -92,6 +92,54 @@ export type Database = {
         }
         Relationships: []
       }
+      companies: {
+        Row: {
+          address: string | null
+          city: string | null
+          created_at: string
+          email: string | null
+          id: string
+          is_configured: boolean
+          legal_name: string | null
+          logo_url: string | null
+          matricule_fiscale: string | null
+          phone: string | null
+          postal_code: string | null
+          type: Database["public"]["Enums"]["company_type"]
+          updated_at: string
+        }
+        Insert: {
+          address?: string | null
+          city?: string | null
+          created_at?: string
+          email?: string | null
+          id?: string
+          is_configured?: boolean
+          legal_name?: string | null
+          logo_url?: string | null
+          matricule_fiscale?: string | null
+          phone?: string | null
+          postal_code?: string | null
+          type?: Database["public"]["Enums"]["company_type"]
+          updated_at?: string
+        }
+        Update: {
+          address?: string | null
+          city?: string | null
+          created_at?: string
+          email?: string | null
+          id?: string
+          is_configured?: boolean
+          legal_name?: string | null
+          logo_url?: string | null
+          matricule_fiscale?: string | null
+          phone?: string | null
+          postal_code?: string | null
+          type?: Database["public"]["Enums"]["company_type"]
+          updated_at?: string
+        }
+        Relationships: []
+      }
       company_plans: {
         Row: {
           active: boolean
@@ -216,6 +264,38 @@ export type Database = {
           vat_rates?: Json | null
         }
         Relationships: []
+      }
+      company_users: {
+        Row: {
+          company_id: string
+          created_at: string
+          id: string
+          role: Database["public"]["Enums"]["company_role"]
+          user_id: string
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          id?: string
+          role?: Database["public"]["Enums"]["company_role"]
+          user_id: string
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          id?: string
+          role?: Database["public"]["Enums"]["company_role"]
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "company_users_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       documents: {
         Row: {
@@ -862,10 +942,23 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      get_company_role: {
+        Args: { _company_id: string; _user_id: string }
+        Returns: Database["public"]["Enums"]["company_role"]
+      }
       get_effective_permissions: { Args: { p_user_id: string }; Returns: Json }
+      get_user_company_ids: { Args: { _user_id: string }; Returns: string[] }
       get_user_role: {
         Args: { _user_id: string }
         Returns: Database["public"]["Enums"]["app_role"]
+      }
+      has_company_role: {
+        Args: {
+          _company_id: string
+          _role: Database["public"]["Enums"]["company_role"]
+          _user_id: string
+        }
+        Returns: boolean
       }
       has_global_role: {
         Args: { p_role: string; p_user_id: string }
@@ -878,9 +971,20 @@ export type Database = {
         }
         Returns: boolean
       }
+      is_company_admin: {
+        Args: { _company_id: string; _user_id: string }
+        Returns: boolean
+      }
+      is_super_admin: { Args: { _user_id: string }; Returns: boolean }
+      user_in_company: {
+        Args: { _company_id: string; _user_id: string }
+        Returns: boolean
+      }
     }
     Enums: {
       app_role: "admin" | "accountant" | "user" | "manager" | "cashier"
+      company_role: "company_admin" | "gerant" | "comptable" | "caissier"
+      company_type: "personne_physique" | "personne_morale"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -1009,6 +1113,8 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["admin", "accountant", "user", "manager", "cashier"],
+      company_role: ["company_admin", "gerant", "comptable", "caissier"],
+      company_type: ["personne_physique", "personne_morale"],
     },
   },
 } as const
