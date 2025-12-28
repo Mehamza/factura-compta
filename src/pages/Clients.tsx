@@ -56,6 +56,7 @@ interface Client {
   siret: string | null;
   vat_number: string | null;
   user_id?: string;
+  company_id?: string | null;
 }
 
 interface ClientInvoice {
@@ -81,7 +82,7 @@ const statusLabels: Record<string, string> = {
 };
 
 export default function Clients() {
-  const { user } = useAuth();
+  const { user, activeCompanyId } = useAuth();
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [clients, setClients] = useState<Client[]>([]);
@@ -103,7 +104,7 @@ export default function Clients() {
   const [statementStart, setStatementStart] = useState<string | undefined>(undefined);
   const [statementEnd, setStatementEnd] = useState<string | undefined>(undefined);
   const [companySettings, setCompanySettings] = useState<CompanySettings | null>(null);
-  const { companyRoles, activeCompanyId } = useAuth();
+  const { companyRoles } = useAuth();
 
   // Fetch company settings
   useEffect(() => {
@@ -221,7 +222,7 @@ export default function Clients() {
     } else {
       const { error } = await supabase
         .from('clients')
-        .insert({ ...formData, user_id: user?.id });
+        .insert({ ...formData, user_id: user?.id, company_id: activeCompanyId });
       
       if (error) {
         toast({ variant: 'destructive', title: 'Erreur', description: error.message });
@@ -283,6 +284,7 @@ export default function Clients() {
             siret: client.siret || null,
             vat_number: client.vat_number || null,
             user_id: user?.id || '',
+            company_id: activeCompanyId,
           });
         }
       }
@@ -290,7 +292,7 @@ export default function Clients() {
       if (clientsToImport.length > 0) {
         const { error } = await supabase
           .from('clients')
-          .insert(clientsToImport as { name: string; email: string | null; phone: string | null; address: string | null; city: string | null; postal_code: string | null; siret: string | null; vat_number: string | null; user_id: string }[]);
+          .insert(clientsToImport as { name: string; email: string | null; phone: string | null; address: string | null; city: string | null; postal_code: string | null; siret: string | null; vat_number: string | null; user_id: string; company_id: string | null }[]);
         
         if (error) {
           toast({ variant: 'destructive', title: 'Erreur', description: error.message });

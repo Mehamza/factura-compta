@@ -22,7 +22,7 @@ interface EntryWithLines extends JournalEntry {
 }
 
 export default function Journal() {
-  const { user } = useAuth();
+  const { user, activeCompanyId } = useAuth();
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [entries, setEntries] = useState<EntryWithLines[]>([]);
   const [loading, setLoading] = useState(true);
@@ -93,6 +93,7 @@ export default function Journal() {
           .from('journal_entries')
           .insert({
             user_id: user.id,
+            company_id: activeCompanyId,
             entry_date: data.date,
             reference: data.reference,
             description: data.description || null,

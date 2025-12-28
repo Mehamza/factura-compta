@@ -188,18 +188,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setGlobalRole(null);
     }
 
-    // Per-company roles
+    // Per-company roles - load from company_users table
     try {
-      const { data: ucr } = await supabase
-        .from('user_company_roles' as any)
+      const { data: companyUsers } = await supabase
+        .from('company_users')
         .select('company_id, role')
         .eq('user_id', userId);
-      if (ucr && Array.isArray(ucr)) {
+      if (companyUsers && Array.isArray(companyUsers)) {
         setCompanyRoles(
-          ucr.map((r: any) => ({ company_id: r.company_id, role: r.role as CompanyRole }))
+          companyUsers.map((r: any) => ({ company_id: r.company_id, role: r.role as CompanyRole }))
         );
-        if (!activeCompanyId && ucr.length > 0) {
-          setActiveCompany(ucr[0].company_id);
+        // Auto-set active company if not already set
+        const storedCompanyId = localStorage.getItem('active_company_id');
+        if (!storedCompanyId && companyUsers.length > 0) {
+          setActiveCompany(companyUsers[0].company_id);
+        } else if (storedCompanyId && companyUsers.some(c => c.company_id === storedCompanyId)) {
+          _setActiveCompanyId(storedCompanyId);
+        } else if (companyUsers.length > 0) {
+          setActiveCompany(companyUsers[0].company_id);
         }
       } else {
         setCompanyRoles([]);

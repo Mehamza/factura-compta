@@ -110,7 +110,7 @@ const categoryColors: Record<string, string> = {
 };
 
 export default function Documents() {
-  const { user } = useAuth();
+  const { user, activeCompanyId } = useAuth();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [documents, setDocuments] = useState<Document[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
@@ -236,6 +236,7 @@ export default function Documents() {
         .from('documents')
         .insert({
           user_id: user.id,
+          company_id: activeCompanyId,
           file_name: newDoc.file.name,
           file_path: filePath,
           file_size: newDoc.file.size,
