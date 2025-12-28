@@ -195,6 +195,65 @@ serve(async (req: Request) => {
 
     console.log('create_user: Role assigned successfully');
 
+    // Get the caller's company_id from company_users table
+    console.log('create_user: Fetching caller company');
+    const callerCompanyResp = await fetch(
+      `${supabaseUrl}/rest/v1/company_users?user_id=eq.${caller.id}&select=company_id,role&limit=1`,
+      {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${serviceKey}`,
+          'apikey': serviceKey,
+          'Content-Type': 'application/json',
+        },
+      }
+    );
+
+    if (callerCompanyResp.ok) {
+      const callerCompanies = await callerCompanyResp.json();
+      if (callerCompanies && callerCompanies.length > 0) {
+        const callerCompanyId = callerCompanies[0].company_id;
+        
+        // Map app role to company role
+        const companyRoleMap: Record<string, string> = {
+          'admin': 'company_admin',
+          'manager': 'gerant',
+          'accountant': 'comptable',
+          'cashier': 'caissier',
+        };
+        const companyRole = companyRoleMap[targetRoleRaw] || 'caissier';
+
+        // Add new user to the same company as the caller
+        console.log('create_user: Adding user to company', { callerCompanyId, companyRole });
+        const companyUserResp = await fetch(`${supabaseUrl}/rest/v1/company_users`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${serviceKey}`,
+            'apikey': serviceKey,
+            'Content-Type': 'application/json',
+            'Prefer': 'return=representation',
+          },
+          body: JSON.stringify({
+            user_id: createdUserId,
+            company_id: callerCompanyId,
+            role: companyRole,
+          }),
+        });
+
+        if (!companyUserResp.ok) {
+          const companyUserErr = await companyUserResp.text();
+          console.error('create_user: Failed to add user to company', companyUserErr);
+          // Don't fail the whole operation, user is created but not linked to company
+        } else {
+          console.log('create_user: User added to company successfully');
+        }
+      } else {
+        console.warn('create_user: Caller has no company, skipping company assignment');
+      }
+    } else {
+      console.error('create_user: Failed to fetch caller company');
+    }
+
     return json(200, { ok: true, user_id: createdUserId });
   } catch (e) {
     console.error('create_user: Unexpected error', e);
