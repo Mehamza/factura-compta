@@ -43,7 +43,7 @@ interface Supplier {
 }
 
 export default function StockProducts() {
-  const { user, role } = useAuth();
+  const { user, role, activeCompanyId } = useAuth();
   const { toast } = useToast();
   const [products, setProducts] = useState<Product[]>([]);
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
@@ -195,6 +195,7 @@ export default function StockProducts() {
 
     const payload: any = {
       user_id: user?.id!,
+      company_id: activeCompanyId,
       name: form.name.trim(),
       sku: form.sku.trim() || null,
       quantity,

@@ -20,7 +20,7 @@ type Product = Tables<'products'>;
 type StockMovement = Tables<'stock_movements'>;
 
 export default function StockMovements() {
-  const { user, role } = useAuth();
+  const { user, role, activeCompanyId } = useAuth();
   const { toast } = useToast();
   const [products, setProducts] = useState<Product[]>([]);
   const [movements, setMovements] = useState<StockMovement[]>([]);
@@ -113,6 +113,7 @@ export default function StockMovements() {
     // 4) Insert movement
     const { error: mErr } = await supabase.from('stock_movements').insert({
       user_id: user?.id!,
+      company_id: activeCompanyId,
       product_id: form.product_id,
       movement_type: form.movement_type,
       quantity: qty,

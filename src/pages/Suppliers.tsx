@@ -47,7 +47,7 @@ type SortField = 'name' | 'email' | 'city';
 type SortOrder = 'asc' | 'desc';
 
 export default function Suppliers() {
-  const { user } = useAuth();
+  const { user, activeCompanyId } = useAuth();
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
@@ -108,7 +108,7 @@ export default function Suppliers() {
     } else {
       const { error } = await supabase
         .from('suppliers')
-        .insert({ ...formData, user_id: user?.id });
+        .insert({ ...formData, user_id: user?.id, company_id: activeCompanyId });
       
       if (error) {
         toast({ variant: 'destructive', title: 'Erreur', description: error.message });

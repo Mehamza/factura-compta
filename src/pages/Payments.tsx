@@ -50,7 +50,7 @@ const methodLabels: Record<string, string> = {
 };
 
 export default function Payments() {
-  const { user } = useAuth();
+  const { user, activeCompanyId } = useAuth();
   const [payments, setPayments] = useState<Payment[]>([]);
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
@@ -147,6 +147,7 @@ export default function Payments() {
             .from('payments')
             .insert({
               user_id: user.id,
+              company_id: activeCompanyId,
               invoice_id: data.invoice_id || null,
               account_id: data.account_id || null,
               amount: data.amount,

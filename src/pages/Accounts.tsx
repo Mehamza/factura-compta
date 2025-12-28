@@ -19,7 +19,7 @@ type Account = Tables<'accounts'>;
 interface Line { account_id: string; debit: number; credit: number; entry_date: string }
 
 export default function Accounts() {
-  const { user } = useAuth();
+  const { user, activeCompanyId } = useAuth();
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [lines, setLines] = useState<Line[]>([]);
   const [loading, setLoading] = useState(true);
@@ -109,7 +109,7 @@ export default function Accounts() {
         // create account and get inserted row
         const { data: inserted, error: insertError } = await supabase
           .from('accounts')
-          .insert({ code: data.code, name: data.name, type: data.type, user_id: user.id })
+          .insert({ code: data.code, name: data.name, type: data.type, user_id: user.id, company_id: activeCompanyId })
           .select()
           .single();
         if (insertError) throw insertError;

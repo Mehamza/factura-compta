@@ -143,7 +143,7 @@ const roleLabels: Record<string, string> = {
 };
 
 export default function Invoices() {
-  const { user, role } = useAuth();
+  const { user, role, activeCompanyId } = useAuth();
   const { toast } = useToast();
   const [submitting, setSubmitting] = useState(false);
   const [invoices, setInvoices] = useState<Invoice[]>([]);
@@ -391,6 +391,7 @@ export default function Invoices() {
       .from('invoices')
       .insert({
         user_id: user?.id,
+        company_id: activeCompanyId,
         client_id: formData.client_id || null,
         invoice_number: invoiceNumber,
         issue_date: formData.issue_date,
@@ -505,6 +506,7 @@ export default function Invoices() {
             // 2) Insert stock movements
             const inserts = selectedMovements.map((m) => ({
               user_id: user?.id,
+              company_id: activeCompanyId,
               product_id: m.productid,
               movement_type: documentType === "sale" ? "exit" : "entry",
               quantity: Number(m.quantity),
