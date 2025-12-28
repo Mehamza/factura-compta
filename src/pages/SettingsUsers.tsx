@@ -74,9 +74,8 @@ export default function SettingsUsers() {
     try {
       const { data: exists } = await supabase.from('user_roles').select('id').eq('user_id', uid).maybeSingle();
       const payload = { user_id: uid, role: newRole } as any;
-      const { error } = exists
-        ? await supabase.from('user_roles').update({ role: newRole }).eq('user_id', uid)
-        : await supabase.from('user_roles').insert(payload);
+      const { error } = await supabase.from('user_roles').upsert({ user_id: uid, role: newRole }, { onConflict: 'user_id' });
+
       if (error) throw error;
       toast({ title: 'Succès', description: 'Rôle mis à jour' });
       load();
@@ -150,10 +149,10 @@ export default function SettingsUsers() {
         <Shield className="h-8 w-8 text-primary" />
         <div>
           <h1 className="text-3xl font-bold">Paramètres / Utilisateurs</h1>
-          <p className="text-muted-foreground">Gérez les utilisateurs et leurs rôles</p>
+          <p className="text-muted-foreground">Gérez les utilisateurs et leurs rôles (sauf 4 utilisateurs maximum)</p>
         </div>
         <div className="ml-auto">
-          <Button onClick={() => setOpenAdd(true)}>Ajouter un utilisateur</Button>
+          <Button disabled={sorted.length >= 4} title={sorted.length >= 4 ? "Limite d'utilisateurs atteinte" : undefined} onClick={() => setOpenAdd(true)}>Ajouter un utilisateur</Button>
         </div>
       </div>
 

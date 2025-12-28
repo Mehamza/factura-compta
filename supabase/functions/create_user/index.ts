@@ -181,7 +181,7 @@ serve(async (req: Request) => {
 
     // Assign role using upsert
     console.log('create_user: Upserting role', targetRoleRaw);
-    const roleResp = await fetch(`${supabaseUrl}/rest/v1/user_roles?on_conflict=user_id,role`, {
+    const roleResp = await fetch(`${supabaseUrl}/rest/v1/user_roles?on_conflict=user_id`, {
       method: 'POST',
       headers: postgrestHeaders,
       body: JSON.stringify({ user_id: createdUserId, role: targetRoleRaw }),
