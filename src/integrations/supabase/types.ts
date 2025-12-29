@@ -116,49 +116,91 @@ export type Database = {
       }
       companies: {
         Row: {
+          activity: string | null
           address: string | null
           city: string | null
+          company_country: string | null
+          company_tax_id: string | null
+          company_trade_register: string | null
+          company_vat_number: string | null
           created_at: string
+          default_currency: string | null
+          default_vat_rate: number | null
           email: string | null
           id: string
+          invoice_format: string | null
+          invoice_next_number: number | null
+          invoice_number_padding: number | null
+          invoice_prefix: string | null
           is_configured: boolean
           legal_name: string | null
           logo_url: string | null
           matricule_fiscale: string | null
           phone: string | null
           postal_code: string | null
+          signature_url: string | null
+          stamp_url: string | null
           type: Database["public"]["Enums"]["company_type"]
           updated_at: string
+          vat_rates: Json | null
         }
         Insert: {
+          activity?: string | null
           address?: string | null
           city?: string | null
+          company_country?: string | null
+          company_tax_id?: string | null
+          company_trade_register?: string | null
+          company_vat_number?: string | null
           created_at?: string
+          default_currency?: string | null
+          default_vat_rate?: number | null
           email?: string | null
           id?: string
+          invoice_format?: string | null
+          invoice_next_number?: number | null
+          invoice_number_padding?: number | null
+          invoice_prefix?: string | null
           is_configured?: boolean
           legal_name?: string | null
           logo_url?: string | null
           matricule_fiscale?: string | null
           phone?: string | null
           postal_code?: string | null
+          signature_url?: string | null
+          stamp_url?: string | null
           type?: Database["public"]["Enums"]["company_type"]
           updated_at?: string
+          vat_rates?: Json | null
         }
         Update: {
+          activity?: string | null
           address?: string | null
           city?: string | null
+          company_country?: string | null
+          company_tax_id?: string | null
+          company_trade_register?: string | null
+          company_vat_number?: string | null
           created_at?: string
+          default_currency?: string | null
+          default_vat_rate?: number | null
           email?: string | null
           id?: string
+          invoice_format?: string | null
+          invoice_next_number?: number | null
+          invoice_number_padding?: number | null
+          invoice_prefix?: string | null
           is_configured?: boolean
           legal_name?: string | null
           logo_url?: string | null
           matricule_fiscale?: string | null
           phone?: string | null
           postal_code?: string | null
+          signature_url?: string | null
+          stamp_url?: string | null
           type?: Database["public"]["Enums"]["company_type"]
           updated_at?: string
+          vat_rates?: Json | null
         }
         Relationships: []
       }
@@ -202,90 +244,6 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
-      }
-      company_settings: {
-        Row: {
-          activity: string | null
-          company_address: string | null
-          company_city: string | null
-          company_country: string | null
-          company_email: string | null
-          company_logo_url: string | null
-          company_name: string | null
-          company_phone: string | null
-          company_postal_code: string | null
-          company_tax_id: string | null
-          company_trade_register: string | null
-          company_vat_number: string | null
-          created_at: string
-          default_currency: string | null
-          default_vat_rate: number | null
-          id: string
-          invoice_format: string | null
-          invoice_next_number: number | null
-          invoice_number_padding: number | null
-          invoice_prefix: string | null
-          signature_url: string | null
-          stamp_url: string | null
-          updated_at: string
-          user_id: string
-          vat_rates: Json | null
-        }
-        Insert: {
-          activity?: string | null
-          company_address?: string | null
-          company_city?: string | null
-          company_country?: string | null
-          company_email?: string | null
-          company_logo_url?: string | null
-          company_name?: string | null
-          company_phone?: string | null
-          company_postal_code?: string | null
-          company_tax_id?: string | null
-          company_trade_register?: string | null
-          company_vat_number?: string | null
-          created_at?: string
-          default_currency?: string | null
-          default_vat_rate?: number | null
-          id?: string
-          invoice_format?: string | null
-          invoice_next_number?: number | null
-          invoice_number_padding?: number | null
-          invoice_prefix?: string | null
-          signature_url?: string | null
-          stamp_url?: string | null
-          updated_at?: string
-          user_id: string
-          vat_rates?: Json | null
-        }
-        Update: {
-          activity?: string | null
-          company_address?: string | null
-          company_city?: string | null
-          company_country?: string | null
-          company_email?: string | null
-          company_logo_url?: string | null
-          company_name?: string | null
-          company_phone?: string | null
-          company_postal_code?: string | null
-          company_tax_id?: string | null
-          company_trade_register?: string | null
-          company_vat_number?: string | null
-          created_at?: string
-          default_currency?: string | null
-          default_vat_rate?: number | null
-          id?: string
-          invoice_format?: string | null
-          invoice_next_number?: number | null
-          invoice_number_padding?: number | null
-          invoice_prefix?: string | null
-          signature_url?: string | null
-          stamp_url?: string | null
-          updated_at?: string
-          user_id?: string
-          vat_rates?: Json | null
-        }
-        Relationships: []
       }
       company_users: {
         Row: {

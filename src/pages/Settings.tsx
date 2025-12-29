@@ -20,19 +20,19 @@ interface VatRate {
 }
 
 interface CompanySettings {
-  id?: string;
-  user_id: string;
-  company_name: string;
-  company_address: string;
-  company_city: string;
-  company_postal_code: string;
+  id: string;
+  legal_name: string;
+  address: string;
+  city: string;
+  postal_code: string;
   company_country: string;
-  company_phone: string;
-  company_email: string;
+  phone: string;
+  email: string;
+  logo_url: string;
+  matricule_fiscale: string;
   company_vat_number: string;
   company_tax_id: string;
   company_trade_register: string;
-  company_logo_url: string;
   default_currency: string;
   activity: string;
   default_vat_rate: number;
@@ -43,20 +43,23 @@ interface CompanySettings {
   invoice_number_padding: number;
   signature_url: string;
   stamp_url: string;
+  type: string;
+  is_configured: boolean;
 }
 
-const defaultSettings: Omit<CompanySettings, 'user_id'> = {
-  company_name: '',
-  company_address: '',
-  company_city: '',
-  company_postal_code: '',
+const defaultSettings: Omit<CompanySettings, 'id' | 'type' | 'is_configured'> = {
+  legal_name: '',
+  address: '',
+  city: '',
+  postal_code: '',
   company_country: 'Tunisie',
-  company_phone: '',
-  company_email: '',
+  phone: '',
+  email: '',
+  logo_url: '',
+  matricule_fiscale: '',
   company_vat_number: '',
   company_tax_id: '',
   company_trade_register: '',
-  company_logo_url: '',
   default_currency: 'TND',
   activity: '',
   default_vat_rate: 19,
@@ -75,7 +78,7 @@ const defaultSettings: Omit<CompanySettings, 'user_id'> = {
 };
 
 export default function Settings() {
-  const { user } = useAuth();
+  const { user, activeCompanyId } = useAuth();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [uploadingLogo, setUploadingLogo] = useState(false);
@@ -89,11 +92,11 @@ export default function Settings() {
   const stampInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    if (user) {
+    if (user && activeCompanyId) {
       fetchSettings();
       fetchProfile();
     }
-  }, [user]);
+  }, [user, activeCompanyId]);
 
   const fetchProfile = async () => {
     const { data } = await supabase
@@ -105,11 +108,16 @@ export default function Settings() {
   };
 
   const fetchSettings = async () => {
+    if (!activeCompanyId) {
+      setLoading(false);
+      return;
+    }
+    
     try {
       const { data, error } = await supabase
-        .from('company_settings')
+        .from('companies')
         .select('*')
-        .eq('user_id', user?.id)
+        .eq('id', activeCompanyId)
         .maybeSingle();
 
       if (error) throw error;
@@ -117,17 +125,28 @@ export default function Settings() {
       if (data) {
         setSettings({
           ...data,
-          company_logo_url: data.company_logo_url || '',
+          legal_name: data.legal_name || '',
+          address: data.address || '',
+          city: data.city || '',
+          postal_code: data.postal_code || '',
+          company_country: data.company_country || 'Tunisie',
+          phone: data.phone || '',
+          email: data.email || '',
+          logo_url: data.logo_url || '',
+          matricule_fiscale: data.matricule_fiscale || '',
+          company_vat_number: data.company_vat_number || '',
+          company_tax_id: data.company_tax_id || '',
+          company_trade_register: data.company_trade_register || '',
           default_currency: data.default_currency || 'TND',
           activity: data.activity || '',
+          default_vat_rate: data.default_vat_rate || 19,
           vat_rates: (data.vat_rates as unknown as VatRate[]) || defaultSettings.vat_rates,
+          invoice_prefix: data.invoice_prefix || 'FAC',
+          invoice_next_number: data.invoice_next_number || 1,
+          invoice_format: data.invoice_format || '{prefix}-{year}-{number}',
+          invoice_number_padding: data.invoice_number_padding || 4,
           signature_url: data.signature_url || '',
           stamp_url: data.stamp_url || ''
-        });
-      } else {
-        setSettings({
-          ...defaultSettings,
-          user_id: user!.id
         });
       }
     } catch (error) {
@@ -140,7 +159,7 @@ export default function Settings() {
 
   const handleLogoUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
-    if (!file || !user) return;
+    if (!file || !user || !settings) return;
 
     // Validate file type
     if (!file.type.startsWith('image/')) {
@@ -157,9 +176,9 @@ export default function Settings() {
     setUploadingLogo(true);
     try {
       // Delete old logo if exists
-      if (settings?.company_logo_url) {
+      if (settings?.logo_url) {
         try {
-          const oldUrl = new URL(settings.company_logo_url);
+          const oldUrl = new URL(settings.logo_url);
           const oldPath = oldUrl.pathname.split('/company-assets/')[1];
           if (oldPath) {
             await supabase.storage.from('company-assets').remove([decodeURIComponent(oldPath)]);
@@ -170,7 +189,7 @@ export default function Settings() {
       }
 
       const fileExt = file.name.split('.').pop();
-      const fileName = `${user.id}/logo-${Date.now()}.${fileExt}`;
+      const fileName = `${activeCompanyId}/logo-${Date.now()}.${fileExt}`;
 
       // Upload to company-assets bucket (public)
       const { error: uploadError } = await supabase.storage
@@ -184,36 +203,16 @@ export default function Settings() {
         .getPublicUrl(fileName);
 
       // Update local state
-      const newSettings = settings ? { ...settings, company_logo_url: publicUrl } : null;
+      const newSettings = { ...settings, logo_url: publicUrl };
       setSettings(newSettings);
       
       // Auto-save to database
-      if (newSettings && user) {
-        const { id, ...settingsWithoutId } = newSettings;
-        const settingsToSave = {
-          ...settingsWithoutId,
-          user_id: user.id,
-          vat_rates: JSON.parse(JSON.stringify(newSettings.vat_rates))
-        };
+      const { error } = await supabase
+        .from('companies')
+        .update({ logo_url: publicUrl })
+        .eq('id', settings.id);
 
-        if (newSettings.id) {
-          const { error } = await supabase
-            .from('company_settings')
-            .update({ company_logo_url: publicUrl })
-            .eq('id', newSettings.id);
-
-          if (error) throw error;
-        } else {
-          const { data, error } = await supabase
-            .from('company_settings')
-            .insert(settingsToSave)
-            .select()
-            .single();
-
-          if (error) throw error;
-          setSettings({ ...newSettings, id: data.id });
-        }
-      }
+      if (error) throw error;
       
       toast.success('Logo téléchargé et enregistré');
     } catch (error) {
@@ -228,9 +227,9 @@ export default function Settings() {
     if (!settings || !user) return;
     
     // Delete file from storage
-    if (settings.company_logo_url) {
+    if (settings.logo_url) {
       try {
-        const oldUrl = new URL(settings.company_logo_url);
+        const oldUrl = new URL(settings.logo_url);
         const oldPath = oldUrl.pathname.split('/company-assets/')[1];
         if (oldPath) {
           await supabase.storage.from('company-assets').remove([decodeURIComponent(oldPath)]);
@@ -240,14 +239,14 @@ export default function Settings() {
       }
     }
     
-    setSettings(prev => prev ? { ...prev, company_logo_url: '' } : null);
+    setSettings(prev => prev ? { ...prev, logo_url: '' } : null);
     
     // Auto-save removal to database
     if (settings.id) {
       try {
         const { error } = await supabase
-          .from('company_settings')
-          .update({ company_logo_url: null })
+          .from('companies')
+          .update({ logo_url: null })
           .eq('id', settings.id);
 
         if (error) throw error;
@@ -346,35 +345,42 @@ export default function Settings() {
   };
 
   const saveSettings = async () => {
-    if (!settings || !user) return;
+    if (!settings || !activeCompanyId) return;
 
     setSaving(true);
     try {
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      const { id, ...settingsWithoutId } = settings;
       const settingsToSave = {
-        ...settingsWithoutId,
-        user_id: user.id,
-        vat_rates: JSON.parse(JSON.stringify(settings.vat_rates))
+        legal_name: settings.legal_name,
+        address: settings.address,
+        city: settings.city,
+        postal_code: settings.postal_code,
+        company_country: settings.company_country,
+        phone: settings.phone,
+        email: settings.email,
+        logo_url: settings.logo_url,
+        matricule_fiscale: settings.matricule_fiscale,
+        company_vat_number: settings.company_vat_number,
+        company_tax_id: settings.company_tax_id,
+        company_trade_register: settings.company_trade_register,
+        default_currency: settings.default_currency,
+        activity: settings.activity,
+        default_vat_rate: settings.default_vat_rate,
+        vat_rates: JSON.parse(JSON.stringify(settings.vat_rates)),
+        invoice_prefix: settings.invoice_prefix,
+        invoice_next_number: settings.invoice_next_number,
+        invoice_format: settings.invoice_format,
+        invoice_number_padding: settings.invoice_number_padding,
+        signature_url: settings.signature_url,
+        stamp_url: settings.stamp_url,
+        is_configured: true,
       };
 
-      if (settings.id) {
-        const { error } = await supabase
-          .from('company_settings')
-          .update(settingsToSave)
-          .eq('id', settings.id);
+      const { error } = await supabase
+        .from('companies')
+        .update(settingsToSave)
+        .eq('id', activeCompanyId);
 
-        if (error) throw error;
-      } else {
-        const { data, error } = await supabase
-          .from('company_settings')
-          .insert(settingsToSave)
-          .select()
-          .single();
-
-        if (error) throw error;
-        setSettings({ ...settings, id: data.id });
-      }
+      if (error) throw error;
 
       toast.success('Paramètres enregistrés avec succès');
     } catch (error) {
@@ -479,10 +485,10 @@ export default function Settings() {
               <div className="space-y-3">
                 <Label>Logo de l'entreprise</Label>
                 <div className="flex items-center gap-4">
-                  {settings.company_logo_url ? (
+                  {settings.logo_url ? (
                     <div className="relative">
                       <img
-                        src={settings.company_logo_url}
+                        src={settings.logo_url}
                         alt="Logo entreprise"
                         className="h-20 w-20 object-contain rounded-lg border bg-background"
                       />
@@ -527,11 +533,11 @@ export default function Settings() {
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="company_name">Raison sociale</Label>
+                  <Label htmlFor="legal_name">Raison sociale</Label>
                   <Input
-                    id="company_name"
-                    value={settings.company_name}
-                    onChange={(e) => setSettings({ ...settings, company_name: e.target.value })}
+                    id="legal_name"
+                    value={settings.legal_name}
+                    onChange={(e) => setSettings({ ...settings, legal_name: e.target.value })}
                     placeholder="Nom de votre entreprise"
                   />
                 </div>
@@ -548,12 +554,12 @@ export default function Settings() {
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="company_email">Email</Label>
+                  <Label htmlFor="email">Email</Label>
                   <Input
-                    id="company_email"
+                    id="email"
                     type="email"
-                    value={settings.company_email}
-                    onChange={(e) => setSettings({ ...settings, company_email: e.target.value })}
+                    value={settings.email}
+                    onChange={(e) => setSettings({ ...settings, email: e.target.value })}
                     placeholder="contact@entreprise.tn"
                   />
                 </div>
@@ -578,31 +584,31 @@ export default function Settings() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="company_address">Adresse</Label>
+                <Label htmlFor="address">Adresse</Label>
                 <Input
-                  id="company_address"
-                  value={settings.company_address}
-                  onChange={(e) => setSettings({ ...settings, company_address: e.target.value })}
+                  id="address"
+                  value={settings.address}
+                  onChange={(e) => setSettings({ ...settings, address: e.target.value })}
                   placeholder="Adresse complète"
                 />
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="company_city">Ville</Label>
+                  <Label htmlFor="city">Ville</Label>
                   <Input
-                    id="company_city"
-                    value={settings.company_city}
-                    onChange={(e) => setSettings({ ...settings, company_city: e.target.value })}
+                    id="city"
+                    value={settings.city}
+                    onChange={(e) => setSettings({ ...settings, city: e.target.value })}
                     placeholder="Tunis"
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="company_postal_code">Code postal</Label>
+                  <Label htmlFor="postal_code">Code postal</Label>
                   <Input
-                    id="company_postal_code"
-                    value={settings.company_postal_code}
-                    onChange={(e) => setSettings({ ...settings, company_postal_code: e.target.value })}
+                    id="postal_code"
+                    value={settings.postal_code}
+                    onChange={(e) => setSettings({ ...settings, postal_code: e.target.value })}
                     placeholder="1000"
                   />
                 </div>
@@ -619,11 +625,11 @@ export default function Settings() {
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="company_phone">Téléphone</Label>
+                  <Label htmlFor="phone">Téléphone</Label>
                   <Input
-                    id="company_phone"
-                    value={settings.company_phone}
-                    onChange={(e) => setSettings({ ...settings, company_phone: e.target.value })}
+                    id="phone"
+                    value={settings.phone}
+                    onChange={(e) => setSettings({ ...settings, phone: e.target.value })}
                     placeholder="+216 XX XXX XXX"
                   />
                 </div>
