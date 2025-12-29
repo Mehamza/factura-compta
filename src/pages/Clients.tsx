@@ -1,6 +1,7 @@
 import { useEffect, useState, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import { useCompanySettings } from '@/hooks/useCompanySettings';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -32,17 +33,6 @@ import { Plus, Pencil, Trash2, Search, Upload, ArrowUpDown, Eye, FileText, List 
 import { getClientInvoiceStatement, ClientInvoiceStatement } from '@/lib/getClientInvoiceStatement';
 import { generateClientStatementPDF } from '@/lib/generateClientStatementPDF';
 
-interface CompanySettings {
-  company_name?: string | null;
-  company_address?: string | null;
-  company_city?: string | null;
-  company_postal_code?: string | null;
-  company_phone?: string | null;
-  company_email?: string | null;
-  company_tax_id?: string | null;
-  company_logo_url?: string | null;
-  activity?: string | null;
-}
 import { Badge } from '@/components/ui/badge';
 
 interface Client {
@@ -82,7 +72,8 @@ const statusLabels: Record<string, string> = {
 };
 
 export default function Clients() {
-  const { user, activeCompanyId } = useAuth();
+  const { user, activeCompanyId, companyRoles } = useAuth();
+  const { companySettings } = useCompanySettings();
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [clients, setClients] = useState<Client[]>([]);
@@ -103,22 +94,6 @@ export default function Clients() {
   const [statementError, setStatementError] = useState<string | null>(null);
   const [statementStart, setStatementStart] = useState<string | undefined>(undefined);
   const [statementEnd, setStatementEnd] = useState<string | undefined>(undefined);
-  const [companySettings, setCompanySettings] = useState<CompanySettings | null>(null);
-  const { companyRoles } = useAuth();
-
-  // Fetch company settings
-  useEffect(() => {
-    const fetchCompanySettings = async () => {
-      if (!user) return;
-      const { data } = await supabase
-        .from('company_settings')
-        .select('company_name, company_address, company_city, company_postal_code, company_phone, company_email, company_tax_id, company_logo_url, activity')
-        .eq('user_id', user.id)
-        .maybeSingle();
-      if (data) setCompanySettings(data);
-    };
-    fetchCompanySettings();
-  }, [user]);
 
   // Show statement for selected client
   const openStatement = async () => {
