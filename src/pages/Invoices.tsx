@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import { useCompanySettings } from '@/hooks/useCompanySettings';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -144,12 +145,12 @@ const roleLabels: Record<string, string> = {
 
 export default function Invoices() {
   const { user, role, activeCompanyId } = useAuth();
+  const { companySettings } = useCompanySettings();
   const { toast } = useToast();
   const [submitting, setSubmitting] = useState(false);
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
   const [products, setProducts] = useState<{id:string; name:string; sku:string; quantity:number; min_stock:number; sale_price:number|null; unit_price:number; description:string|null; unit:string|null; vat_rate:number|null}[]>([]);
-  const [companySettings, setCompanySettings] = useState<CompanySettings | null>(null);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [userRole, setUserRole] = useState<string>('cashier');
   const [loading, setLoading] = useState(true);
@@ -190,10 +191,19 @@ export default function Invoices() {
       fetchInvoices();
       fetchClients();
       fetchProducts();
-      fetchCompanySettings();
       fetchUserInfo();
     }
   }, [user]);
+
+  // Apply company settings defaults when they load
+  useEffect(() => {
+    if (companySettings?.default_currency) {
+      setFormData(prev => ({
+        ...prev,
+        currency: companySettings.default_currency || 'TND',
+      }));
+    }
+  }, [companySettings]);
 
   const fetchInvoices = async () => {
     const { data, error } = await supabase
@@ -239,22 +249,6 @@ export default function Invoices() {
     setClients(data || []);
   };
 
-  const fetchCompanySettings = async () => {
-    const { data } = await supabase
-      .from('company_settings')
-      .select('company_name, company_address, company_city, company_postal_code, company_country, company_phone, company_email, company_vat_number, company_tax_id, company_trade_register, company_logo_url, activity, default_currency, default_vat_rate, signature_url, stamp_url')
-      .eq('user_id', user?.id)
-      .maybeSingle();
-    
-    if (data) {
-      setCompanySettings(data);
-      // Apply default settings to form
-      setFormData(prev => ({
-        ...prev,
-        currency: data.default_currency || 'TND',
-      }));
-    }
-  };
 
   const fetchProducts = async () => {
     const { data, error } = await supabase.from('products').select('id,name,sku,quantity,min_stock,sale_price,unit_price,description,unit,vat_rate').order('name');
