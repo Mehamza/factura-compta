@@ -115,9 +115,39 @@ serve(async (req: Request) => {
       return json(403, { error: 'Un gérant ne peut pas créer un administrateur.' });
     }
 
+    // Get the caller's company_id BEFORE creating auth user
+    // This is needed to pass in user_metadata so the trigger can handle company assignment
+    console.log('create_user: Fetching caller company BEFORE creating auth user');
+    const callerCompanyResp = await fetch(
+      `${supabaseUrl}/rest/v1/company_users?user_id=eq.${caller.id}&select=company_id&limit=1`,
+      {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${serviceKey}`,
+          'apikey': serviceKey,
+          'Content-Type': 'application/json',
+        },
+      }
+    );
+
+    let callerCompanyId: string | null = null;
+    if (callerCompanyResp.ok) {
+      const callerCompanies = await callerCompanyResp.json();
+      if (callerCompanies && callerCompanies.length > 0) {
+        callerCompanyId = callerCompanies[0].company_id;
+        console.log('create_user: Found caller company', callerCompanyId);
+      } else {
+        console.warn('create_user: Caller has no company');
+      }
+    } else {
+      console.error('create_user: Failed to fetch caller company');
+    }
+
     console.log('create_user: Creating auth user via admin API');
 
     // Call admin API using service role to enforce uniqueness and create auth user
+    // Pass is_employee, company_id, and role in user_metadata so the handle_new_user trigger
+    // correctly handles this as an employee creation (skips company creation, uses provided company)
     const adminAuthResp = await fetch(`${supabaseUrl}/auth/v1/admin/users`, {
       method: 'POST',
       headers: {
@@ -125,7 +155,17 @@ serve(async (req: Request) => {
         'apikey': serviceKey,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ email, password, email_confirm: true, user_metadata: { full_name: fullName } }),
+      body: JSON.stringify({
+        email,
+        password,
+        email_confirm: true,
+        user_metadata: {
+          full_name: fullName,
+          is_employee: true,           // Tell trigger this is an employee
+          company_id: callerCompanyId, // Company to join (trigger will use this)
+          role: targetRoleRaw,         // Role to assign (trigger will use this)
+        },
+      }),
     });
 
     const adminAuthData = await adminAuthResp.json();
@@ -179,7 +219,7 @@ serve(async (req: Request) => {
 
     console.log('create_user: Profile created/updated');
 
-    // Assign role using upsert
+    // Assign role using upsert (safety net - trigger should have already done this)
     console.log('create_user: Upserting role', targetRoleRaw);
     const roleResp = await fetch(`${supabaseUrl}/rest/v1/user_roles?on_conflict=user_id`, {
       method: 'POST',
@@ -195,64 +235,9 @@ serve(async (req: Request) => {
 
     console.log('create_user: Role assigned successfully');
 
-    // Get the caller's company_id from company_users table
-    console.log('create_user: Fetching caller company');
-    const callerCompanyResp = await fetch(
-      `${supabaseUrl}/rest/v1/company_users?user_id=eq.${caller.id}&select=company_id,role&limit=1`,
-      {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${serviceKey}`,
-          'apikey': serviceKey,
-          'Content-Type': 'application/json',
-        },
-      }
-    );
-
-    if (callerCompanyResp.ok) {
-      const callerCompanies = await callerCompanyResp.json();
-      if (callerCompanies && callerCompanies.length > 0) {
-        const callerCompanyId = callerCompanies[0].company_id;
-        
-        // Map app role to company role
-        const companyRoleMap: Record<string, string> = {
-          'admin': 'company_admin',
-          'manager': 'gerant',
-          'accountant': 'comptable',
-          'cashier': 'caissier',
-        };
-        const companyRole = companyRoleMap[targetRoleRaw] || 'caissier';
-
-        // Add new user to the same company as the caller
-        console.log('create_user: Adding user to company', { callerCompanyId, companyRole });
-        const companyUserResp = await fetch(`${supabaseUrl}/rest/v1/company_users`, {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${serviceKey}`,
-            'apikey': serviceKey,
-            'Content-Type': 'application/json',
-            'Prefer': 'return=representation',
-          },
-          body: JSON.stringify({
-            user_id: createdUserId,
-            company_id: callerCompanyId,
-            role: companyRole,
-          }),
-        });
-
-        if (!companyUserResp.ok) {
-          const companyUserErr = await companyUserResp.text();
-          console.error('create_user: Failed to add user to company', companyUserErr);
-          // Don't fail the whole operation, user is created but not linked to company
-        } else {
-          console.log('create_user: User added to company successfully');
-        }
-      } else {
-        console.warn('create_user: Caller has no company, skipping company assignment');
-      }
-    } else {
-      console.error('create_user: Failed to fetch caller company');
-    }
+    // NOTE: We no longer manually insert into company_users here.
+    // The handle_new_user trigger handles company assignment based on the
+    // is_employee, company_id, and role passed in user_metadata.
 
     return json(200, { ok: true, user_id: createdUserId });
   } catch (e) {
