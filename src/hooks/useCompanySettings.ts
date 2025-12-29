@@ -1,84 +1,90 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 
 export interface CompanySettings {
-  company_name: string | null;
-  company_address: string | null;
-  company_city: string | null;
-  company_postal_code: string | null;
+  id: string;
+  legal_name: string | null;
+  address: string | null;
+  city: string | null;
+  postal_code: string | null;
   company_country: string | null;
-  company_phone: string | null;
-  company_email: string | null;
+  phone: string | null;
+  email: string | null;
+  logo_url: string | null;
+  matricule_fiscale: string | null;
+  activity: string | null;
   company_vat_number: string | null;
   company_tax_id: string | null;
   company_trade_register: string | null;
-  company_logo_url: string | null;
-  activity: string | null;
   default_currency: string | null;
   default_vat_rate: number | null;
   signature_url: string | null;
   stamp_url: string | null;
+  invoice_prefix: string | null;
+  invoice_format: string | null;
+  invoice_next_number: number | null;
+  invoice_number_padding: number | null;
+  vat_rates: any | null;
+  type: string;
+  is_configured: boolean;
+  // Aliases for backward compatibility with old naming convention
+  company_name?: string | null;
+  company_address?: string | null;
+  company_city?: string | null;
+  company_postal_code?: string | null;
+  company_phone?: string | null;
+  company_email?: string | null;
+  company_logo_url?: string | null;
 }
 
 /**
  * Hook to fetch company settings for the active company.
- * Works for both company owners and employees by finding the company admin's settings.
+ * Now queries the companies table directly (after merging company_settings into companies).
  */
 export function useCompanySettings() {
   const { user, activeCompanyId } = useAuth();
   const [companySettings, setCompanySettings] = useState<CompanySettings | null>(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    const fetchCompanySettings = async () => {
-      if (!user) {
-        setCompanySettings(null);
-        setLoading(false);
-        return;
-      }
-
-      setLoading(true);
-
-      // If we have an activeCompanyId, find the company admin to get their settings
-      if (activeCompanyId) {
-        // Find the company_admin user for this company
-        const { data: adminData } = await supabase
-          .from('company_users')
-          .select('user_id')
-          .eq('company_id', activeCompanyId)
-          .eq('role', 'company_admin')
-          .maybeSingle();
-
-        if (adminData?.user_id) {
-          // Fetch settings for the company admin
-          const { data } = await supabase
-            .from('company_settings')
-            .select('*')
-            .eq('user_id', adminData.user_id)
-            .maybeSingle();
-
-          if (data) {
-            setCompanySettings(data);
-            setLoading(false);
-            return;
-          }
-        }
-      }
-
-      // Fallback: try to get settings for the current user (for owners)
-      const { data } = await supabase
-        .from('company_settings')
-        .select('*')
-        .eq('user_id', user.id)
-        .maybeSingle();
-
-      setCompanySettings(data);
+  const fetchCompanySettings = useCallback(async () => {
+    if (!user || !activeCompanyId) {
+      setCompanySettings(null);
       setLoading(false);
-    };
+      return;
+    }
 
-    fetchCompanySettings();
+    setLoading(true);
+
+    const { data, error } = await supabase
+      .from('companies')
+      .select('*')
+      .eq('id', activeCompanyId)
+      .maybeSingle();
+
+    if (data && !error) {
+      // Create object with both new and old naming for backward compatibility
+      setCompanySettings({
+        ...data,
+        // Backward compatibility aliases
+        company_name: data.legal_name,
+        company_address: data.address,
+        company_city: data.city,
+        company_postal_code: data.postal_code,
+        company_phone: data.phone,
+        company_email: data.email,
+        company_logo_url: data.logo_url,
+      });
+    } else {
+      setCompanySettings(null);
+    }
+    
+    setLoading(false);
   }, [user, activeCompanyId]);
 
-  return { companySettings, loading, refetch: () => {} };
+  useEffect(() => {
+    fetchCompanySettings();
+  }, [fetchCompanySettings]);
+
+  return { companySettings, loading, refetch: fetchCompanySettings };
 }

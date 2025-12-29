@@ -48,9 +48,9 @@ export default function SuperAdminDashboard() {
         .from('profiles')
         .select('*', { count: 'exact', head: true });
 
-      // Fetch company settings (as companies)
+      // Fetch companies count
       const { count: companyCount } = await supabase
-        .from('company_settings')
+        .from('companies')
         .select('*', { count: 'exact', head: true });
 
       // Fetch active subscriptions
