@@ -372,6 +372,7 @@ export default function Settings() {
         invoice_number_padding: settings.invoice_number_padding,
         signature_url: settings.signature_url,
         stamp_url: settings.stamp_url,
+        type: settings.type as 'personne_physique' | 'personne_morale',
         is_configured: true,
       };
 
@@ -531,7 +532,7 @@ export default function Settings() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="legal_name">Raison sociale</Label>
                   <Input
@@ -549,6 +550,21 @@ export default function Settings() {
                     onChange={(e) => setSettings({ ...settings, activity: e.target.value })}
                     placeholder="Ex: Commerce de détail, Services informatiques..."
                   />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="type">Type d'entreprise</Label>
+                  <Select
+                    value={settings.type}
+                    onValueChange={(value) => setSettings({ ...settings, type: value })}
+                  >
+                    <SelectTrigger id="type">
+                      <SelectValue placeholder="Sélectionner le type" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="personne_physique">Personne Physique</SelectItem>
+                      <SelectItem value="personne_morale">Personne Morale</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
 
