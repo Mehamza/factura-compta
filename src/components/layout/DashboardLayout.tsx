@@ -19,6 +19,14 @@ import {
 } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { ImpersonationBanner } from './ImpersonationBanner';
 import { navigationConfig, NavigationModule, NavigationRole } from '@/config/navigationConfig';
 import { isModuleLocked } from '@/lib/navigationPermissions';
@@ -41,6 +49,16 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
   const [openDropdowns, setOpenDropdowns] = useState<Record<string, boolean>>({});
 
   const navigationRole = role as NavigationRole | null | undefined;
+
+  // Get user initials for avatar
+  const getUserInitials = () => {
+    const name = profile?.full_name || user?.user_metadata?.full_name || user?.email || '';
+    const parts = name.split(' ').filter(Boolean);
+    if (parts.length >= 2) {
+      return (parts[0][0] + parts[1][0]).toUpperCase();
+    }
+    return name.slice(0, 2).toUpperCase();
+  };
 
   const handleSignOut = async () => {
     await signOut();
@@ -396,18 +414,67 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
           "transition-all duration-300",
           collapsed ? "lg:pl-16" : "lg:pl-64"
         )}>
-          {/* Mobile header */}
-          <header className="sticky top-0 z-30 flex h-12 items-center gap-4 bg-background border-b px-4 lg:hidden">
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => setSidebarOpen(true)}
-              aria-label="Ouvrir le menu"
-              className="transition-transform duration-200 ease-out active:scale-95"
-            >
-              <Menu className="h-5 w-5" />
-            </Button>
-            <span className="font-semibold">Facture Pro</span>
+          {/* Top Header Navbar - Desktop and Mobile */}
+          <header className="sticky top-0 z-30 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+            <div className="flex h-14 items-center justify-between px-4">
+              {/* Mobile menu button */}
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setSidebarOpen(true)}
+                aria-label="Ouvrir le menu"
+                className="lg:hidden transition-transform duration-200 ease-out active:scale-95"
+              >
+                <Menu className="h-5 w-5" />
+              </Button>
+              
+              {/* Logo for mobile */}
+              <span className="font-semibold lg:hidden">Facture Pro</span>
+              
+              {/* Spacer for desktop */}
+              <div className="hidden lg:block" />
+              
+              {/* User Avatar Dropdown - Right side */}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" className="relative h-9 w-9 rounded-full">
+                    <Avatar className="h-9 w-9 border-2 border-primary/20">
+                      <AvatarImage src="" alt={profile?.full_name || user?.email || ''} />
+                      <AvatarFallback className="bg-primary/20 text-primary font-medium">
+                        {getUserInitials()}
+                      </AvatarFallback>
+                    </Avatar>
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent className="w-56 bg-secondary" align="end" forceMount>
+                  <DropdownMenuItem asChild className="cursor-pointer">
+                    <Link to="/settings" className="flex items-center gap-3 text-secondary-foreground">
+                      <Settings className="h-4 w-4" />
+                      <span>Paramètres</span>
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator className="bg-secondary-foreground/20" />
+                  <div className="flex items-center gap-3 px-2 py-2">
+                    <Avatar className="h-8 w-8">
+                      <AvatarFallback className="bg-primary/20 text-primary text-sm font-medium">
+                        {getUserInitials()}
+                      </AvatarFallback>
+                    </Avatar>
+                    <span className="text-sm font-medium text-primary uppercase truncate">
+                      {profile?.full_name || user?.user_metadata?.full_name || user?.email}
+                    </span>
+                  </div>
+                  <DropdownMenuSeparator className="bg-secondary-foreground/20" />
+                  <DropdownMenuItem 
+                    onClick={handleSignOut}
+                    className="cursor-pointer text-secondary-foreground"
+                  >
+                    <LogOut className="h-4 w-4 mr-3" />
+                    <span>Déconnexion</span>
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
           </header>
 
           <main className="p-6">
