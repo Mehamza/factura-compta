@@ -346,56 +346,6 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
               )}
             </nav>
 
-            {/* Footer */}
-            <div className="p-2 border-t border-secondary/30 bg-secondary">
-              {/* Hide Settings for Super Admin - they manage platform, not their own company */}
-              {!isSuperAdmin && (
-                <NavItem 
-                  item={{ name: 'Paramètres', href: '/settings', icon: Settings }} 
-                  onClick={() => setSidebarOpen(false)} 
-                />
-              )}
-
-              {!collapsed && (
-                <div className="flex items-center gap-3 my-3 px-3">
-                  <div className="h-8 w-8 rounded-full bg-primary/20 flex items-center justify-center shrink-0">
-                    <span className="text-sm font-medium text-primary">
-                      {(profile?.full_name || user?.user_metadata?.full_name || user?.email || '').split('').filter(Boolean).slice(0, 2).map(word => word[0]).join('').toUpperCase()}
-                    </span>
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm text-primary font-medium truncate uppercase">
-                      {profile?.full_name || user?.user_metadata?.full_name || user?.email}
-                    </p>
-                  </div>
-                </div>
-              )}
-
-              {collapsed ? (
-                <Tooltip delayDuration={0}>
-                  <TooltipTrigger asChild>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="w-full text-secondary-foreground/70 hover:text-secondary-foreground hover:bg-secondary/80"
-                      onClick={handleSignOut}
-                    >
-                      <LogOut className="h-4 w-4" />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent side="right">Déconnexion</TooltipContent>
-                </Tooltip>
-              ) : (
-                <Button
-                  variant="ghost"
-                  className="w-full justify-start text-secondary-foreground/70 hover:text-secondary-foreground hover:bg-secondary/80"
-                  onClick={handleSignOut}
-                >
-                  <LogOut className="h-4 w-4 mr-3" />
-                  Déconnexion
-                </Button>
-              )}
-            </div>
 
             {/* Collapse Toggle - Desktop only */}
             <Button
