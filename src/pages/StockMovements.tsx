@@ -252,7 +252,10 @@ export default function StockMovements() {
               <Input value={form.note} onChange={(e) => setForm({ ...form, note: e.target.value })} />
             </div>
             <div className="md:col-span-2">
-              <Button type="submit">Enregistrer</Button>
+              <Button type="submit" disabled={loading}>
+                {loading && <span className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />}
+                Enregistrer
+              </Button>
             </div>
           </form>
         </DialogContent>

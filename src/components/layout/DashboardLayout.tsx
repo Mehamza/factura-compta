@@ -84,7 +84,7 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
           "flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors",
           isActive
             ? "bg-primary text-primary-foreground"
-            : "text-muted-foreground hover:bg-accent hover:text-accent-foreground",
+            : "text-secondary-foreground/70 hover:bg-secondary/80 hover:text-secondary-foreground",
           collapsed && "justify-center px-2",
           indent && !collapsed && "pl-9"
         )}
@@ -116,7 +116,7 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
       <div
         className={cn(
           "flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium opacity-50 cursor-not-allowed",
-          "text-muted-foreground",
+          "text-secondary-foreground/50",
           collapsed && "justify-center px-2"
         )}
       >
@@ -162,8 +162,8 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
               className={cn(
                 "flex items-center justify-center px-2 py-2 rounded-md text-sm font-medium transition-colors cursor-pointer",
                 hasActiveChild
-                  ? "bg-primary/10 text-primary"
-                  : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+                  ? "bg-primary/20 text-primary"
+                  : "text-secondary-foreground/70 hover:bg-secondary/80 hover:text-secondary-foreground"
               )}
               onClick={() => toggleDropdown(item.id)}
             >
@@ -196,8 +196,8 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
             className={cn(
               "flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors w-full",
               hasActiveChild
-                ? "bg-primary/10 text-primary"
-                : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+                ? "bg-primary/20 text-primary"
+                : "text-secondary-foreground/70 hover:bg-secondary/80 hover:text-secondary-foreground"
             )}
           >
             <Icon className="h-4 w-4 shrink-0" />
@@ -275,7 +275,7 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
         {/* Sidebar */}
         <aside
           className={cn(
-            "fixed inset-y-0 left-0 z-50 bg-card border-r transform transition-transform duration-300 ease-in-out lg:translate-x-0 will-change-transform",
+            "fixed inset-y-0 left-0 z-50 bg-secondary border-r border-secondary/50 transform transition-transform duration-300 ease-in-out lg:translate-x-0 will-change-transform",
             sidebarOpen ? "translate-x-0" : "-translate-x-full",
             collapsed ? "w-16" : "w-64"
           )}
@@ -284,11 +284,11 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
           <div className="flex h-full flex-col">
             {/* Header */}
             <div className={cn(
-              "flex h-14 items-center border-b px-3",
+              "flex h-14 items-center border-b border-secondary/30 px-3",
               collapsed ? "justify-center" : "justify-between px-4"
             )}>
               {!collapsed && (
-                <Link to="/" className="flex items-center gap-2 font-semibold text-lg">
+                <Link to="/" className="flex items-center gap-2 font-semibold text-lg text-secondary-foreground">
                   <FileText className="h-5 w-5 text-primary" />
                   <span>Facture Pro</span>
                 </Link>
@@ -301,7 +301,7 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
               <Button
                 variant="ghost"
                 size="icon"
-                className="lg:hidden transition-transform duration-200 ease-out active:scale-95"
+                className="lg:hidden transition-transform duration-200 ease-out active:scale-95 text-secondary-foreground hover:bg-secondary/80"
                 onClick={() => setSidebarOpen(false)}
                 aria-label="Fermer le menu"
               >
@@ -310,12 +310,12 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
             </div>
 
             {/* Navigation */}
-            <nav className="flex-1 flex flex-col gap-1 p-2 overflow-y-auto">
+            <nav className="flex-1 flex flex-col gap-1 p-2 overflow-y-auto sidebar-nav">
               {isSuperAdmin ? (
                 <>
-                  <div className="my-2 border-t" />
+                  <div className="my-2 border-t border-secondary/30" />
                   {!collapsed && (
-                    <p className="px-3 py-1 text-xs font-semibold text-muted-foreground uppercase">Administration</p>
+                    <p className="px-3 py-1 text-xs font-semibold text-secondary-foreground/70 uppercase">Administration</p>
                   )}
                   {superAdminNavigation.map((item) => (
                     <NavItem key={item.name} item={item} onClick={() => setSidebarOpen(false)} />
@@ -329,7 +329,7 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
             </nav>
 
             {/* Footer */}
-            <div className="p-2 border-t bg-card">
+            <div className="p-2 border-t border-secondary/30 bg-secondary">
               {/* Hide Settings for Super Admin - they manage platform, not their own company */}
               {!isSuperAdmin && (
                 <NavItem 
@@ -340,7 +340,7 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
 
               {!collapsed && (
                 <div className="flex items-center gap-3 my-3 px-3">
-                  <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                  <div className="h-8 w-8 rounded-full bg-primary/20 flex items-center justify-center shrink-0">
                     <span className="text-sm font-medium text-primary">
                       {(profile?.full_name || user?.user_metadata?.full_name || user?.email || '').split('').filter(Boolean).slice(0, 2).map(word => word[0]).join('').toUpperCase()}
                     </span>
@@ -359,7 +359,7 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="w-full text-muted-foreground"
+                      className="w-full text-secondary-foreground/70 hover:text-secondary-foreground hover:bg-secondary/80"
                       onClick={handleSignOut}
                     >
                       <LogOut className="h-4 w-4" />
@@ -370,7 +370,7 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
               ) : (
                 <Button
                   variant="ghost"
-                  className="w-full justify-start text-muted-foreground"
+                  className="w-full justify-start text-secondary-foreground/70 hover:text-secondary-foreground hover:bg-secondary/80"
                   onClick={handleSignOut}
                 >
                   <LogOut className="h-4 w-4 mr-3" />
