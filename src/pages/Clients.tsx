@@ -401,7 +401,10 @@ export default function Clients() {
                     <Input value={formData.vat_number} onChange={e => setFormData({ ...formData, vat_number: e.target.value })} />
                   </div>
                 </div>
-                <Button type="submit" className="w-full">{editingClient ? 'Modifier' : 'Ajouter'}</Button>
+                <Button type="submit" className="w-full" disabled={loading}>
+                  {loading && <span className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />}
+                  {editingClient ? 'Modifier' : 'Ajouter'}
+                </Button>
               </form>
             </DialogContent>
           </Dialog>

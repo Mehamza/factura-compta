@@ -639,7 +639,10 @@ export default function StockProducts() {
               <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
                 Annuler
               </Button>
-              <Button type="submit">{editing ? 'Enregistrer' : 'Ajouter'}</Button>
+              <Button type="submit" disabled={loading}>
+                {loading && <span className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />}
+                {editing ? 'Enregistrer' : 'Ajouter'}
+              </Button>
             </div>
           </form>
         </DialogContent>
