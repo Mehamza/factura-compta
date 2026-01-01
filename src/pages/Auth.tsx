@@ -93,7 +93,7 @@ export default function Auth() {
               <FileText className="h-8 w-8 text-primary" />
             </div>
           </div>
-          <CardTitle className="text-2xl">Facture Pro</CardTitle>
+          <CardTitle className="text-2xl">SmartFin</CardTitle>
           <CardDescription>Gérez vos factures en toute simplicité</CardDescription>
         </CardHeader>
         <CardContent>

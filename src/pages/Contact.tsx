@@ -91,7 +91,7 @@ export default function Contact() {
                 </div>
                 <div>
                   <div className="font-medium">Email</div>
-                  <div className="text-muted-foreground">contact@facturepro.tn</div>
+                  <div className="text-muted-foreground">contact@SmartFin.tn</div>
                 </div>
               </div>
               

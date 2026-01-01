@@ -1,5 +1,5 @@
 -- Create payments table for detailed payment tracking
-CREATE TABLE public.payments (
+CREATE TABLE IF NOT EXISTS public.payments (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID NOT NULL,
   invoice_id UUID REFERENCES public.invoices(id) ON DELETE SET NULL,
@@ -11,6 +11,7 @@ CREATE TABLE public.payments (
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
 
 -- Enable RLS
 ALTER TABLE public.payments ENABLE ROW LEVEL SECURITY;

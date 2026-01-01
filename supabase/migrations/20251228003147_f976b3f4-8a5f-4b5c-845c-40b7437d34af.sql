@@ -7,7 +7,7 @@ CREATE TYPE public.company_type AS ENUM ('personne_physique', 'personne_morale')
 CREATE TYPE public.company_role AS ENUM ('company_admin', 'gerant', 'comptable', 'caissier');
 
 -- 3. Create companies table
-CREATE TABLE public.companies (
+CREATE TABLE IF NOT EXISTS public.companies (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   type company_type NOT NULL DEFAULT 'personne_physique',
   legal_name TEXT,
@@ -22,6 +22,7 @@ CREATE TABLE public.companies (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
 
 -- Enable RLS on companies
 ALTER TABLE public.companies ENABLE ROW LEVEL SECURITY;

@@ -9,6 +9,8 @@ export interface InvoiceTemplateData {
   tax_rate: number;
   tax_amount: number;
   total: number;
+  fodec_amount_total?: number;
+  base_tva?: number;
   stamp_included?: boolean;
   stamp_amount?: number;
   notes?: string;
@@ -40,6 +42,7 @@ export interface InvoiceTemplateData {
     activity?: string;
     signature_url?: string;
     stamp_url?: string;
+    bank_accounts?: { bank: string; rib: string }[];
   };
   created_by?: {
     name?: string;
@@ -55,6 +58,9 @@ export interface InvoiceItem {
   unit_price: number;
   vat_rate?: number;
   vat_amount?: number;
+  fodec_applicable?: boolean;
+  fodec_rate?: number;
+  fodec_amount?: number;
   total: number;
 }
 
@@ -91,15 +97,17 @@ function drawFallbackLogo(
   companyName: string
 ): void {
   const initials = getCompanyInitials(companyName || 'Company');
-  const centerX = x + size / 2;
-  const centerY = y + size / 2;
-  const radius = size / 2;
-  
-  // Draw circle background (professional blue)
+  const rectX = x;
+  const rectY = y;
+  const rectW = size;
+  const rectH = size;
+  // Draw rectangle background (professional blue)
   doc.setFillColor(37, 99, 235); // #2563eb
-  doc.circle(centerX, centerY, radius, 'F');
-  
-  // Draw initials in white
+  doc.rect(rectX, rectY, rectW, rectH, 'F');
+
+  // Draw initials in white, centered
+  const centerX = rectX + rectW / 2;
+  const centerY = rectY + rectH / 2;
   doc.setTextColor(255, 255, 255);
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(size * 0.45);
@@ -186,6 +194,14 @@ async function drawProfessionalHeader(
     if (company.activity) {
       doc.text(company.activity, textX, y);
       y += 5;
+    }
+    // Show first bank RIB if available
+    if (company.bank_accounts && company.bank_accounts.length > 0) {
+      const b = company.bank_accounts[0];
+      if (b && (b.rib || b.bank)) {
+        doc.text(`RIB: ${b.bank} : ${b.rib}`, textX, y);
+        y += 5;
+      }
     }
     if (company.address) {
       doc.text(company.address, textX, y);
@@ -455,8 +471,15 @@ export async function generateClassicPDF(invoice: InvoiceTemplateData, items: In
   doc.text('DESIGNATION', 40, tableTop + 5.5);
   doc.text('QTE', 105, tableTop + 5.5);
   doc.text('P.U.HT', 120, tableTop + 5.5);
-  doc.text('TVA', 145, tableTop + 5.5);
-  doc.text('TOTAL HT', 165, tableTop + 5.5);
+  // Determine if any FODEC applies
+  const anyFodec = items.some(i => (i.fodec_amount || 0) > 0);
+  doc.text('TVA', anyFodec ? 155 : 145, tableTop + 5.5);
+  if (anyFodec) {
+    doc.text('FODEC', 140, tableTop + 5.5);
+    doc.text('TOTAL HT', 170, tableTop + 5.5);
+  } else {
+    doc.text('TOTAL HT', 165, tableTop + 5.5);
+  }
   
   y = tableTop + 8;
   doc.setFont('helvetica', 'normal');
@@ -469,8 +492,14 @@ export async function generateClassicPDF(invoice: InvoiceTemplateData, items: In
     doc.text(item.description.substring(0, 30), 40, y + 5.5);
     doc.text(item.quantity.toString(), 107, y + 5.5);
     doc.text(formatCurrency(item.unit_price, invoice.currency), 120, y + 5.5);
-    doc.text(item.vat_rate ? `${item.vat_rate}%` : '00', 145, y + 5.5);
-    doc.text(formatCurrency(item.total, invoice.currency), 165, y + 5.5);
+    if (anyFodec) {
+      doc.text(formatCurrency(item.fodec_amount || 0, invoice.currency), 140, y + 5.5);
+      doc.text(item.vat_rate ? `${item.vat_rate}%` : '00', 155, y + 5.5);
+      doc.text(formatCurrency(item.total, invoice.currency), 170, y + 5.5);
+    } else {
+      doc.text(item.vat_rate ? `${item.vat_rate}%` : '00', 145, y + 5.5);
+      doc.text(formatCurrency(item.total, invoice.currency), 165, y + 5.5);
+    }
     y += 8;
   });
   
@@ -479,6 +508,14 @@ export async function generateClassicPDF(invoice: InvoiceTemplateData, items: In
   doc.setFontSize(10);
   doc.text('Sous-total HT:', 130, y);
   doc.text(formatCurrency(invoice.subtotal, invoice.currency), pageWidth - 25, y, { align: 'right' });
+  if ((invoice.fodec_amount_total || 0) > 0) {
+    y += 7;
+    doc.text('Total FODEC:', 130, y);
+    doc.text(formatCurrency(invoice.fodec_amount_total || 0, invoice.currency), pageWidth - 25, y, { align: 'right' });
+  }
+  y += 7;
+  doc.text('Base TVA (HT + FODEC):', 130, y);
+  doc.text(formatCurrency(invoice.base_tva || (invoice.subtotal + (invoice.fodec_amount_total || 0)), invoice.currency), pageWidth - 25, y, { align: 'right' });
   y += 7;
   doc.text('Montant TVA:', 130, y);
   doc.text(formatCurrency(invoice.tax_amount, invoice.currency), pageWidth - 25, y, { align: 'right' });

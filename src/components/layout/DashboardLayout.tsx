@@ -308,7 +308,7 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
               {!collapsed && (
                 <Link to="/" className="flex items-center gap-2 font-semibold text-lg text-secondary-foreground">
                   <FileText className="h-5 w-5 text-primary" />
-                  <span>Facture Pro</span>
+                  <span>SmartFin</span>
                 </Link>
               )}
               {collapsed && (
@@ -379,7 +379,7 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
               </Button>
               
               {/* Logo for mobile */}
-              <span className="font-semibold lg:hidden">Facture Pro</span>
+              <span className="font-semibold lg:hidden">SmartFin</span>
               
               {/* Spacer for desktop */}
               <div className="hidden lg:block" />

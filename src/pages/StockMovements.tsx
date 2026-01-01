@@ -219,7 +219,7 @@ export default function StockMovements() {
       </Card>
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="max-w-xl">
+        <DialogContent className="max-w-xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Nouveau mouvement</DialogTitle>
           </DialogHeader>

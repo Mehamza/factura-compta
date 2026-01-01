@@ -50,9 +50,9 @@ const handler = async (req: Request): Promise<Response> => {
 
     // Send email to admin
     const emailResponse = await resend.emails.send({
-      from: "Facture Pro <onboarding@resend.dev>",
+      from: "SmartFin <onboarding@resend.dev>",
       to: ["hamzaallagui510@gmail.com"],
-      subject: `[Facture Pro Contact] ${subject}`,
+      subject: `[SmartFin Contact] ${subject}`,
       html: `
         <h1>Nouveau message de contact</h1>
         <p><strong>De:</strong> ${name} (${email})</p>
@@ -61,7 +61,7 @@ const handler = async (req: Request): Promise<Response> => {
         <p><strong>Message:</strong></p>
         <p>${message.replace(/\n/g, '<br>')}</p>
         <hr />
-        <p style="color: #666; font-size: 12px;">Ce message a été envoyé depuis le formulaire de contact de Facture Pro.</p>
+        <p style="color: #666; font-size: 12px;">Ce message a été envoyé depuis le formulaire de contact de SmartFin.</p>
       `,
     });
 
@@ -69,9 +69,9 @@ const handler = async (req: Request): Promise<Response> => {
 
     // Send confirmation email to user
     await resend.emails.send({
-      from: "Facture Pro <onboarding@resend.dev>",
+      from: "SmartFin <onboarding@resend.dev>",
       to: [email],
-      subject: "Nous avons bien reçu votre message - Facture Pro",
+      subject: "Nous avons bien reçu votre message - SmartFin",
       html: `
         <h1>Merci de nous avoir contactés, ${name}!</h1>
         <p>Nous avons bien reçu votre message et nous vous répondrons dans les plus brefs délais.</p>
@@ -80,7 +80,7 @@ const handler = async (req: Request): Promise<Response> => {
         <p><strong>Sujet:</strong> ${subject}</p>
         <p>${message.replace(/\n/g, '<br>')}</p>
         <hr />
-        <p>Cordialement,<br>L'équipe Facture Pro</p>
+        <p>Cordialement,<br>L'équipe SmartFin</p>
       `,
     });
 

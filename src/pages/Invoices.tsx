@@ -67,6 +67,9 @@ interface InvoiceItem {
   unit_price: number;
   vat_rate: number;
   vat_amount: number;
+  fodec_applicable?: boolean;
+  fodec_rate?: number;
+  fodec_amount?: number;
   total: number;
 }
 
@@ -150,7 +153,7 @@ export default function Invoices() {
   const [submitting, setSubmitting] = useState(false);
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
-  const [products, setProducts] = useState<{id:string; name:string; sku:string; quantity:number; min_stock:number; sale_price:number|null; unit_price:number; description:string|null; unit:string|null; vat_rate:number|null}[]>([]);
+  const [products, setProducts] = useState<{id:string; name:string; sku:string; quantity:number; min_stock:number; sale_price:number|null; unit_price:number; description:string|null; unit:string|null; vat_rate:number|null; fodec_applicable:boolean|null; fodec_rate:number|null}[]>([]);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [userRole, setUserRole] = useState<string>('cashier');
   const [loading, setLoading] = useState(true);
@@ -179,7 +182,7 @@ export default function Invoices() {
     currency: 'TND',
     template_type: 'classic' as TemplateType,
   });
-  const [items, setItems] = useState<InvoiceItem[]>([{ reference: '', description: '', quantity: 1, unit_price: 0, vat_rate: 0, vat_amount: 0, total: 0 }]);
+  const [items, setItems] = useState<InvoiceItem[]>([{ reference: '', description: '', quantity: 1, unit_price: 0, vat_rate: 0, vat_amount: 0, fodec_applicable: false, fodec_rate: 0.01, fodec_amount: 0, total: 0 }]);
   const [itemProductMap, setItemProductMap] = useState<Record<number, string>>({});
   const [manualLines, setManualLines] = useState<Record<number, boolean>>({});
   const [documentType, setDocumentType] = useState<'sale' | 'purchase'>('sale');
@@ -251,7 +254,7 @@ export default function Invoices() {
 
 
   const fetchProducts = async () => {
-    const { data, error } = await supabase.from('products').select('id,name,sku,quantity,min_stock,sale_price,unit_price,description,unit,vat_rate').order('name');
+    const { data, error } = await supabase.from('products').select('*').order('name');
     if (!error) setProducts(data || []);
   };
 
@@ -263,8 +266,11 @@ export default function Invoices() {
       const newItems = [...items];
       const price = Number(product.sale_price) || Number(product.unit_price) || 0;
       const vatRate = Number(product.vat_rate) || 0;
-      const lineTotal = newItems[index].quantity * price;
-      const vatAmount = lineTotal * (vatRate / 100);
+      const ht = newItems[index].quantity * price;
+      const fodecApplicable = Boolean(product.fodec_applicable);
+      const fodecRateDec = product.fodec_rate ? Number(product.fodec_rate) : (fodecApplicable ? 0.01 : 0);
+      const fodecAmount = fodecApplicable ? ht * fodecRateDec : 0;
+      const vatAmount = (ht + fodecAmount) * (vatRate / 100);
       newItems[index] = {
         ...newItems[index],
         reference: product.sku || '',
@@ -272,7 +278,10 @@ export default function Invoices() {
         unit_price: price,
         vat_rate: vatRate,
         vat_amount: vatAmount,
-        total: lineTotal,
+        fodec_applicable: fodecApplicable,
+        fodec_rate: fodecRateDec,
+        fodec_amount: fodecAmount,
+        total: ht,
       };
       setItems(newItems);
     }
@@ -300,9 +309,11 @@ export default function Invoices() {
   };
 
   // Recompute totals
-  const lineTotal = newItems[index].quantity * newItems[index].unit_price;
-  const vatAmount = lineTotal * (newItems[index].vat_rate / 100);
-  newItems[index].total = lineTotal;
+  const ht = newItems[index].quantity * newItems[index].unit_price;
+  const fodecAmount = newItems[index].fodec_applicable ? ht * (Number(newItems[index].fodec_rate) || 0) : 0;
+  const vatAmount = (ht + fodecAmount) * (newItems[index].vat_rate / 100);
+  newItems[index].total = ht;
+  newItems[index].fodec_amount = fodecAmount;
   newItems[index].vat_amount = vatAmount;
 
   setItems(newItems);
@@ -334,29 +345,41 @@ export default function Invoices() {
   };
 
   const generateInvoiceNumber = () => {
-    const date = new Date();
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const random = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
-    return `FAC-${year}${month}-${random}`;
+    const now = new Date();
+    const year = String(now.getFullYear());
+    const prefix = (companySettings as any)?.invoice_prefix ?? 'FAC';
+    const next = (companySettings as any)?.invoice_next_number ?? 1;
+    const pad = (companySettings as any)?.invoice_number_padding ?? 4;
+    const fmt = (companySettings as any)?.invoice_format ?? '{prefix}-{year}-{number}';
+    const numStr = String(next).padStart(pad, '0');
+    return String(fmt)
+      .replace('{prefix}', prefix)
+      .replace('{year}', year)
+      .replace('{number}', numStr);
   };
 
   const STAMP_AMOUNT = 1; // TND
   const calculateTotals = (invoiceItems: InvoiceItem[], stampIncluded: boolean) => {
-    const subtotal = invoiceItems.reduce((sum, item) => sum + item.total, 0);
-    const taxAmount = invoiceItems.reduce((sum, item) => sum + item.vat_amount, 0);
+    const subtotal = invoiceItems.reduce((sum, item) => sum + Number(item.total || 0), 0);
+    const totalFodec = invoiceItems.reduce((sum, item) => sum + Number(item.fodec_amount || 0), 0);
+    const taxAmount = invoiceItems.reduce((sum, item) => sum + Number(item.vat_amount || 0), 0);
+    const baseTVA = subtotal + totalFodec;
     const stamp = stampIncluded ? STAMP_AMOUNT : 0;
-    const total = subtotal + taxAmount + stamp;
-    return { subtotal, taxAmount, stamp, total };
+    const total = baseTVA + taxAmount + stamp;
+    return { subtotal, totalFodec, baseTVA, taxAmount, stamp, total };
   };
 
-  const updateItemTotal = (index: number, field: keyof InvoiceItem, value: string | number) => {
+  const updateItemTotal = (index: number, field: keyof InvoiceItem, value: string | number | boolean) => {
     const newItems = [...items];
     newItems[index] = { ...newItems[index], [field]: value };
-    if (field === 'quantity' || field === 'unit_price' || field === 'vat_rate') {
-      const lineTotal = newItems[index].quantity * newItems[index].unit_price;
-      const vatAmount = lineTotal * (newItems[index].vat_rate / 100);
-      newItems[index].total = lineTotal;
+    if (['quantity','unit_price','vat_rate','fodec_applicable','fodec_rate'].includes(String(field))) {
+      const ht = Number(newItems[index].quantity) * Number(newItems[index].unit_price);
+      const fodecApplicable = Boolean(newItems[index].fodec_applicable);
+      const fodecRateDec = Number(newItems[index].fodec_rate || (fodecApplicable ? 0.01 : 0));
+      const fodecAmount = fodecApplicable ? ht * fodecRateDec : 0;
+      const vatAmount = (ht + fodecAmount) * (Number(newItems[index].vat_rate) / 100);
+      newItems[index].total = ht;
+      newItems[index].fodec_amount = fodecAmount;
       newItems[index].vat_amount = vatAmount;
     }
     setItems(newItems);
@@ -364,7 +387,7 @@ export default function Invoices() {
 
   const addItem = () => {
     const newIndex = items.length;
-    setItems([...items, { reference: '', description: '', quantity: 1, unit_price: 0, vat_rate: companySettings?.default_vat_rate || 19, vat_amount: 0, total: 0 }]);
+    setItems([...items, { reference: '', description: '', quantity: 1, unit_price: 0, vat_rate: companySettings?.default_vat_rate || 19, fodec_applicable: false, fodec_rate: 0.01, fodec_amount: 0, vat_amount: 0, total: 0 }]);
     // New lines are manual by default
     setManualLines(prev => ({ ...prev, [newIndex]: true }));
   };
@@ -378,7 +401,7 @@ export default function Invoices() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSubmitting(true);
-    const { subtotal, taxAmount, stamp, total } = calculateTotals(items, formData.stamp_included);
+    const { subtotal, totalFodec, taxAmount, stamp, total } = calculateTotals(items, formData.stamp_included);
     const invoiceNumber = generateInvoiceNumber();
 
     const { data: invoiceData, error: invoiceError } = await supabase
@@ -394,6 +417,7 @@ export default function Invoices() {
         subtotal,
         tax_rate: 0, // Per-item TVA now
         tax_amount: taxAmount,
+        fodec_amount: totalFodec,
         total,
         stamp_included: formData.stamp_included,
         stamp_amount: stamp,
@@ -410,6 +434,21 @@ export default function Invoices() {
       return;
     }
 
+    // Increment next invoice number based on settings after successful insert
+    try {
+      if (activeCompanyId) {
+        const currentNext = (companySettings as any)?.invoice_next_number ?? 1;
+        await supabase
+          .from('companies')
+          .update({ invoice_next_number: Number(currentNext) + 1 })
+          .eq('id', activeCompanyId);
+        // Optimistically update local settings if available
+        // (companySettings comes from a hook; if needed, we can refetch)
+      }
+    } catch (e) {
+      // Non-blocking: if increment fails, we still proceed
+    }
+
     // If this is a purchase quote, we do not generate stock movements or further processing
     if (formData.status === InvoiceStatus.PURCHASE_QUOTE) {
       toast({ title: 'Devis d\'achat enregistré', description: 'Les mouvements de stock ne sont pas générés pour un Devis d\'achat.' });
@@ -418,16 +457,27 @@ export default function Invoices() {
       return;
     }
 
-    const invoiceItems = items.map(item => ({
-      invoice_id: invoiceData.id,
-      reference: item.reference,
-      description: item.description || '',
-      quantity: item.quantity,
-      unit_price: item.unit_price,
-      vat_rate: item.vat_rate,
-      vat_amount: item.vat_amount,
-      total: item.total,
-    }));
+    const invoiceItems = items.map(item => {
+      const base = {
+        invoice_id: invoiceData.id,
+        reference: item.reference,
+        description: item.description || '',
+        quantity: item.quantity,
+        unit_price: item.unit_price,
+        vat_rate: item.vat_rate,
+        vat_amount: item.vat_amount,
+        total: item.total,
+      } as any;
+      // Add FODEC fields only if invoice_items table supports them (avoid schema errors)
+      // Heuristic: if any existing selected item has fodec_amount, assume supported; otherwise skip
+      const supportsFodecItems = (selectedInvoiceItems || []).some((it: any) => 'fodec_amount' in it);
+      if (supportsFodecItems) {
+        base.fodec_applicable = Boolean(item.fodec_applicable || false);
+        base.fodec_rate = Number(item.fodec_rate || 0);
+        base.fodec_amount = Number(item.fodec_amount || 0);
+      }
+      return base;
+    });
 
     const { error: itemsError } = await supabase.from('invoice_items').insert(invoiceItems);
 
@@ -649,7 +699,10 @@ export default function Invoices() {
       const unit_price = Number(i.unit_price) || 0;
       const total = Number(i.total) || (quantity * unit_price);
       const vat_rate = i.vat_rate !== undefined && i.vat_rate !== null ? Number(i.vat_rate) : (invoice.tax_rate ?? 0);
-      const vat_amount = i.vat_amount !== undefined && i.vat_amount !== null ? Number(i.vat_amount) : (total * (Number(vat_rate) / 100));
+      const fodec_applicable = Boolean(i.fodec_applicable || false);
+      const fodec_rate = i.fodec_rate !== undefined && i.fodec_rate !== null ? Number(i.fodec_rate) : (fodec_applicable ? 0.01 : 0);
+      const fodec_amount = i.fodec_amount !== undefined && i.fodec_amount !== null ? Number(i.fodec_amount) : (fodec_applicable ? total * fodec_rate : 0);
+      const vat_amount = i.vat_amount !== undefined && i.vat_amount !== null ? Number(i.vat_amount) : ((total + fodec_amount) * (Number(vat_rate) / 100));
       return {
         reference,
         description: i.description,
@@ -658,9 +711,15 @@ export default function Invoices() {
         total,
         vat_rate: Number(vat_rate) || 0,
         vat_amount: Number(vat_amount) || 0,
+        fodec_applicable,
+        fodec_rate,
+        fodec_amount,
       };
     });
-
+    const subtotalHT = mapped.reduce((s, it) => s + (it.total || 0), 0);
+    const totalFodec = mapped.reduce((s, it) => s + (it.fodec_amount || 0), 0);
+    invoiceData.fodec_amount_total = totalFodec;
+    invoiceData.base_tva = subtotalHT + totalFodec;
     await generateInvoiceWithTemplate(invoiceData, mapped);
   };
 
@@ -717,6 +776,7 @@ export default function Invoices() {
           activity: companySettings.activity || undefined,
           signature_url: companySettings.signature_url || undefined,
           stamp_url: companySettings.stamp_url || undefined,
+          bank_accounts: (companySettings as any).bank_accounts || undefined,
         } : undefined,
         created_by: {
           name: creatorName,
@@ -765,7 +825,7 @@ export default function Invoices() {
       currency: companySettings?.default_currency || 'TND',
       template_type: 'classic' as TemplateType,
     });
-    setItems([{ reference: '', description: '', quantity: 1, unit_price: 0, vat_rate: 0, vat_amount: 0, total: 0 }]);
+    setItems([{ reference: '', description: '', quantity: 1, unit_price: 0, vat_rate: 0, fodec_applicable: false, fodec_rate: 0.01, fodec_amount: 0, vat_amount: 0, total: 0 }]);
   };
 
   const filteredInvoices = invoices.filter(i =>
@@ -773,7 +833,7 @@ export default function Invoices() {
     i.clients?.name.toLowerCase().includes(search.toLowerCase())
   );
 
-  const { subtotal, taxAmount, stamp, total } = calculateTotals(items, formData.stamp_included);
+  const { subtotal, totalFodec, baseTVA, taxAmount, stamp, total } = calculateTotals(items, formData.stamp_included);
 
   if (loading) {
     return <div className="flex items-center justify-center h-64"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div></div>;
@@ -915,6 +975,7 @@ export default function Invoices() {
                     <span className="col-span-1"></span>
                   </div>
                   {items.map((item, index) => (
+                    <>
                     <div key={index} className="grid grid-cols-12 gap-2 items-center">
                       <Popover 
                         open={openProductPopover === index} 
@@ -1030,6 +1091,34 @@ export default function Invoices() {
                         <Trash2 className="h-4 w-4" />
                       </Button>
                     </div>
+                    {/* FODEC controls (optional per-line) */}
+                    <div className="col-span-12 flex items-center gap-3 text-xs text-muted-foreground">
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="checkbox"
+                          className="h-4 w-4"
+                          checked={Boolean(item.fodec_applicable)}
+                          onChange={e => updateItemTotal(index, 'fodec_applicable', e.target.checked)}
+                        />
+                        <span>FODEC applicable</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span>Taux (%)</span>
+                        <Input
+                          type="number"
+                          className="w-24"
+                          min={0}
+                          step="0.01"
+                          value={((Number(item.fodec_rate || 0)) * 100).toString()}
+                          onChange={e => {
+                            const dec = Number(e.target.value || 0) / 100;
+                            updateItemTotal(index, 'fodec_rate', dec);
+                          }}
+                          disabled={!item.fodec_applicable}
+                        />
+                      </div>
+                    </div>
+                    </>
                   ))}
                 </div>
                 <Button type="button" variant="outline" size="sm" onClick={addItem} className="mt-2">
@@ -1039,6 +1128,10 @@ export default function Invoices() {
 
               <div className="bg-muted p-4 rounded-lg space-y-1 text-right">
                 <p>Sous-total HT: <span className="font-medium">{formatCurrency(subtotal, formData.currency)}</span></p>
+                {totalFodec > 0 && (
+                  <p>FODEC: <span className="font-medium">{formatCurrency(totalFodec, formData.currency)}</span></p>
+                )}
+                <p>Base TVA (HT + FODEC): <span className="font-medium">{formatCurrency(baseTVA, formData.currency)}</span></p>
                 <p>Montant TVA: <span className="font-medium">{formatCurrency(taxAmount, formData.currency)}</span></p>
                 {formData.stamp_included && (
                   <p>Timbre fiscal: <span className="font-medium">{formatCurrency(stamp, formData.currency)}</span></p>
@@ -1119,7 +1212,7 @@ export default function Invoices() {
       </Card>
 
       <Dialog open={viewDialogOpen} onOpenChange={setViewDialogOpen}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Facture {selectedInvoice?.invoice_number}</DialogTitle>
           </DialogHeader>
@@ -1177,8 +1270,22 @@ export default function Invoices() {
               </div>
 
               <div className="bg-muted p-4 rounded-lg space-y-1 text-right">
-                <p>Sous-total HT: <span className="font-medium">{formatCurrency(Number(selectedInvoice.subtotal), selectedInvoice.currency)}</span></p>
-                <p>TVA ({selectedInvoice.tax_rate}%): <span className="font-medium">{formatCurrency(Number(selectedInvoice.tax_amount), selectedInvoice.currency)}</span></p>
+                {(() => {
+                  const subtotalSel = (selectedInvoiceItems || []).reduce((s, it: any) => s + Number(it.total || 0), 0);
+                  const fodecSel = (selectedInvoiceItems || []).reduce((s, it: any) => s + Number(it.fodec_amount || 0), 0);
+                  const baseSel = subtotalSel + fodecSel;
+                  const vatSel = (selectedInvoiceItems || []).reduce((s, it: any) => s + Number(it.vat_amount || 0), 0);
+                  return (
+                    <>
+                      <p>Sous-total HT: <span className="font-medium">{formatCurrency(subtotalSel, selectedInvoice.currency)}</span></p>
+                      {fodecSel > 0 && (
+                        <p>FODEC: <span className="font-medium">{formatCurrency(fodecSel, selectedInvoice.currency)}</span></p>
+                      )}
+                      <p>Base TVA (HT + FODEC): <span className="font-medium">{formatCurrency(baseSel, selectedInvoice.currency)}</span></p>
+                      <p>Montant TVA: <span className="font-medium">{formatCurrency(vatSel, selectedInvoice.currency)}</span></p>
+                    </>
+                  )
+                })()}
                 {selectedInvoice.stamp_included && (
                   <p>Timbre fiscal: <span className="font-medium">{formatCurrency(Number(selectedInvoice.stamp_amount || 0), selectedInvoice.currency)}</span></p>
                 )}

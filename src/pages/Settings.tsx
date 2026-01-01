@@ -45,6 +45,7 @@ interface CompanySettings {
   stamp_url: string;
   type: string;
   is_configured: boolean;
+  bank_accounts?: { bank: string; rib: string }[];
 }
 
 const defaultSettings: Omit<CompanySettings, 'id' | 'type' | 'is_configured'> = {
@@ -75,6 +76,8 @@ const defaultSettings: Omit<CompanySettings, 'id' | 'type' | 'is_configured'> = 
   invoice_number_padding: 4,
   signature_url: '',
   stamp_url: ''
+  ,
+  bank_accounts: []
 };
 
 export default function Settings() {
@@ -146,7 +149,8 @@ export default function Settings() {
           invoice_format: data.invoice_format || '{prefix}-{year}-{number}',
           invoice_number_padding: data.invoice_number_padding || 4,
           signature_url: data.signature_url || '',
-          stamp_url: data.stamp_url || ''
+          stamp_url: data.stamp_url || '',
+          bank_accounts: data.bank_accounts || []
         });
       }
     } catch (error) {
@@ -344,6 +348,22 @@ export default function Settings() {
     setSettings(prev => prev ? { ...prev, stamp_url: '' } : null);
   };
 
+  // Banks list (common tunisian banks)
+  const TUNISIAN_BANKS = [
+    'Banque Centrale Populaire',
+    'Banque Zitouna',
+    'Banque Internationale Arabe de Tunisie',
+    'Banque de Tunisie',
+    'Attijari Bank',
+    'Amen Bank',
+    'Arab Tunisian Bank',
+    'Banque Nationale Agricole',
+    'Banque de l\'Habitat',
+    'Société Tunisienne de Banque',
+    'Union Internationale de Banques',
+    'Other'
+  ];
+
   const saveSettings = async () => {
     if (!settings || !activeCompanyId) return;
 
@@ -372,6 +392,7 @@ export default function Settings() {
         invoice_number_padding: settings.invoice_number_padding,
         signature_url: settings.signature_url,
         stamp_url: settings.stamp_url,
+        bank_accounts: JSON.parse(JSON.stringify(settings.bank_accounts || [])),
         type: settings.type as 'personne_physique' | 'personne_morale',
         is_configured: true,
       };
@@ -596,6 +617,53 @@ export default function Settings() {
                       ))}
                     </SelectContent>
                   </Select>
+                </div>
+              </div>
+
+              {/* Bank accounts */}
+              <div className="space-y-3 pt-4 border-t">
+                <Label className="text-base font-semibold">Comptes bancaires</Label>
+                <p className="text-sm text-muted-foreground">Ajoutez un ou plusieurs comptes bancaires (RIB). Le premier sera affiché sur la facture.</p>
+
+                <div className="space-y-2">
+                  {(settings.bank_accounts || []).map((ba, idx) => (
+                    <div key={idx} className="flex gap-2 items-center">
+                      <Select value={ba.bank} onValueChange={(val) => {
+                        const copy = Array.from(settings.bank_accounts || []);
+                        copy[idx] = { ...copy[idx], bank: val };
+                        setSettings({ ...settings, bank_accounts: copy });
+                      }}>
+                        <SelectTrigger className="w-64">
+                          <SelectValue placeholder="Sélectionner une banque" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {TUNISIAN_BANKS.map(b => <SelectItem key={b} value={b}>{b}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+
+                      <Input placeholder="Numéro RIB" value={ba.rib} onChange={(e) => {
+                        const copy = Array.from(settings.bank_accounts || []);
+                        copy[idx] = { ...copy[idx], rib: e.target.value };
+                        setSettings({ ...settings, bank_accounts: copy });
+                      }} />
+
+                      <Button variant="destructive" size="icon" onClick={() => {
+                        const copy = Array.from(settings.bank_accounts || []);
+                        copy.splice(idx, 1);
+                        setSettings({ ...settings, bank_accounts: copy });
+                      }}>
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ))}
+
+                  <Button variant="outline" size="sm" onClick={() => {
+                    const copy = Array.from(settings.bank_accounts || []);
+                    copy.push({ bank: TUNISIAN_BANKS[0], rib: '' });
+                    setSettings({ ...settings, bank_accounts: copy });
+                  }}>
+                    <Plus className="h-4 w-4 mr-2" />Ajouter un compte
+                  </Button>
                 </div>
               </div>
 

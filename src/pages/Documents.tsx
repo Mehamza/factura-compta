@@ -365,7 +365,7 @@ export default function Documents() {
               Ajouter un document
             </Button>
           </DialogTrigger>
-          <DialogContent className="max-w-lg">
+          <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Téléverser un document</DialogTitle>
             </DialogHeader>

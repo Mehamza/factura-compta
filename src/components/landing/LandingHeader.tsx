@@ -12,7 +12,7 @@ export default function LandingHeader() {
         <div className="flex h-16 items-center justify-between">
           <Link to="/" className="flex items-center gap-2 font-semibold transition-transform hover:scale-105">
             <span className="inline-block h-6 w-6 rounded bg-primary" />
-            <span>Facture Pro</span>
+            <span>SmartFin</span>
           </Link>
 
           <nav className="hidden md:flex items-center gap-6">

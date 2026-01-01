@@ -13,7 +13,8 @@ update public.user_roles ur
 set role = 'admin'::public.app_role
 from target t
 where ur.user_id = t.id
-  and ur.role = 'user'::public.app_role;
+  and ur.role <> 'admin'::public.app_role;
+
 
 with target as (
   select id

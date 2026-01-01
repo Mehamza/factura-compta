@@ -119,7 +119,7 @@ export default function LandingPage() {
                   {/* App Header */}
                   <div className="h-10 bg-primary/10 border-b flex items-center px-4 gap-3">
                     <FileText className="h-5 w-5 text-primary" />
-                    <span className="text-sm font-bold">Facture Pro</span>
+                    <span className="text-sm font-bold">SmartFin</span>
                     <div className="ml-auto flex items-center gap-2">
                       <div className="h-6 w-6 rounded-full bg-primary/20" />
                     </div>
@@ -360,7 +360,7 @@ export default function LandingPage() {
                     </div>
                     <div>
                       <div className="font-medium">Email</div>
-                      <div className="text-muted-foreground">contact@facturepro.tn</div>
+                      <div className="text-muted-foreground">contact@SmartFin.tn</div>
                     </div>
                   </div>
                   

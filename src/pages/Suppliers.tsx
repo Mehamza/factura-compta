@@ -271,7 +271,7 @@ export default function Suppliers() {
                 Ajouter
               </Button>
             </DialogTrigger>
-            <DialogContent className="max-w-md">
+            <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
               <DialogHeader>
                 <DialogTitle>{editingSupplier ? 'Modifier' : 'Ajouter'} un fournisseur</DialogTitle>
               </DialogHeader>
@@ -322,7 +322,7 @@ export default function Suppliers() {
 
       {/* Detail Dialog */}
       <Dialog open={detailDialogOpen} onOpenChange={setDetailDialogOpen}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Fiche fournisseur : {selectedSupplier?.name}</DialogTitle>
           </DialogHeader>

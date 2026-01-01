@@ -74,6 +74,7 @@ export function useCompanySettings() {
         company_phone: data.phone,
         company_email: data.email,
         company_logo_url: data.logo_url,
+          bank_accounts: data.bank_accounts || [],
       });
     } else {
       setCompanySettings(null);

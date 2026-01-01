@@ -14,7 +14,7 @@ export default function LandingFooter() {
               <div className="h-9 w-9 rounded-lg bg-primary flex items-center justify-center">
                 <span className="text-primary-foreground font-bold text-lg">F</span>
               </div>
-              <span className="text-xl font-bold text-secondary-foreground">Facture Pro</span>
+              <span className="text-xl font-bold text-secondary-foreground">SmartFin</span>
             </div>
             
             <p className="text-sm leading-relaxed max-w-sm">
@@ -23,9 +23,9 @@ export default function LandingFooter() {
             </p>
             
             <div className="space-y-3 text-sm text-secondary-foreground/80">
-              <a href="mailto:contact@facturepro.tn" className="flex items-center gap-3 hover:text-secondary-foreground transition-colors">
+              <a href="mailto:contact@SmartFin.tn" className="flex items-center gap-3 hover:text-secondary-foreground transition-colors">
                 <Mail className="h-4 w-4 text-primary" />
-                contact@facturepro.tn
+                contact@SmartFin.tn
               </a>
               <div className="flex items-start gap-3">
                 <MapPin className="h-4 w-4 text-primary mt-0.5" />
@@ -111,7 +111,7 @@ export default function LandingFooter() {
         <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 py-6">
           <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
             <p className="text-sm text-secondary-foreground/60">
-              © {new Date().getFullYear()} Facture Pro. Tous droits réservés.
+              © {new Date().getFullYear()} SmartFin. Tous droits réservés.
             </p>
             <div className="flex items-center gap-4">
               <a 

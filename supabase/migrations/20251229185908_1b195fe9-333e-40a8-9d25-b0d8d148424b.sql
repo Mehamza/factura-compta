@@ -2,6 +2,13 @@
 -- Step 1: Add all settings columns to companies table
 
 ALTER TABLE public.companies
+ADD COLUMN IF NOT EXISTS address text,
+ADD COLUMN IF NOT EXISTS city text,
+ADD COLUMN IF NOT EXISTS postal_code text,
+ADD COLUMN IF NOT EXISTS phone text,
+ADD COLUMN IF NOT EXISTS email text,
+ADD COLUMN IF NOT EXISTS logo_url text,
+
 ADD COLUMN IF NOT EXISTS activity text,
 ADD COLUMN IF NOT EXISTS company_country text DEFAULT 'Tunisie',
 ADD COLUMN IF NOT EXISTS company_vat_number text,
@@ -15,7 +22,12 @@ ADD COLUMN IF NOT EXISTS invoice_prefix text DEFAULT 'FAC',
 ADD COLUMN IF NOT EXISTS invoice_format text DEFAULT '{prefix}-{year}-{number}',
 ADD COLUMN IF NOT EXISTS invoice_next_number integer DEFAULT 1,
 ADD COLUMN IF NOT EXISTS invoice_number_padding integer DEFAULT 4,
-ADD COLUMN IF NOT EXISTS vat_rates jsonb DEFAULT '[{"rate": 0, "label": "Exonéré"}, {"rate": 7, "label": "Réduit 7%"}, {"rate": 13, "label": "Intermédiaire 13%"}, {"rate": 19, "label": "Standard 19%"}]'::jsonb;
+ADD COLUMN IF NOT EXISTS vat_rates jsonb DEFAULT
+  '[{"rate": 0, "label": "Exonéré"},
+    {"rate": 7, "label": "Réduit 7%"},
+    {"rate": 13, "label": "Intermédiaire 13%"},
+    {"rate": 19, "label": "Standard 19%"}]'::jsonb;
+
 
 -- Step 2: Migrate data from company_settings to companies
 -- We need to find which company each company_settings belongs to via user_id -> company_users

@@ -29,6 +29,8 @@ interface Product {
   purchase_price: number | null;
   sale_price: number | null;
   vat_rate: number | null;
+  fodec_applicable?: boolean | null;
+  fodec_rate?: number | null; // stored as decimal (e.g., 0.01)
   category: string | null;
   description: string | null;
   supplier_id: string | null;
@@ -62,6 +64,8 @@ export default function StockProducts() {
     sale_price: '',
     unit_price: '',
     vat_rate: '19',
+    fodec_applicable: false as boolean,
+    fodec_rate_percent: '1' as string, // UI as percent, persisted as decimal
     category: '',
     description: '',
     supplier_id: '',
@@ -126,6 +130,8 @@ export default function StockProducts() {
       sale_price: '',
       unit_price: '',
       vat_rate: '19',
+      fodec_applicable: false,
+      fodec_rate_percent: '1',
       category: '',
       description: '',
       supplier_id: '',
@@ -150,6 +156,8 @@ export default function StockProducts() {
       sale_price: String(p.sale_price ?? ''),
       unit_price: String(p.unit_price),
       vat_rate: String(p.vat_rate ?? '19'),
+      fodec_applicable: Boolean(p.fodec_applicable ?? false),
+      fodec_rate_percent: String((p.fodec_rate ?? 0.01) * 100),
       category: p.category || '',
       description: p.description || '',
       supplier_id: p.supplier_id || '',
@@ -176,6 +184,8 @@ export default function StockProducts() {
     const purchase_price = form.purchase_price ? Number(form.purchase_price) : null;
     const sale_price = form.sale_price ? Number(form.sale_price) : null;
     const vat_rate = form.vat_rate ? Number(form.vat_rate) : null;
+    const fodec_applicable = Boolean(form.fodec_applicable);
+    const fodec_rate = form.fodec_rate_percent ? Number(form.fodec_rate_percent) / 100 : (fodec_applicable ? 0.01 : 0);
 
     if (quantity < 0 || min_stock < 0 || unit_price < 0) {
       toast({ variant: 'destructive', title: 'Valeurs invalides', description: 'Les valeurs numériques doivent être positives.' });
@@ -209,6 +219,13 @@ export default function StockProducts() {
       description: form.description.trim() || null,
       supplier_id: form.supplier_id || null,
     };
+
+    // Only include FODEC fields if schema supports them (products already loaded with '*')
+    const supportsFodec = products.length > 0 && ('fodec_applicable' in (products[0] as any));
+    if (supportsFodec) {
+      payload.fodec_applicable = fodec_applicable;
+      payload.fodec_rate = fodec_rate;
+    }
 
     // For new products, set initial_qty
     if (!editing) {
@@ -268,10 +285,16 @@ export default function StockProducts() {
   // Calculate TTC price
   const ttc = useMemo(() => {
     const price = Number(form.sale_price || 0);
-    const rate = Number(form.vat_rate || 0);
-    if (isNaN(price) || isNaN(rate)) return 0;
-    return price * (1 + rate / 100);
-  }, [form.sale_price, form.vat_rate]);
+    const vatPercent = Number(form.vat_rate || 0);
+    const fodecApplicable = Boolean(form.fodec_applicable);
+    const fodecPercent = Number(form.fodec_rate_percent || (fodecApplicable ? '1' : '0'));
+    if (isNaN(price) || isNaN(vatPercent) || isNaN(fodecPercent)) return 0;
+    const ht = price;
+    const fodec = fodecApplicable ? ht * (fodecPercent / 100) : 0;
+    const baseTva = ht + fodec;
+    const tva = baseTva * (vatPercent / 100);
+    return ht + fodec + tva;
+  }, [form.sale_price, form.vat_rate, form.fodec_applicable, form.fodec_rate_percent]);
 
   const getSupplierName = (supplierId: string | null) => {
     if (!supplierId) return '-';
@@ -622,6 +645,29 @@ export default function StockProducts() {
                       <SelectItem value="19">19%</SelectItem>
                     </SelectContent>
                   </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>FODEC</Label>
+                  <div className="flex items-center gap-2 pt-2">
+                    <input
+                      id="fodec_applicable"
+                      type="checkbox"
+                      className="h-4 w-4"
+                      checked={form.fodec_applicable}
+                      onChange={e => setForm({ ...form, fodec_applicable: e.target.checked })}
+                    />
+                    <Label htmlFor="fodec_applicable">Applicable</Label>
+                  </div>
+                  <Input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={form.fodec_rate_percent}
+                    onChange={e => setForm({ ...form, fodec_rate_percent: e.target.value })}
+                    disabled={!form.fodec_applicable}
+                    placeholder="1"
+                  />
+                  <p className="text-xs text-muted-foreground">Taux (%) — par défaut 1%</p>
                 </div>
                 <div className="space-y-2">
                   <Label>Prix TTC (DT)</Label>
