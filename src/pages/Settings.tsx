@@ -84,6 +84,9 @@ export default function Settings() {
   const { user, activeCompanyId } = useAuth();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [supportsBankAccounts, setSupportsBankAccounts] = useState(false);
+  const [supportsIsConfigured, setSupportsIsConfigured] = useState(false);
+  const [supportedColumns, setSupportedColumns] = useState<Set<string>>(new Set());
   const [uploadingLogo, setUploadingLogo] = useState(false);
   const [uploadingSignature, setUploadingSignature] = useState(false);
   const [uploadingStamp, setUploadingStamp] = useState(false);
@@ -126,6 +129,10 @@ export default function Settings() {
       if (error) throw error;
 
       if (data) {
+        // Detect if the columns exist on the backend
+        setSupportsBankAccounts(Object.prototype.hasOwnProperty.call(data, 'bank_accounts'));
+        setSupportsIsConfigured(Object.prototype.hasOwnProperty.call(data, 'is_configured'));
+        setSupportedColumns(new Set(Object.keys(data)));
         setSettings({
           ...data,
           legal_name: data.legal_name || '',
@@ -150,7 +157,7 @@ export default function Settings() {
           invoice_number_padding: data.invoice_number_padding || 4,
           signature_url: data.signature_url || '',
           stamp_url: data.stamp_url || '',
-          bank_accounts: data.bank_accounts || []
+          bank_accounts: (Object.prototype.hasOwnProperty.call(data, 'bank_accounts') ? (data.bank_accounts || []) : [])
         });
       }
     } catch (error) {
@@ -193,7 +200,8 @@ export default function Settings() {
       }
 
       const fileExt = file.name.split('.').pop();
-      const fileName = `${activeCompanyId}/logo-${Date.now()}.${fileExt}`;
+      // Storage policy requires first folder = auth.uid()
+      const fileName = `${user.id}/${activeCompanyId}/logo-${Date.now()}.${fileExt}`;
 
       // Upload to company-assets bucket (public)
       const { error: uploadError } = await supabase.storage
@@ -369,7 +377,7 @@ export default function Settings() {
 
     setSaving(true);
     try {
-      const settingsToSave = {
+      const settingsToSave: any = {
         legal_name: settings.legal_name,
         address: settings.address,
         city: settings.city,
@@ -392,14 +400,30 @@ export default function Settings() {
         invoice_number_padding: settings.invoice_number_padding,
         signature_url: settings.signature_url,
         stamp_url: settings.stamp_url,
-        bank_accounts: JSON.parse(JSON.stringify(settings.bank_accounts || [])),
         type: settings.type as 'personne_physique' | 'personne_morale',
-        is_configured: true,
       };
+
+      // Include bank_accounts only if the remote schema supports it
+      if (supportsBankAccounts) {
+        settingsToSave.bank_accounts = JSON.parse(JSON.stringify(settings.bank_accounts || []));
+      }
+
+      // Include is_configured only if supported by remote schema
+      if (supportsIsConfigured) {
+        settingsToSave.is_configured = true;
+      }
+
+      // Filter payload to only include columns supported by remote schema
+      const payload: any = {};
+      for (const [key, value] of Object.entries(settingsToSave)) {
+        if (supportedColumns.has(key)) {
+          payload[key] = value;
+        }
+      }
 
       const { error } = await supabase
         .from('companies')
-        .update(settingsToSave)
+        .update(payload)
         .eq('id', activeCompanyId);
 
       if (error) throw error;

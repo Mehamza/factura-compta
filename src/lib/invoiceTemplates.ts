@@ -88,6 +88,33 @@ function getCompanyInitials(companyName: string): string {
   return companyName.substring(0, 2).toUpperCase();
 }
 
+// Map common Tunisian banks to their usual abbreviations
+function getBankPrefix(bankName: string): string {
+  if (!bankName) return '';
+  const name = bankName.trim();
+  const map: Record<string, string> = {
+    "Banque de l'Habitat": 'BH',
+    'Banque Nationale Agricole': 'BNA',
+    'Union Internationale de Banques': 'UIB',
+    'Société Tunisienne de Banque': 'STB',
+    'Banque de Tunisie': 'BT',
+    'Banque Internationale Arabe de Tunisie': 'BIAT',
+    'Attijari Bank': 'ATTIJARI',
+    'Amen Bank': 'AB',
+    'Arab Tunisian Bank': 'ATB',
+    'Banque Zitouna': 'BZ',
+  };
+  if (map[name]) return map[name];
+  // Fallback: acronym from significant words
+  const stopwords = new Set(['de', 'du', 'des', 'la', 'le', "l'", "d'", 'et', 'de la', 'de l\'']);
+  const parts = name
+    .replace(/\s+\/\s+/g, ' ')
+    .split(/\s+/)
+    .filter(w => !stopwords.has(w.toLowerCase()));
+  const acronym = parts.map(w => w[0]?.toUpperCase() || '').join('');
+  return acronym || name.substring(0, 3).toUpperCase();
+}
+
 // Draw fallback logo with initials
 function drawFallbackLogo(
   doc: jsPDF,
@@ -199,7 +226,9 @@ async function drawProfessionalHeader(
     if (company.bank_accounts && company.bank_accounts.length > 0) {
       const b = company.bank_accounts[0];
       if (b && (b.rib || b.bank)) {
-        doc.text(`RIB: ${b.bank} : ${b.rib}`, textX, y);
+        const prefix = getBankPrefix(b.bank || '');
+        const ribText = prefix ? `RIB: ${prefix} : ${b.rib}` : `RIB: ${b.bank || ''} : ${b.rib || ''}`;
+        doc.text(ribText, textX, y);
         y += 5;
       }
     }
