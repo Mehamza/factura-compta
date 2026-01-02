@@ -667,7 +667,7 @@ export default function Invoices() {
         vat_number: invoice.clients.vat_number || undefined,
       } : undefined,
       company: companySettings ? {
-        name: companySettings.company_name || undefined,
+        name: companySettings.company_name || companySettings.legal_name || undefined,
         address: companySettings.company_address || undefined,
         city: companySettings.company_city || undefined,
         postal_code: companySettings.company_postal_code || undefined,
@@ -681,6 +681,7 @@ export default function Invoices() {
         activity: companySettings.activity || undefined,
         signature_url: companySettings.signature_url || undefined,
         stamp_url: companySettings.stamp_url || undefined,
+        bank_accounts: (companySettings as any).bank_accounts || undefined,
       } : undefined,
       created_by: {
         name: creatorName,

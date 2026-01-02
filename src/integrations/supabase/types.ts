@@ -149,6 +149,7 @@ export type Database = {
           active: boolean
           activity: string | null
           address: string | null
+          bank_accounts: Json | null
           city: string | null
           company_country: string | null
           company_tax_id: string | null
@@ -163,7 +164,9 @@ export type Database = {
           invoice_next_number: number | null
           invoice_number_padding: number | null
           invoice_prefix: string | null
+          legal_name: string | null
           logo_url: string | null
+          matricule_fiscale: string | null
           name: string
           phone: string | null
           postal_code: string | null
@@ -176,6 +179,7 @@ export type Database = {
           active?: boolean
           activity?: string | null
           address?: string | null
+          bank_accounts?: Json | null
           city?: string | null
           company_country?: string | null
           company_tax_id?: string | null
@@ -190,7 +194,9 @@ export type Database = {
           invoice_next_number?: number | null
           invoice_number_padding?: number | null
           invoice_prefix?: string | null
+          legal_name?: string | null
           logo_url?: string | null
+          matricule_fiscale?: string | null
           name: string
           phone?: string | null
           postal_code?: string | null
@@ -203,6 +209,7 @@ export type Database = {
           active?: boolean
           activity?: string | null
           address?: string | null
+          bank_accounts?: Json | null
           city?: string | null
           company_country?: string | null
           company_tax_id?: string | null
@@ -217,7 +224,9 @@ export type Database = {
           invoice_next_number?: number | null
           invoice_number_padding?: number | null
           invoice_prefix?: string | null
+          legal_name?: string | null
           logo_url?: string | null
+          matricule_fiscale?: string | null
           name?: string
           phone?: string | null
           postal_code?: string | null
