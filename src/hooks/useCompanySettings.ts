@@ -26,6 +26,7 @@ export interface CompanySettings {
   invoice_next_number: number | null;
   invoice_number_padding: number | null;
   vat_rates: any | null;
+  bank_accounts: { bank: string; rib: string }[] | null;
   type: string;
   is_configured: boolean;
   // Aliases for backward compatibility with old naming convention
@@ -67,14 +68,14 @@ export function useCompanySettings() {
       setCompanySettings({
         ...data,
         // Backward compatibility aliases
-        company_name: data.legal_name,
+        company_name: data.legal_name || (data as any).name,
         company_address: data.address,
         company_city: data.city,
         company_postal_code: data.postal_code,
         company_phone: data.phone,
         company_email: data.email,
         company_logo_url: data.logo_url,
-          bank_accounts: data.bank_accounts || [],
+        bank_accounts: (data as any).bank_accounts || [],
       });
     } else {
       setCompanySettings(null);

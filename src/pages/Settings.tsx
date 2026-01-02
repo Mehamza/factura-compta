@@ -135,7 +135,7 @@ export default function Settings() {
         setSupportedColumns(new Set(Object.keys(data)));
         setSettings({
           ...data,
-          legal_name: data.legal_name || '',
+          legal_name: data.legal_name || (data as any).name || '',
           address: data.address || '',
           city: data.city || '',
           postal_code: data.postal_code || '',
@@ -143,7 +143,7 @@ export default function Settings() {
           phone: data.phone || '',
           email: data.email || '',
           logo_url: data.logo_url || '',
-          matricule_fiscale: data.matricule_fiscale || '',
+          matricule_fiscale: (data as any).matricule_fiscale || '',
           company_vat_number: data.company_vat_number || '',
           company_tax_id: data.company_tax_id || '',
           company_trade_register: data.company_trade_register || '',
@@ -157,7 +157,7 @@ export default function Settings() {
           invoice_number_padding: data.invoice_number_padding || 4,
           signature_url: data.signature_url || '',
           stamp_url: data.stamp_url || '',
-          bank_accounts: (Object.prototype.hasOwnProperty.call(data, 'bank_accounts') ? (data.bank_accounts || []) : [])
+          bank_accounts: ((data as any).bank_accounts || [])
         });
       }
     } catch (error) {
