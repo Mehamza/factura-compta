@@ -460,22 +460,18 @@ export default function Invoices() {
     const invoiceItems = items.map(item => {
       const base = {
         invoice_id: invoiceData.id,
+        company_id: activeCompanyId,
         reference: item.reference,
         description: item.description || '',
         quantity: item.quantity,
         unit_price: item.unit_price,
         vat_rate: item.vat_rate,
         vat_amount: item.vat_amount,
+        fodec_applicable: Boolean(item.fodec_applicable || false),
+        fodec_rate: Number(item.fodec_rate || 0),
+        fodec_amount: Number(item.fodec_amount || 0),
         total: item.total,
-      } as any;
-      // Add FODEC fields only if invoice_items table supports them (avoid schema errors)
-      // Heuristic: if any existing selected item has fodec_amount, assume supported; otherwise skip
-      const supportsFodecItems = (selectedInvoiceItems || []).some((it: any) => 'fodec_amount' in it);
-      if (supportsFodecItems) {
-        base.fodec_applicable = Boolean(item.fodec_applicable || false);
-        base.fodec_rate = Number(item.fodec_rate || 0);
-        base.fodec_amount = Number(item.fodec_amount || 0);
-      }
+      };
       return base;
     });
 
