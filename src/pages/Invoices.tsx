@@ -715,8 +715,12 @@ export default function Invoices() {
     });
     const subtotalHT = mapped.reduce((s, it) => s + (it.total || 0), 0);
     const totalFodec = mapped.reduce((s, it) => s + (it.fodec_amount || 0), 0);
+    const totalVat = mapped.reduce((s, it) => s + (it.vat_amount || 0), 0);
     invoiceData.fodec_amount_total = totalFodec;
     invoiceData.base_tva = subtotalHT + totalFodec;
+    // Use calculated VAT from items, not the stored value (which may be wrong for old invoices)
+    invoiceData.tax_amount = totalVat;
+    invoiceData.total = subtotalHT + totalFodec + totalVat + (invoiceData.stamp_included ? (invoiceData.stamp_amount || 0) : 0);
     await generateInvoiceWithTemplate(invoiceData, mapped);
   };
 
