@@ -15,6 +15,7 @@ import {
   Package,
   Receipt,
   FileCheck,
+  Calculator,
   LucideIcon,
 } from 'lucide-react';
 
@@ -54,8 +55,8 @@ export const navigationConfig: NavigationModule[] = [
     icon: Truck,
   },
   {
-    id: 'factures',
-    name: 'Factures',
+    id: 'ventes',
+    name: 'Ventes',
     icon: FileText,
     children: [
       {
@@ -91,37 +92,79 @@ export const navigationConfig: NavigationModule[] = [
     ],
   },
   {
+    id: 'achats',
+    name: 'Achats',
+    icon: FileText,
+    children: [
+      {
+        id: 'devis-achat',
+        name: 'Devis',
+        href: '/purchases/devis',
+        icon: FileEdit,
+      },
+      {
+        id: 'bon-commande-achat',
+        name: 'Bon de commande',
+        href: '/purchases/bon-commande',
+        icon: ClipboardList,
+      },
+      {
+        id: 'bon-livraison-achat',
+        name: 'Bon de livraison',
+        href: '/purchases/bon-livraison',
+        icon: Package,
+      },
+      {
+        id: 'facture-credit-achat',
+        name: 'Facture à crédit',
+        href: '/purchases/credit',
+        icon: Receipt,
+      },
+      {
+        id: 'facture-recu-achat',
+        name: 'Facture payée / Reçu',
+        href: '/purchases/recu',
+        icon: FileCheck,
+      },
+    ],
+  },
+  {
     id: 'documents',
     name: 'Documents',
     href: '/documents',
     icon: FolderOpen,
   },
   {
-    id: 'paiements',
-    name: 'Paiements',
-    href: '/payments',
-    icon: CreditCard,
-  },
-  {
-    id: 'journal',
-    name: 'Journal',
-    href: '/journal',
-    icon: BookOpen,
+    id: 'comptabilite',
+    name: 'Comptabilité',
+    icon: Calculator,
     lockedForRoles: ['cashier'],
-  },
-  {
-    id: 'comptes',
-    name: 'Comptes',
-    href: '/accounts',
-    icon: Landmark,
-    lockedForRoles: ['cashier'],
-  },
-  {
-    id: 'rapports',
-    name: 'Rapports',
-    href: '/reports',
-    icon: BarChart3,
-    lockedForRoles: ['cashier'],
+    children: [
+      {
+        id: 'paiements',
+        name: 'Paiements',
+        href: '/payments',
+        icon: CreditCard,
+      },
+      {
+        id: 'journal',
+        name: 'Journal',
+        href: '/journal',
+        icon: BookOpen,
+      },
+      {
+        id: 'comptes',
+        name: 'Comptes',
+        href: '/accounts',
+        icon: Landmark,
+      },
+      {
+        id: 'rapports',
+        name: 'Rapports',
+        href: '/reports',
+        icon: BarChart3,
+      },
+    ],
   },
   {
     id: 'stock',

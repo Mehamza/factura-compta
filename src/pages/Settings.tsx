@@ -13,6 +13,7 @@ import { currencies } from '@/lib/numberToWords';
 import { logger } from '@/lib/logger';
 import AccountTab from '@/components/settings/AccountTab';
 import type { Tables } from '@/integrations/supabase/types';
+import { useSearchParams } from 'react-router-dom';
 
 interface VatRate {
   rate: number;
@@ -82,6 +83,7 @@ const defaultSettings: Omit<CompanySettings, 'id' | 'type' | 'is_configured'> = 
 
 export default function Settings() {
   const { user, activeCompanyId } = useAuth();
+  const [searchParams] = useSearchParams();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [supportsBankAccounts, setSupportsBankAccounts] = useState(false);
@@ -96,6 +98,9 @@ export default function Settings() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const signatureInputRef = useRef<HTMLInputElement>(null);
   const stampInputRef = useRef<HTMLInputElement>(null);
+  
+  // Get the default tab from URL query parameter
+  const defaultTab = searchParams.get('tab') || 'company';
 
   useEffect(() => {
     if (user && activeCompanyId) {
@@ -497,7 +502,7 @@ export default function Settings() {
         </Button>
       </div>
 
-      <Tabs defaultValue="company" className="space-y-4">
+      <Tabs defaultValue={defaultTab} className="space-y-4">
         <TabsList className="grid w-full grid-cols-4 bg-primary/10">
           <TabsTrigger value="company" className="flex items-center gap-2">
             <Building2 className="h-4 w-4" />

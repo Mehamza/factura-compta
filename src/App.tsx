@@ -15,6 +15,7 @@ import Auth from "./pages/Auth";
 import Clients from "./pages/Clients";
 import Suppliers from "./pages/Suppliers";
 import Invoices from "./pages/Invoices";
+import Purchases from "./pages/Purchases";
 import Documents from "./pages/Documents";
 import Users from "./pages/Users";
 import Settings from "./pages/Settings";
@@ -73,6 +74,14 @@ const router = createBrowserRouter(
       <Route path="/invoices/bon-livraison" element={<ProtectedRoute><PageTransition><Invoices /></PageTransition></ProtectedRoute>} />
       <Route path="/invoices/credit" element={<ProtectedRoute><PageTransition><Invoices /></PageTransition></ProtectedRoute>} />
       <Route path="/invoices/recu" element={<ProtectedRoute><PageTransition><Invoices /></PageTransition></ProtectedRoute>} />
+      
+      {/* Purchases routes (dropdown children) */}
+      <Route path="/purchases" element={<ProtectedRoute><PageTransition><Purchases /></PageTransition></ProtectedRoute>} />
+      <Route path="/purchases/devis" element={<ProtectedRoute><PageTransition><Purchases /></PageTransition></ProtectedRoute>} />
+      <Route path="/purchases/bon-commande" element={<ProtectedRoute><PageTransition><Purchases /></PageTransition></ProtectedRoute>} />
+      <Route path="/purchases/bon-livraison" element={<ProtectedRoute><PageTransition><Purchases /></PageTransition></ProtectedRoute>} />
+      <Route path="/purchases/credit" element={<ProtectedRoute><PageTransition><Purchases /></PageTransition></ProtectedRoute>} />
+      <Route path="/purchases/recu" element={<ProtectedRoute><PageTransition><Purchases /></PageTransition></ProtectedRoute>} />
       
       {/* Stock routes */}
       <Route path="/stock/produits" element={<ProtectedRoute><PageTransition><StockProducts /></PageTransition></ProtectedRoute>} />

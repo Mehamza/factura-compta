@@ -404,16 +404,18 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
                     </Link>
                   </DropdownMenuItem>
                   <DropdownMenuSeparator className="bg-secondary-foreground/20" />
-                  <div className="flex items-center gap-3 px-2 py-2">
-                    <Avatar className="h-8 w-8">
-                      <AvatarFallback className="bg-primary/20 text-primary text-sm font-medium">
-                        {getUserInitials()}
-                      </AvatarFallback>
-                    </Avatar>
-                    <span className="text-sm font-medium text-primary uppercase truncate">
-                      {profile?.full_name || user?.user_metadata?.full_name || user?.email}
-                    </span>
-                  </div>
+                  <DropdownMenuItem asChild className="cursor-pointer">
+                    <Link to="/settings?tab=account" className="flex items-center gap-3">
+                      <Avatar className="h-8 w-8">
+                        <AvatarFallback className="bg-primary/20 text-primary text-sm font-medium">
+                          {getUserInitials()}
+                        </AvatarFallback>
+                      </Avatar>
+                      <span className="text-sm font-medium text-primary uppercase truncate">
+                        {profile?.full_name || user?.user_metadata?.full_name || user?.email}
+                      </span>
+                    </Link>
+                  </DropdownMenuItem>
                   <DropdownMenuSeparator className="bg-secondary-foreground/20" />
                   <DropdownMenuItem 
                     onClick={handleSignOut}
