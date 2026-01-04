@@ -370,7 +370,7 @@ export default function AdminPlans() {
       </Card>
 
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="max-w-xl">
+        <DialogContent className="max-w-xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{editing ? 'Modifier le plan' : 'Ajouter un plan'}</DialogTitle>
           </DialogHeader>

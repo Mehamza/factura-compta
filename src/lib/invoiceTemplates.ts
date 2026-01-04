@@ -212,32 +212,23 @@ async function drawProfessionalHeader(
     
     doc.setFontSize(12);
     doc.setFont('helvetica', 'bold');
-    doc.text(company.name || 'Votre Société', textX, y);
+    doc.text(company.name.toUpperCase() || 'VOTRE SOCIÉTÉ', textX, y);
     y += 6;
     
     doc.setFontSize(9);
     doc.setFont('helvetica', 'normal');
     
     if (company.activity) {
-      doc.text(company.activity, textX, y);
+      doc.text(company.activity.toUpperCase(), textX, y);
       y += 5;
     }
-    // Show first bank RIB if available
-    if (company.bank_accounts && company.bank_accounts.length > 0) {
-      const b = company.bank_accounts[0];
-      if (b && (b.rib || b.bank)) {
-        const prefix = getBankPrefix(b.bank || '');
-        const ribText = prefix ? `RIB: ${prefix} : ${b.rib}` : `RIB: ${b.bank || ''} : ${b.rib || ''}`;
-        doc.text(ribText, textX, y);
-        y += 5;
-      }
-    }
-    if (company.address) {
-      doc.text(company.address, textX, y);
-      y += 5;
-    }
-    if (company.postal_code || company.city) {
-      doc.text(`${company.postal_code || ''} ${company.city || ''}`.trim(), textX, y);
+    
+    // if (company.address) {
+    //   doc.text(company.address, textX, y);
+    //   y += 5;
+    // }
+    if (company.address ||company.postal_code || company.city) {
+      doc.text(`${company.address.toUpperCase() || ''} ${company.postal_code || ''} ${company.city.toUpperCase() || ''}`.trim(), textX, y);
       y += 5;
     }
     if (company.phone) {
@@ -251,6 +242,19 @@ async function drawProfessionalHeader(
     if (company.trade_register) {
       doc.text(`RC: ${company.trade_register}`, textX, y);
       y += 5;
+    }
+    // Show first bank RIB if available
+    console.log('Drawing header - bank_accounts:', company.bank_accounts);
+    if (company.bank_accounts && company.bank_accounts.length > 0) {
+      const b = company.bank_accounts[0];
+      console.log('First bank account:', b);
+      if (b && (b.rib || b.bank)) {
+        const prefix = getBankPrefix(b.bank || '');
+        const ribText = prefix ? `RIB: ${prefix} : ${b.rib}` : `RIB: ${b.bank || ''} : ${b.rib || ''}`;
+        console.log('RIB text:', ribText);
+        doc.text(ribText, textX, y);
+        y += 5;
+      }
     }
   }
   
@@ -513,6 +517,9 @@ export async function generateClassicPDF(invoice: InvoiceTemplateData, items: In
   y = tableTop + 8;
   doc.setFont('helvetica', 'normal');
   
+  console.log('Drawing items table - items count:', items.length);
+  console.log('Items:', items);
+  
   items.forEach((item) => {
     doc.setDrawColor(200, 200, 200);
     doc.rect(20, y, pageWidth - 40, 8);
@@ -543,7 +550,7 @@ export async function generateClassicPDF(invoice: InvoiceTemplateData, items: In
     doc.text(formatCurrency(invoice.fodec_amount_total || 0, invoice.currency), pageWidth - 25, y, { align: 'right' });
   }
   y += 7;
-  doc.text('Base TVA (HT + FODEC):', 130, y);
+  doc.text('Base TVA:', 130, y);
   doc.text(formatCurrency(invoice.base_tva || (invoice.subtotal + (invoice.fodec_amount_total || 0)), invoice.currency), pageWidth - 25, y, { align: 'right' });
   y += 7;
   doc.text('Montant TVA:', 130, y);
@@ -654,16 +661,23 @@ export async function generateModernPDF(invoice: InvoiceTemplateData, items: Inv
   // Totals with colored background
   y += 5;
   doc.setFillColor(245, 247, 250);
-  doc.roundedRect(120, y - 3, 70, 35, 3, 3, 'F');
+  const boxHeight = invoice.stamp_included ? 45 : 35;
+  doc.roundedRect(120, y - 3, 70, boxHeight, 3, 3, 'F');
   
   doc.setFontSize(10);
   doc.text('Sous-total HT:', 125, y + 5);
   doc.text(formatCurrency(invoice.subtotal, invoice.currency), 185, y + 5, { align: 'right' });
+  if ((invoice.fodec_amount_total || 0) > 0) {
+    doc.text('FODEC:', 125, y + 13);
+    doc.text(formatCurrency(invoice.fodec_amount_total || 0, invoice.currency), 185, y + 13, { align: 'right' });
+    y += 8;
+  }
   doc.text('Montant TVA:', 125, y + 13);
   doc.text(formatCurrency(invoice.tax_amount, invoice.currency), 185, y + 13, { align: 'right' });
   if (invoice.stamp_included) {
     doc.text('Timbre fiscal:', 125, y + 21);
     doc.text(formatCurrency(invoice.stamp_amount || 0, invoice.currency), 185, y + 21, { align: 'right' });
+    y += 8;
   }
   
   doc.setFont('helvetica', 'bold');
@@ -771,7 +785,7 @@ export async function generateMinimalPDF(invoice: InvoiceTemplateData, items: In
   
   y += 7;
   doc.setTextColor(120, 120, 120);
-  doc.text('Montant TVA', 140, y);
+  doc.text('TVA', 140, y);
   doc.setTextColor(0, 0, 0);
   doc.text(formatCurrency(invoice.tax_amount, invoice.currency), pageWidth - 25, y, { align: 'right' });
   if (invoice.stamp_included) {

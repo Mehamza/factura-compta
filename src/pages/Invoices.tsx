@@ -132,7 +132,7 @@ const statusColors: Record<string, string> = {
 };
 
 const statusLabels: Record<string, string> = {
-  [InvoiceStatus.DRAFT]: 'Brouillon',
+  [InvoiceStatus.DRAFT]: 'Facture à crédit',
   [InvoiceStatus.PURCHASE_QUOTE]: 'Devis d\'achat',
   [InvoiceStatus.PAID]: 'Payée',
   [InvoiceStatus.OVERDUE]: 'En retard',
@@ -718,9 +718,6 @@ export default function Invoices() {
     const totalVat = mapped.reduce((s, it) => s + (it.vat_amount || 0), 0);
     invoiceData.fodec_amount_total = totalFodec;
     invoiceData.base_tva = subtotalHT + totalFodec;
-    // Use calculated VAT from items, not the stored value (which may be wrong for old invoices)
-    invoiceData.tax_amount = totalVat;
-    invoiceData.total = subtotalHT + totalFodec + totalVat + (invoiceData.stamp_included ? (invoiceData.stamp_amount || 0) : 0);
     await generateInvoiceWithTemplate(invoiceData, mapped);
   };
 
@@ -884,7 +881,7 @@ export default function Invoices() {
                   <Select value={formData.status} onValueChange={v => setFormData({ ...formData, status: v })}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value={InvoiceStatus.DRAFT}>Brouillon</SelectItem>
+                      <SelectItem value={InvoiceStatus.DRAFT}>Facture à crédit</SelectItem>
                       <SelectItem value={InvoiceStatus.PURCHASE_QUOTE}>Devis d'achat</SelectItem>
                       <SelectItem value="paid">Payée</SelectItem>
                     </SelectContent>

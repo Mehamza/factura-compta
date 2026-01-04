@@ -57,7 +57,7 @@ export default function AccountDialog({ open, onOpenChange, account, accountBala
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="flex flex-col">
+      <DialogContent className="flex flex-col max-h-[90vh] overflow-y-auto">
         <DialogHeader className="flex-shrink-0">
           <DialogTitle>{account ? 'Modifier le compte' : 'Nouveau compte'}</DialogTitle>
           <DialogDescription>
@@ -67,12 +67,12 @@ export default function AccountDialog({ open, onOpenChange, account, accountBala
         <ScrollArea className="flex-1 overflow-auto">
           <form id="account-form" onSubmit={handleSubmit} className="space-y-4 pr-4">
             <div className="space-y-2">
-              <Label htmlFor="code">Code du compte</Label>
+              <Label htmlFor="code">RIB du compte</Label>
               <Input
                 id="code"
                 value={code}
                 onChange={(e) => setCode(e.target.value)}
-                placeholder="Ex: 411000"
+                placeholder="Ex: 535800001234567411000"
                 required
               />
             </div>
@@ -82,7 +82,7 @@ export default function AccountDialog({ open, onOpenChange, account, accountBala
                 id="name"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                placeholder="Ex: Clients"
+                placeholder="Ex: BTS, BNA, ATB ..."
                 required
               />
             </div>

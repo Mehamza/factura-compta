@@ -120,7 +120,7 @@ export default function JournalEntryDialog({ open, onOpenChange, accounts, onSav
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl flex flex-col">
+      <DialogContent className="max-w-3xl flex flex-col max-h-[90vh] overflow-y-auto">
         <DialogHeader className="flex-shrink-0">
           <DialogTitle>{editEntry ? 'Modifier l\'écriture' : 'Nouvelle écriture comptable'}</DialogTitle>
           <DialogDescription>

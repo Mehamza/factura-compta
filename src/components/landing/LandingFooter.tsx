@@ -29,11 +29,11 @@ export default function LandingFooter() {
               </a>
               <div className="flex items-start gap-3">
                 <MapPin className="h-4 w-4 text-primary mt-0.5" />
-                <span>Tunis, Tunisie</span>
+                <span>Sbeitla, Kasserine, Tunisie</span>
               </div>
-              <a href="tel:+21671000000" className="flex items-center gap-3 hover:text-secondary-foreground transition-colors">
+              <a href="tel:+21695127301" className="flex items-center gap-3 hover:text-secondary-foreground transition-colors">
                 <Phone className="h-4 w-4 text-primary" />
-                +216 71 000 000
+                +216 95 127 301
               </a>
             </div>
 

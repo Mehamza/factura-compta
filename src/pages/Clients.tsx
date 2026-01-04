@@ -63,7 +63,7 @@ type SortOrder = 'asc' | 'desc';
 import { InvoiceStatus } from '@/lib/documentStatus';
 
 const statusLabels: Record<string, string> = {
-  [InvoiceStatus.DRAFT]: 'Brouillon',
+  [InvoiceStatus.DRAFT]: 'Facture à crédit',
   [InvoiceStatus.PURCHASE_QUOTE]: 'Devis d\'achat',
   sent: 'Envoyée',
   paid: 'Payée',
@@ -362,7 +362,7 @@ export default function Clients() {
                 Ajouter
               </Button>
             </DialogTrigger>
-            <DialogContent className="max-w-md">
+            <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
               <DialogHeader>
                 <DialogTitle>{editingClient ? 'Modifier' : 'Ajouter'} un client</DialogTitle>
               </DialogHeader>

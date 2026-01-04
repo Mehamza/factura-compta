@@ -114,7 +114,7 @@ export default function PaymentDialog({ open, onOpenChange, invoices, clients, a
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg flex flex-col">
+      <DialogContent className="max-w-lg flex flex-col max-h-[90vh] overflow-y-auto">
         <DialogHeader className="flex-shrink-0">
           <DialogTitle>{editPayment ? 'Modifier le paiement' : 'Enregistrer un paiement'}</DialogTitle>
           <DialogDescription>
