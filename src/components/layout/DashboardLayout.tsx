@@ -102,7 +102,7 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
           "flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors",
           isActive
             ? "bg-primary text-primary-foreground"
-            : "text-secondary-foreground/70 hover:bg-secondary/80 hover:text-secondary-foreground",
+            : "text-foreground/70 hover:bg-muted/50 hover:text-foreground",
           collapsed && "justify-center px-2",
           indent && !collapsed && "pl-9"
         )}
@@ -134,7 +134,7 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
       <div
         className={cn(
           "flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium opacity-50 cursor-not-allowed",
-          "text-secondary-foreground/50",
+          "text-muted-foreground",
           collapsed && "justify-center px-2"
         )}
       >
@@ -181,7 +181,7 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
                 "flex items-center justify-center px-2 py-2 rounded-md text-sm font-medium transition-colors cursor-pointer",
                 hasActiveChild
                   ? "bg-primary/20 text-primary"
-                  : "text-secondary-foreground/70 hover:bg-secondary/80 hover:text-secondary-foreground"
+                  : "text-foreground/70 hover:bg-muted/50 hover:text-foreground"
               )}
               onClick={() => toggleDropdown(item.id)}
             >
@@ -215,7 +215,7 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
               "flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors w-full",
               hasActiveChild
                 ? "bg-primary/20 text-primary"
-                : "text-secondary-foreground/70 hover:bg-secondary/80 hover:text-secondary-foreground"
+                : "text-foreground/70 hover:bg-muted/50 hover:text-foreground"
             )}
           >
             <Icon className="h-4 w-4 shrink-0" />
@@ -293,7 +293,7 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
         {/* Sidebar */}
         <aside
           className={cn(
-            "fixed inset-y-0 left-0 z-50 bg-secondary border-r border-secondary/50 transform transition-transform duration-300 ease-in-out lg:translate-x-0 will-change-transform",
+            "fixed inset-y-0 left-0 z-50 bg-card border-r border-border transform transition-transform duration-300 ease-in-out lg:translate-x-0 will-change-transform",
             sidebarOpen ? "translate-x-0" : "-translate-x-full",
             collapsed ? "w-16" : "w-64"
           )}
@@ -302,11 +302,11 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
           <div className="flex h-full flex-col">
             {/* Header */}
             <div className={cn(
-              "flex h-14 items-center border-b border-secondary/30 px-3",
+              "flex h-14 items-center border-b border-border/50 px-3",
               collapsed ? "justify-center" : "justify-between px-4"
             )}>
               {!collapsed && (
-                <Link to="/" className="flex items-center gap-2 font-semibold text-lg text-secondary-foreground">
+                <Link to="/" className="flex items-center gap-2 font-semibold text-lg text-foreground">
                   <FileText className="h-5 w-5 text-primary" />
                   <span>SmartFin</span>
                 </Link>
@@ -319,7 +319,7 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
               <Button
                 variant="ghost"
                 size="icon"
-                className="lg:hidden transition-transform duration-200 ease-out active:scale-95 text-secondary-foreground hover:bg-secondary/80"
+                className="lg:hidden transition-transform duration-200 ease-out active:scale-95 text-foreground hover:bg-muted/50"
                 onClick={() => setSidebarOpen(false)}
                 aria-label="Fermer le menu"
               >
@@ -331,9 +331,9 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
             <nav className="flex-1 flex flex-col gap-1 p-2 overflow-y-auto sidebar-nav">
               {isSuperAdmin ? (
                 <>
-                  <div className="my-2 border-t border-secondary/30" />
+                  <div className="my-2 border-t border-border/30" />
                   {!collapsed && (
-                    <p className="px-3 py-1 text-xs font-semibold text-secondary-foreground/70 uppercase">Administration</p>
+                    <p className="px-3 py-1 text-xs font-semibold text-muted-foreground uppercase">Administration</p>
                   )}
                   {superAdminNavigation.map((item) => (
                     <NavItem key={item.name} item={item} onClick={() => setSidebarOpen(false)} />
@@ -396,16 +396,16 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
                     </Avatar>
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent className="w-56 bg-secondary" align="end" forceMount>
+                <DropdownMenuContent className="w-56 bg-card" align="end" forceMount>
                   <DropdownMenuItem asChild className="cursor-pointer">
-                    <Link to="/settings" className="flex items-center gap-3 text-secondary-foreground">
+                    <Link to="/settings" className="flex items-center gap-3 text-foreground">
                       <Settings className="h-4 w-4" />
                       <span>Paramètres</span>
                     </Link>
                   </DropdownMenuItem>
-                  <DropdownMenuSeparator className="bg-secondary-foreground/20" />
+                  <DropdownMenuSeparator className="bg-border" />
                   <DropdownMenuItem asChild className="cursor-pointer">
-                    <Link to="/settings?tab=account" className="flex items-center gap-3">
+                    <Link to="/account" className="flex items-center gap-3">
                       <Avatar className="h-8 w-8">
                         <AvatarFallback className="bg-primary/20 text-primary text-sm font-medium">
                           {getUserInitials()}
@@ -416,10 +416,10 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
                       </span>
                     </Link>
                   </DropdownMenuItem>
-                  <DropdownMenuSeparator className="bg-secondary-foreground/20" />
+                  <DropdownMenuSeparator className="bg-border" />
                   <DropdownMenuItem 
                     onClick={handleSignOut}
-                    className="cursor-pointer text-secondary-foreground"
+                    className="cursor-pointer text-foreground"
                   >
                     <LogOut className="h-4 w-4 mr-3" />
                     <span>Déconnexion</span>
