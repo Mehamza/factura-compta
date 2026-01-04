@@ -8,10 +8,10 @@ import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
-import { Building2, Receipt, FileText, Plus, Trash2, Save, Upload, Image, User } from 'lucide-react';
+import { Building2, Receipt, FileText, Plus, Trash2, Save, Upload, Image } from 'lucide-react';
 import { currencies } from '@/lib/numberToWords';
 import { logger } from '@/lib/logger';
-import AccountTab from '@/components/settings/AccountTab';
+import SetupWizard from '@/components/settings/SetupWizard';
 import type { Tables } from '@/integrations/supabase/types';
 import { useSearchParams } from 'react-router-dom';
 
@@ -95,6 +95,8 @@ export default function Settings() {
   const [settings, setSettings] = useState<CompanySettings | null>(null);
   const [profile, setProfile] = useState<Tables<'profiles'> | null>(null);
   const [newVatRate, setNewVatRate] = useState({ rate: 0, label: '' });
+  const [showSetupWizard, setShowSetupWizard] = useState(false);
+  const [setupStep, setSetupStep] = useState(1);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const signatureInputRef = useRef<HTMLInputElement>(null);
   const stampInputRef = useRef<HTMLInputElement>(null);
@@ -164,6 +166,12 @@ export default function Settings() {
           stamp_url: data.stamp_url || '',
           bank_accounts: ((data as any).bank_accounts || [])
         });
+        
+        // Check if user needs onboarding (no legal_name means first time)
+        const needsOnboarding = !data.legal_name && !(data as any).name;
+        if (needsOnboarding && !searchParams.get('tab')) {
+          setShowSetupWizard(true);
+        }
       }
     } catch (error) {
       logger.error('Erreur lors du chargement des paramètres:', error);
@@ -489,6 +497,194 @@ export default function Settings() {
 
   if (!settings) return null;
 
+  const handleCompleteSetup = async () => {
+    await saveSettings();
+    setShowSetupWizard(false);
+  };
+
+  // Render setup wizard for new users
+  if (showSetupWizard) {
+    return (
+      <SetupWizard 
+        onComplete={handleCompleteSetup}
+        currentStep={setupStep}
+        setCurrentStep={setSetupStep}
+      >
+        {setupStep === 1 && (
+          <div className="space-y-4">
+            {/* Company info fields for wizard */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="wizard_legal_name">Raison sociale</Label>
+                <Input
+                  id="wizard_legal_name"
+                  value={settings.legal_name}
+                  onChange={(e) => setSettings({ ...settings, legal_name: e.target.value })}
+                  placeholder="Nom de votre entreprise"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="wizard_activity">Activité</Label>
+                <Input
+                  id="wizard_activity"
+                  value={settings.activity}
+                  onChange={(e) => setSettings({ ...settings, activity: e.target.value })}
+                  placeholder="Ex: Commerce de détail..."
+                />
+              </div>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="wizard_email">Email</Label>
+                <Input
+                  id="wizard_email"
+                  type="email"
+                  value={settings.email}
+                  onChange={(e) => setSettings({ ...settings, email: e.target.value })}
+                  placeholder="contact@entreprise.tn"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="wizard_phone">Téléphone</Label>
+                <Input
+                  id="wizard_phone"
+                  value={settings.phone}
+                  onChange={(e) => setSettings({ ...settings, phone: e.target.value })}
+                  placeholder="+216 XX XXX XXX"
+                />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="wizard_address">Adresse</Label>
+              <Input
+                id="wizard_address"
+                value={settings.address}
+                onChange={(e) => setSettings({ ...settings, address: e.target.value })}
+                placeholder="Adresse complète"
+              />
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="wizard_city">Ville</Label>
+                <Input
+                  id="wizard_city"
+                  value={settings.city}
+                  onChange={(e) => setSettings({ ...settings, city: e.target.value })}
+                  placeholder="Tunis"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="wizard_postal">Code postal</Label>
+                <Input
+                  id="wizard_postal"
+                  value={settings.postal_code}
+                  onChange={(e) => setSettings({ ...settings, postal_code: e.target.value })}
+                  placeholder="1000"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="wizard_tax_id">Matricule fiscal</Label>
+                <Input
+                  id="wizard_tax_id"
+                  value={settings.company_tax_id}
+                  onChange={(e) => setSettings({ ...settings, company_tax_id: e.target.value })}
+                  placeholder="XXXXXXX/X/X/XXX"
+                />
+              </div>
+            </div>
+          </div>
+        )}
+        
+        {setupStep === 2 && (
+          <div className="space-y-4">
+            {/* Invoice format fields for wizard */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="wizard_prefix">Préfixe facture</Label>
+                <Input
+                  id="wizard_prefix"
+                  value={settings.invoice_prefix}
+                  onChange={(e) => setSettings({ ...settings, invoice_prefix: e.target.value.toUpperCase() })}
+                  placeholder="FAC"
+                  maxLength={10}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="wizard_next_number">Prochain numéro</Label>
+                <Input
+                  id="wizard_next_number"
+                  type="number"
+                  min="1"
+                  value={settings.invoice_next_number}
+                  onChange={(e) => setSettings({ ...settings, invoice_next_number: Number(e.target.value) })}
+                />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="wizard_currency">Devise par défaut</Label>
+              <Select
+                value={settings.default_currency}
+                onValueChange={(value) => setSettings({ ...settings, default_currency: value })}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Sélectionner une devise" />
+                </SelectTrigger>
+                <SelectContent>
+                  {Object.entries(currencies).map(([code, info]) => (
+                    <SelectItem key={code} value={code}>
+                      {info.symbol} - {info.name.charAt(0).toUpperCase() + info.name.slice(1)} ({code})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="p-4 bg-primary/10 rounded-lg">
+              <Label className="text-muted-foreground">Aperçu de la prochaine facture</Label>
+              <p className="text-2xl font-mono font-bold mt-2">{getInvoicePreview()}</p>
+            </div>
+          </div>
+        )}
+        
+        {setupStep === 3 && (
+          <div className="space-y-4">
+            {/* VAT settings for wizard */}
+            <div className="space-y-2">
+              <Label>Taux TVA par défaut</Label>
+              <Select
+                value={String(settings.default_vat_rate)}
+                onValueChange={(value) => setSettings({ ...settings, default_vat_rate: Number(value) })}
+              >
+                <SelectTrigger className="w-full md:w-[300px]">
+                  <SelectValue placeholder="Sélectionner un taux" />
+                </SelectTrigger>
+                <SelectContent>
+                  {settings.vat_rates.map((vat) => (
+                    <SelectItem key={vat.rate} value={String(vat.rate)}>
+                      {vat.label} ({vat.rate}%)
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Taux disponibles</Label>
+              <div className="grid grid-cols-2 gap-2">
+                {settings.vat_rates.map((vat) => (
+                  <div key={vat.rate} className="p-3 bg-primary/10 rounded-lg flex justify-between items-center">
+                    <span>{vat.rate}% - {vat.label}</span>
+                  </div>
+                ))}
+              </div>
+              <p className="text-sm text-muted-foreground">
+                Vous pourrez ajouter ou modifier les taux TVA après la configuration initiale.
+              </p>
+            </div>
+          </div>
+        )}
+      </SetupWizard>
+    );
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -503,7 +699,7 @@ export default function Settings() {
       </div>
 
       <Tabs defaultValue={defaultTab} className="space-y-4">
-        <TabsList className="grid w-full grid-cols-4 bg-primary/10">
+        <TabsList className="grid w-full grid-cols-3 bg-primary/10">
           <TabsTrigger value="company" className="flex items-center gap-2">
             <Building2 className="h-4 w-4" />
             Entreprise
@@ -515,10 +711,6 @@ export default function Settings() {
           <TabsTrigger value="invoicing" className="flex items-center gap-2">
             <FileText className="h-4 w-4" />
             Facturation
-          </TabsTrigger>
-          <TabsTrigger value="account" className="flex items-center gap-2">
-            <User className="h-4 w-4" />
-            Mon Compte
           </TabsTrigger>
         </TabsList>
 
@@ -1058,11 +1250,6 @@ export default function Settings() {
               </div>
             </CardContent>
           </Card>
-        </TabsContent>
-
-        {/* Mon Compte */}
-        <TabsContent value="account">
-          <AccountTab profile={profile} onProfileUpdate={fetchProfile} />
         </TabsContent>
       </Tabs>
     </div>

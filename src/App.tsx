@@ -20,6 +20,7 @@ import Documents from "./pages/Documents";
 import Users from "./pages/Users";
 import Settings from "./pages/Settings";
 import SettingsUsers from "./pages/SettingsUsers";
+import Account from "./pages/Account";
 import NotFound from "./pages/NotFound";
 import Payments from "./pages/Payments";
 import Journal from "./pages/Journal";
@@ -65,6 +66,7 @@ const router = createBrowserRouter(
       <Route path="/suppliers" element={<ProtectedRoute><PageTransition><Suppliers /></PageTransition></ProtectedRoute>} />
       <Route path="/documents" element={<ProtectedRoute><PageTransition><Documents /></PageTransition></ProtectedRoute>} />
       <Route path="/settings" element={<ProtectedRoute><PageTransition><Settings /></PageTransition></ProtectedRoute>} />
+      <Route path="/account" element={<ProtectedRoute><PageTransition><Account /></PageTransition></ProtectedRoute>} />
       <Route path="/payments" element={<ProtectedRoute><PageTransition><Payments /></PageTransition></ProtectedRoute>} />
       
       {/* Invoices routes (dropdown children) */}
