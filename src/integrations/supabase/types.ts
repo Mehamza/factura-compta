@@ -1251,6 +1251,7 @@ export type Database = {
         Returns: boolean
       }
       is_super_admin: { Args: { _user_id: string }; Returns: boolean }
+      is_super_admin_direct: { Args: { _user_id: string }; Returns: boolean }
       recompute_invoice_totals: {
         Args: { p_invoice_id: string }
         Returns: undefined
