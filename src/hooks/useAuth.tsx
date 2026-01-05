@@ -172,15 +172,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const currentImpersonation = loadImpersonationState();
     if (!currentImpersonation?.isImpersonating) {
       try {
-        const { data: globalRoles } = await supabase
-          .from('user_global_roles' as any)
+        const { data: globalRoles, error: globalRolesError } = await supabase
+          .from('user_global_roles')
           .select('role')
           .eq('user_id', userId);
 
-        const roles = (globalRoles as any[] | null) ?? [];
-        const isSuperAdmin = roles.some((r) => String(r.role).toUpperCase() === 'SUPER_ADMIN');
-        setGlobalRole(isSuperAdmin ? 'SUPER_ADMIN' : null);
-      } catch {
+        if (globalRolesError) {
+          console.error('Error fetching global roles:', globalRolesError);
+          setGlobalRole(null);
+        } else {
+          const roles = (globalRoles as { role: string }[] | null) ?? [];
+          const isSuperAdmin = roles.some((r) => r.role === 'SUPER_ADMIN' || r.role.toUpperCase() === 'SUPER_ADMIN');
+          setGlobalRole(isSuperAdmin ? 'SUPER_ADMIN' : null);
+        }
+      } catch (e) {
+        console.error('Exception fetching global roles:', e);
         setGlobalRole(null);
       }
     } else {
