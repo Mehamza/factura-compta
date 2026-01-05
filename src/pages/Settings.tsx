@@ -100,6 +100,84 @@ export default function Settings() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const signatureInputRef = useRef<HTMLInputElement>(null);
   const stampInputRef = useRef<HTMLInputElement>(null);
+
+  const OTHER_ACTIVITY_VALUE = 'Autre';
+  const [activitySelectValue, setActivitySelectValue] = useState<string>('');
+  const [customActivity, setCustomActivity] = useState<string>('');
+
+  // Common activity labels used in Tunisia (broad, business-friendly categories)
+  const TUNISIAN_ACTIVITIES = [
+    'Agriculture / Élevage',
+    'Pêche / Aquaculture',
+    'Industries agroalimentaires',
+    'Industries textiles / habillement',
+    'Industries du cuir / chaussures',
+    'Industries du bois / papier / imprimerie',
+    'Industries chimiques / pharmaceutiques',
+    'Plasturgie / caoutchouc',
+    'Matériaux de construction (ciment, briques, etc.)',
+    'Métallurgie / sidérurgie',
+    'Mécanique / maintenance industrielle',
+    'Électricité / électronique',
+    'Fabrication de meubles',
+    'Énergie / utilities',
+    'Eau / assainissement / environnement',
+    'Construction / BTP',
+    'Promotion immobilière',
+    'Architecture / ingénierie / bureau d’études',
+    'Travaux publics / VRD',
+    'Commerce de gros',
+    'Commerce de détail',
+    'Import / Export',
+    'Distribution / logistique',
+    'Transport routier',
+    'Transport maritime',
+    'Transport aérien',
+    'Entreposage / stockage',
+    'Hôtellerie',
+    'Restauration / cafés',
+    'Tourisme / agences de voyage',
+    'Événementiel',
+    'Télécommunications',
+    'Informatique (services)',
+    'Développement logiciel',
+    'E-commerce',
+    'Sécurité informatique',
+    'Conseil / stratégie',
+    'Comptabilité / audit',
+    'Juridique / avocat / notaire',
+    'Assurance',
+    'Banque / finance',
+    'Immobilier (agence)',
+    'Location de véhicules',
+    'Services aux entreprises',
+    'Nettoyage / hygiène',
+    'Sécurité / gardiennage',
+    'Recrutement / RH',
+    'Formation / éducation',
+    'Santé / clinique / cabinet',
+    'Pharmacie / parapharmacie',
+    'Laboratoire / analyses',
+    'Vétérinaire',
+    'Beauté / esthétique / coiffure',
+    'Sport / loisirs',
+    'Culture / médias / publicité',
+    'Design / communication',
+    'Photographie / audiovisuel',
+    'Artisanat',
+    'Réparation (électroménager, téléphone, etc.)',
+    'Automobile (vente / réparation)',
+    'Pièces détachées',
+    'Boulangerie / pâtisserie',
+    'Boucherie / poissonnerie',
+    'Supermarché / épicerie',
+    'Parfumerie',
+    'Librairie / papeterie',
+    'Matériel informatique / bureautique',
+    'Matériel électrique',
+    'Quincaillerie',
+    'Autre',
+  ] as const;
   
   // Get the default tab from URL query parameter
   const defaultTab = searchParams.get('tab') || 'company';
@@ -166,10 +244,31 @@ export default function Settings() {
           stamp_url: data.stamp_url || '',
           bank_accounts: ((data as any).bank_accounts || [])
         });
+
+        // Initialize activity select state.
+        // If activity is not one of the predefined options, show it as a custom "Autre" value.
+        const loadedActivity = (data.activity || '').trim();
+        const isKnownActivity = loadedActivity && (TUNISIAN_ACTIVITIES as readonly string[]).includes(loadedActivity);
+        if (isKnownActivity) {
+          setActivitySelectValue(loadedActivity);
+          setCustomActivity('');
+        } else if (loadedActivity) {
+          setActivitySelectValue(OTHER_ACTIVITY_VALUE);
+          setCustomActivity(loadedActivity);
+        } else {
+          setActivitySelectValue('');
+          setCustomActivity('');
+        }
         
-        // Check if user needs onboarding (no legal_name means first time)
-        const needsOnboarding = !data.legal_name && !(data as any).name;
-        if (needsOnboarding && !searchParams.get('tab')) {
+        // Show onboarding wizard when company is not configured.
+        // Fallback: if the backend column doesn't exist yet, infer onboarding need from missing legal_name.
+        const hasIsConfiguredColumn = Object.prototype.hasOwnProperty.call(data, 'is_configured');
+        const needsOnboarding =
+          (hasIsConfiguredColumn && (data as any).is_configured === false) ||
+          (!data.legal_name && !(data as any).name);
+
+        if (needsOnboarding) {
+          setSetupStep(1);
           setShowSetupWizard(true);
         }
       }
@@ -179,6 +278,26 @@ export default function Settings() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleActivitySelectChange = (value: string) => {
+    setActivitySelectValue(value);
+    if (!settings) return;
+
+    if (value === OTHER_ACTIVITY_VALUE) {
+      // Keep current custom value (or empty) in settings.activity
+      setSettings({ ...settings, activity: customActivity });
+      return;
+    }
+
+    setCustomActivity('');
+    setSettings({ ...settings, activity: value });
+  };
+
+  const handleCustomActivityChange = (value: string) => {
+    setCustomActivity(value);
+    if (!settings) return;
+    setSettings({ ...settings, activity: value });
   };
 
   const handleLogoUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -525,12 +644,33 @@ export default function Settings() {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="wizard_activity">Activité</Label>
-                <Input
-                  id="wizard_activity"
-                  value={settings.activity}
-                  onChange={(e) => setSettings({ ...settings, activity: e.target.value })}
-                  placeholder="Ex: Commerce de détail..."
-                />
+                <Select
+                  value={activitySelectValue}
+                  onValueChange={handleActivitySelectChange}
+                >
+                  <SelectTrigger id="wizard_activity">
+                    <SelectValue placeholder="Sélectionner une activité" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {TUNISIAN_ACTIVITIES.map((activity) => (
+                      <SelectItem key={activity} value={activity}>
+                        {activity}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+
+                {activitySelectValue === OTHER_ACTIVITY_VALUE && (
+                  <div className="space-y-2">
+                    <Label htmlFor="wizard_activity_other">Précisez votre activité</Label>
+                    <Input
+                      id="wizard_activity_other"
+                      value={customActivity}
+                      onChange={(e) => handleCustomActivityChange(e.target.value)}
+                      placeholder="Ex: Vente en ligne de vêtements"
+                    />
+                  </div>
+                )}
               </div>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -786,12 +926,33 @@ export default function Settings() {
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="activity">Activité</Label>
-                  <Input
-                    id="activity"
-                    value={settings.activity}
-                    onChange={(e) => setSettings({ ...settings, activity: e.target.value })}
-                    placeholder="Ex: Commerce de détail, Services informatiques..."
-                  />
+                  <Select
+                    value={activitySelectValue}
+                    onValueChange={handleActivitySelectChange}
+                  >
+                    <SelectTrigger id="activity">
+                      <SelectValue placeholder="Sélectionner une activité" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {TUNISIAN_ACTIVITIES.map((activity) => (
+                        <SelectItem key={activity} value={activity}>
+                          {activity}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+
+                  {activitySelectValue === OTHER_ACTIVITY_VALUE && (
+                    <div className="space-y-2">
+                      <Label htmlFor="activity_other">Précisez votre activité</Label>
+                      <Input
+                        id="activity_other"
+                        value={customActivity}
+                        onChange={(e) => handleCustomActivityChange(e.target.value)}
+                        placeholder="Ex: Services informatiques (freelance)"
+                      />
+                    </div>
+                  )}
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="type">Type d'entreprise</Label>
@@ -804,7 +965,7 @@ export default function Settings() {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="personne_physique">Personne Physique</SelectItem>
-                      <SelectItem value="personne_morale">Personne Morale</SelectItem>
+                      <SelectItem value="personne_morale">Entreprise</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>

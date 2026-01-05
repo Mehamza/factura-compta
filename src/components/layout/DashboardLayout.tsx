@@ -1,6 +1,7 @@
-import { ReactNode, useState } from 'react';
+import { ReactNode, useEffect, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
+import { useCompanySettings } from '@/hooks/useCompanySettings';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import {
@@ -41,6 +42,7 @@ const superAdminNavigation = [
 export function DashboardLayout({ children }: { children: ReactNode }) {
   const { user, profile, role, globalRole, signOut, isImpersonating, impersonatedUser, stopImpersonation } = useAuth();
   const isSuperAdmin = globalRole === 'SUPER_ADMIN';
+  const { companySettings, loading: companySettingsLoading } = useCompanySettings();
   const location = useLocation();
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -49,6 +51,17 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
   const [openDropdowns, setOpenDropdowns] = useState<Record<string, boolean>>({});
 
   const navigationRole = role as NavigationRole | null | undefined;
+
+  // Force the initial setup wizard for unconfigured companies.
+  // The wizard itself is rendered from the Settings page; we redirect there from any protected page.
+  useEffect(() => {
+    // Never block super-admin area with company setup.
+    if (isSuperAdmin && location.pathname.startsWith('/hamzafacturation')) return;
+    if (companySettingsLoading) return;
+    if (companySettings && companySettings.is_configured === false && location.pathname !== '/settings') {
+      navigate('/settings', { replace: true });
+    }
+  }, [companySettings, companySettingsLoading, isSuperAdmin, location.pathname, navigate]);
 
   // Get user initials for avatar
   const getUserInitials = () => {
