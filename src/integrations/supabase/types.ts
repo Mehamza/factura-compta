@@ -164,6 +164,7 @@ export type Database = {
           invoice_next_number: number | null
           invoice_number_padding: number | null
           invoice_prefix: string | null
+          is_configured: boolean | null
           legal_name: string | null
           logo_url: string | null
           matricule_fiscale: string | null
@@ -194,6 +195,7 @@ export type Database = {
           invoice_next_number?: number | null
           invoice_number_padding?: number | null
           invoice_prefix?: string | null
+          is_configured?: boolean | null
           legal_name?: string | null
           logo_url?: string | null
           matricule_fiscale?: string | null
@@ -224,6 +226,7 @@ export type Database = {
           invoice_next_number?: number | null
           invoice_number_padding?: number | null
           invoice_prefix?: string | null
+          is_configured?: boolean | null
           legal_name?: string | null
           logo_url?: string | null
           matricule_fiscale?: string | null
