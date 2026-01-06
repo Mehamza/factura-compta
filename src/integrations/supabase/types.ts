@@ -158,6 +158,10 @@ export type Database = {
           created_at: string
           default_currency: string | null
           default_vat_rate: number | null
+          disabled_at: string | null
+          disabled_by: string | null
+          disabled_reason: string | null
+          disabled_until: string | null
           email: string | null
           id: string
           invoice_format: string | null
@@ -189,6 +193,10 @@ export type Database = {
           created_at?: string
           default_currency?: string | null
           default_vat_rate?: number | null
+          disabled_at?: string | null
+          disabled_by?: string | null
+          disabled_reason?: string | null
+          disabled_until?: string | null
           email?: string | null
           id?: string
           invoice_format?: string | null
@@ -220,6 +228,10 @@ export type Database = {
           created_at?: string
           default_currency?: string | null
           default_vat_rate?: number | null
+          disabled_at?: string | null
+          disabled_by?: string | null
+          disabled_reason?: string | null
+          disabled_until?: string | null
           email?: string | null
           id?: string
           invoice_format?: string | null
@@ -291,6 +303,47 @@ export type Database = {
             columns: ["plan_id"]
             isOneToOne: false
             referencedRelation: "plans"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      company_status_logs: {
+        Row: {
+          action: string
+          company_id: string
+          disabled_until: string | null
+          id: string
+          metadata: Json | null
+          performed_at: string
+          performed_by: string
+          reason: string | null
+        }
+        Insert: {
+          action: string
+          company_id: string
+          disabled_until?: string | null
+          id?: string
+          metadata?: Json | null
+          performed_at?: string
+          performed_by: string
+          reason?: string | null
+        }
+        Update: {
+          action?: string
+          company_id?: string
+          disabled_until?: string | null
+          id?: string
+          metadata?: Json | null
+          performed_at?: string
+          performed_by?: string
+          reason?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "company_status_logs_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
             referencedColumns: ["id"]
           },
         ]
@@ -1194,6 +1247,13 @@ export type Database = {
     }
     Functions: {
       _get_default_company_id: { Args: never; Returns: string }
+      auto_reactivate_companies: {
+        Args: never
+        Returns: {
+          company_id: string
+          company_name: string
+        }[]
+      }
       convert_purchase_quote_to_invoice: {
         Args: { p_invoice_id: string }
         Returns: {
@@ -1253,6 +1313,7 @@ export type Database = {
         Args: { _company_id: string; _user_id: string }
         Returns: boolean
       }
+      is_company_disabled: { Args: { p_company_id: string }; Returns: boolean }
       is_super_admin: { Args: { _user_id: string }; Returns: boolean }
       is_super_admin_direct: { Args: { _user_id: string }; Returns: boolean }
       recompute_invoice_totals: {
