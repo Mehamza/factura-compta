@@ -563,15 +563,13 @@ export type Database = {
           created_at: string
           created_by_user_id: string | null
           currency: string | null
-          document_kind?: string | null
-          document_type?: string | null
+          document_kind: string
           due_date: string
           fodec_amount: number | null
           id: string
           invoice_number: string
           issue_date: string
           notes: string | null
-          purchase_number?: string | null
           reference_devis: string | null
           stamp_amount: number
           stamp_included: boolean
@@ -592,15 +590,13 @@ export type Database = {
           created_at?: string
           created_by_user_id?: string | null
           currency?: string | null
-          document_kind?: string | null
-          document_type?: string | null
+          document_kind?: string
           due_date: string
           fodec_amount?: number | null
           id?: string
           invoice_number: string
           issue_date?: string
           notes?: string | null
-          purchase_number?: string | null
           reference_devis?: string | null
           stamp_amount?: number
           stamp_included?: boolean
@@ -621,15 +617,13 @@ export type Database = {
           created_at?: string
           created_by_user_id?: string | null
           currency?: string | null
-          document_kind?: string | null
-          document_type?: string | null
+          document_kind?: string
           due_date?: string
           fodec_amount?: number | null
           id?: string
           invoice_number?: string
           issue_date?: string
           notes?: string | null
-          purchase_number?: string | null
           reference_devis?: string | null
           stamp_amount?: number
           stamp_included?: boolean
