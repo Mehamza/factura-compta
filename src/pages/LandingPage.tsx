@@ -404,7 +404,7 @@ export default function LandingPage() {
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="email">Email</Label>
-                      <Input id="email" type="email" placeholder="votre@email.com" />
+                      <Input id="email" type="email" placeholder="foulen.Benfoulen@email.com" />
                     </div>
                   </div>
                   <div className="space-y-2">

@@ -146,7 +146,7 @@ export default function Contact() {
                     <Input 
                       id="email" 
                       type="email" 
-                      placeholder="votre@email.com"
+                      placeholder="foulen.Benfoulen@email.com"
                       value={formData.email}
                       onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
                       disabled={submitting}

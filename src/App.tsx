@@ -8,7 +8,6 @@ import { AuthProvider } from "@/hooks/useAuth";
 import { ProtectedRoute } from "@/components/layout/ProtectedRoute";
 import { SuperAdminRoute } from "@/components/layout/ProtectedRoute";
 import { ModuleProtectedRoute } from "@/components/layout/ModuleProtectedRoute";
-import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import Index from "./pages/Index";
 import LandingPage from "./pages/LandingPage";
 import Auth from "./pages/Auth";
@@ -28,9 +27,8 @@ import Accounts from "./pages/Accounts";
 import Reports from "./pages/Reports";
 import StockProducts from "./pages/StockProducts";
 import StockMovements from "./pages/StockMovements";
-import AdminIndex from "./pages/AdminIndex";
+import SuperAdminDashboard from './pages/SuperAdminDashboard';
 import AdminUsers from "./pages/AdminUsers";
-import Pricing from "./pages/Pricing";
 import AdminPlans from "./pages/AdminPlans";
 import Tarif from "./pages/Tarif"; 
 import Contact from "./pages/Contact";
@@ -96,10 +94,44 @@ const router = createBrowserRouter(
       <Route path="/settings/utilisateurs" element={<ProtectedRoute><ModuleProtectedRoute><PageTransition><SettingsUsers /></PageTransition></ModuleProtectedRoute></ProtectedRoute>} />
       
       {/* Super admin routes */}
-      <Route path="/hamzafacturation" element={<ProtectedRoute><SuperAdminRoute><PageTransition><AdminIndex /></PageTransition></SuperAdminRoute></ProtectedRoute>} />
-      <Route path="/hamzafacturation/plans" element={<ProtectedRoute><SuperAdminRoute><PageTransition><AdminPlans /></PageTransition></SuperAdminRoute></ProtectedRoute>} />
-      <Route path="/hamzafacturation/utilisateurs" element={<ProtectedRoute><SuperAdminRoute><PageTransition><AdminUsers /></PageTransition></SuperAdminRoute></ProtectedRoute>} />
-      
+      <Route
+        path="/hamzafacturation"
+        element={
+          <ProtectedRoute>
+            <SuperAdminRoute>
+              <PageTransition>
+                <SuperAdminDashboard />
+              </PageTransition>
+            </SuperAdminRoute>
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/hamzafacturation/plans"
+        element={
+          <ProtectedRoute>
+            <SuperAdminRoute>
+              <PageTransition>
+                <AdminPlans />
+              </PageTransition>
+            </SuperAdminRoute>
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/hamzafacturation/utilisateurs"
+        element={
+          <ProtectedRoute>
+            <SuperAdminRoute>
+              <PageTransition>
+                <AdminUsers />
+              </PageTransition>
+            </SuperAdminRoute>
+          </ProtectedRoute>
+        }
+      />
       {/* 404 */}
       <Route path="*" element={<motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }}><NotFound /></motion.div>} />
     </Route>

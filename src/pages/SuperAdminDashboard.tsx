@@ -454,20 +454,20 @@ export default function SuperAdminDashboard() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-        <TabsList className="grid w-full grid-cols-4 lg:w-auto lg:inline-grid">
-          <TabsTrigger value="overview" className="gap-2">
+        <TabsList className="grid w-full grid-cols-4 rounded-lg bg-muted p-1">
+          <TabsTrigger value="overview" className="w-full justify-center gap-2 whitespace-nowrap px-2 sm:px-3">
             <TrendingUp className="h-4 w-4" />
             <span className="hidden sm:inline">Vue d'ensemble</span>
           </TabsTrigger>
-          <TabsTrigger value="users" className="gap-2">
+          <TabsTrigger value="users" className="w-full justify-center gap-2 whitespace-nowrap px-2 sm:px-3">
             <Users className="h-4 w-4" />
             <span className="hidden sm:inline">Utilisateurs</span>
           </TabsTrigger>
-          <TabsTrigger value="companies" className="gap-2">
+          <TabsTrigger value="companies" className="w-full justify-center gap-2 whitespace-nowrap px-2 sm:px-3">
             <Building2 className="h-4 w-4" />
             <span className="hidden sm:inline">Entreprises</span>
           </TabsTrigger>
-          <TabsTrigger value="plans" className="gap-2">
+          <TabsTrigger value="plans" className="w-full justify-center gap-2 whitespace-nowrap px-2 sm:px-3">
             <Layers className="h-4 w-4" />
             <span className="hidden sm:inline">Plans</span>
           </TabsTrigger>

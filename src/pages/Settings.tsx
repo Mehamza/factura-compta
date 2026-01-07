@@ -82,7 +82,7 @@ const defaultSettings: Omit<CompanySettings, 'id' | 'type' | 'is_configured'> = 
 };
 
 export default function Settings() {
-  const { user, activeCompanyId } = useAuth();
+  const { user, activeCompanyId, setActiveCompany } = useAuth();
   const [searchParams] = useSearchParams();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -183,10 +183,27 @@ export default function Settings() {
   const defaultTab = searchParams.get('tab') || 'company';
 
   useEffect(() => {
-    if (user && activeCompanyId) {
-      fetchSettings();
+    if (!user) return;
+    // If user has no company yet, initialize wizard with defaults.
+    if (!activeCompanyId) {
+      setSettings({
+        id: '',
+        type: 'personne_physique',
+        is_configured: false,
+        ...defaultSettings,
+      });
+      setSupportsBankAccounts(false);
+      setSupportsIsConfigured(false);
+      setSupportedColumns(new Set());
+      setShowSetupWizard(true);
+      setSetupStep(1);
+      setLoading(false);
       fetchProfile();
+      return;
     }
+
+    fetchSettings();
+    fetchProfile();
   }, [user, activeCompanyId]);
 
   const fetchProfile = async () => {
@@ -504,8 +521,9 @@ export default function Settings() {
     'Other'
   ];
 
-  const saveSettings = async () => {
-    if (!settings || !activeCompanyId) return;
+  const saveSettings = async (companyIdOverride?: string) => {
+    const companyId = companyIdOverride ?? activeCompanyId;
+    if (!settings || !companyId) return;
 
     setSaving(true);
     try {
@@ -556,7 +574,7 @@ export default function Settings() {
       const { error } = await supabase
         .from('companies')
         .update(payload)
-        .eq('id', activeCompanyId);
+        .eq('id', companyId);
 
       if (error) throw error;
 
@@ -617,7 +635,81 @@ export default function Settings() {
   if (!settings) return null;
 
   const handleCompleteSetup = async () => {
-    await saveSettings();
+    // If the user has no company yet, create it now (only on wizard completion).
+    if (!activeCompanyId) {
+      try {
+        // Try insert with both name and legal_name for compatibility.
+        const baseName = (settings.legal_name || '').trim() || (profile?.full_name || '').trim() || user?.email || 'Entreprise';
+
+        const tryInsert = async (payload: any) => {
+          const res = await (supabase
+            .from('companies' as any)
+            .insert(payload)
+            .select('*')
+            .single() as any);
+          return res;
+        };
+
+        let insertedCompany: any | null = null;
+        let insertError: any | null = null;
+
+        // Attempt 1: name + legal_name
+        ({ data: insertedCompany, error: insertError } = await tryInsert({
+          name: baseName,
+          legal_name: baseName,
+          type: settings.type,
+        }));
+
+        // Attempt 2: only legal_name
+        if (insertError && String(insertError.message || '').toLowerCase().includes('column') && String(insertError.message || '').toLowerCase().includes('name')) {
+          ({ data: insertedCompany, error: insertError } = await tryInsert({
+            legal_name: baseName,
+            type: settings.type,
+          }));
+        }
+
+        // Attempt 3: only name
+        if (insertError && String(insertError.message || '').toLowerCase().includes('column') && String(insertError.message || '').toLowerCase().includes('legal_name')) {
+          ({ data: insertedCompany, error: insertError } = await tryInsert({
+            name: baseName,
+            type: settings.type,
+          }));
+        }
+
+        if (insertError) throw insertError;
+        if (!insertedCompany?.id) throw new Error('Company creation failed');
+
+        // Link user as company_admin
+        const { error: linkErr } = await supabase
+          .from('company_users' as any)
+          .insert({ user_id: user!.id, company_id: insertedCompany.id, role: 'company_admin' });
+        if (linkErr) throw linkErr;
+
+        // Backward compatibility: assign legacy app role for navigation/permissions
+        await supabase
+          .from('user_roles' as any)
+          .upsert({ user_id: user!.id, role: 'admin' }, { onConflict: 'user_id' } as any);
+
+        // Make it the active company in the app
+        setActiveCompany(insertedCompany.id);
+
+        // Update local schema detection using returned row
+        setSupportsBankAccounts(Object.prototype.hasOwnProperty.call(insertedCompany, 'bank_accounts'));
+        setSupportsIsConfigured(Object.prototype.hasOwnProperty.call(insertedCompany, 'is_configured'));
+        setSupportedColumns(new Set(Object.keys(insertedCompany)));
+        setSettings((prev) => prev ? { ...prev, id: insertedCompany.id } : prev);
+
+        // Now save the wizard fields into the created company
+        await saveSettings(insertedCompany.id);
+      } catch (e) {
+        logger.error('Erreur création entreprise:', e);
+        toast.error('Erreur lors de la création de l\'entreprise');
+        return;
+      }
+    } else {
+      await saveSettings();
+    }
+
     setShowSetupWizard(false);
   };
 
@@ -832,7 +924,7 @@ export default function Settings() {
           <h1 className="text-3xl font-bold text-foreground">Paramètres</h1>
           <p className="text-muted-foreground">Configuration de votre entreprise et facturation</p>
         </div>
-        <Button onClick={saveSettings} disabled={saving}>
+        <Button onClick={() => saveSettings()} disabled={saving}>
           <Save className="h-4 w-4 mr-2" />
           {saving ? 'Enregistrement...' : 'Enregistrer'}
         </Button>

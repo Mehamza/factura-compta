@@ -34,13 +34,13 @@ import { isModuleLocked } from '@/lib/navigationPermissions';
 
 // Super admin navigation (separate from main config)
 const superAdminNavigation = [
-  { name: 'Espace Super Admin', href: '/hamzafacturation', icon: Shield },
+  { name: 'Super Admin Dashboard', href: '/hamzafacturation', icon: Shield },
   { name: 'Plans', href: '/hamzafacturation/plans', icon: Users },
   { name: 'Utilisateurs globaux', href: '/hamzafacturation/utilisateurs', icon: UserCog },
 ];
 
 export function DashboardLayout({ children }: { children: ReactNode }) {
-  const { user, profile, role, globalRole, signOut, isImpersonating, impersonatedUser, stopImpersonation } = useAuth();
+  const { user, profile, role, globalRole, activeCompanyId, signOut, isImpersonating, impersonatedUser, stopImpersonation } = useAuth();
   const isSuperAdmin = globalRole === 'SUPER_ADMIN';
   const { companySettings, loading: companySettingsLoading } = useCompanySettings();
   const location = useLocation();
@@ -58,10 +58,16 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
     // Never block super-admin area with company setup.
     if (isSuperAdmin && location.pathname.startsWith('/hamzafacturation')) return;
     if (companySettingsLoading) return;
+
+    // If the user has no company yet, force them into Settings (wizard will create it).
+    if (!activeCompanyId && location.pathname !== '/settings') {
+      navigate('/settings', { replace: true });
+      return;
+    }
     if (companySettings && companySettings.is_configured === false && location.pathname !== '/settings') {
       navigate('/settings', { replace: true });
     }
-  }, [companySettings, companySettingsLoading, isSuperAdmin, location.pathname, navigate]);
+  }, [activeCompanyId, companySettings, companySettingsLoading, isSuperAdmin, location.pathname, navigate]);
 
   // Get user initials for avatar
   const getUserInitials = () => {
@@ -344,10 +350,6 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
             <nav className="flex-1 flex flex-col gap-1 p-2 overflow-y-auto sidebar-nav">
               {isSuperAdmin ? (
                 <>
-                  <div className="my-2 border-t border-border/30" />
-                  {!collapsed && (
-                    <p className="px-3 py-1 text-xs font-semibold text-muted-foreground uppercase">Administration</p>
-                  )}
                   {superAdminNavigation.map((item) => (
                     <NavItem key={item.name} item={item} onClick={() => setSidebarOpen(false)} />
                   ))}
