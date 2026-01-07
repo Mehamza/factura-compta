@@ -15,6 +15,26 @@ import Clients from "./pages/Clients";
 import Suppliers from "./pages/Suppliers";
 import Invoices from "./pages/Invoices";
 import Purchases from "./pages/Purchases";
+import SalesDevis from "./pages/documents/SalesDevis";
+import SalesDevisNew from "./pages/documents/SalesDevisNew";
+import SalesBonCommande from "./pages/documents/SalesBonCommande";
+import SalesBonCommandeNew from "./pages/documents/SalesBonCommandeNew";
+import SalesBonLivraison from "./pages/documents/SalesBonLivraison";
+import SalesBonLivraisonNew from "./pages/documents/SalesBonLivraisonNew";
+import SalesFactureCredit from "./pages/documents/SalesFactureCredit";
+import SalesFactureCreditNew from "./pages/documents/SalesFactureCreditNew";
+import SalesFacturePayee from "./pages/documents/SalesFacturePayee";
+import SalesFacturePayeeNew from "./pages/documents/SalesFacturePayeeNew";
+import PurchaseDevis from "./pages/documents/PurchaseDevis";
+import PurchaseDevisNew from "./pages/documents/PurchaseDevisNew";
+import PurchaseBonCommande from "./pages/documents/PurchaseBonCommande";
+import PurchaseBonCommandeNew from "./pages/documents/PurchaseBonCommandeNew";
+import PurchaseBonLivraison from "./pages/documents/PurchaseBonLivraison";
+import PurchaseBonLivraisonNew from "./pages/documents/PurchaseBonLivraisonNew";
+import PurchaseFactureCredit from "./pages/documents/PurchaseFactureCredit";
+import PurchaseFactureCreditNew from "./pages/documents/PurchaseFactureCreditNew";
+import PurchaseFacturePayee from "./pages/documents/PurchaseFacturePayee";
+import PurchaseFacturePayeeNew from "./pages/documents/PurchaseFacturePayeeNew";
 import Documents from "./pages/Documents";
 import Users from "./pages/Users";
 import Settings from "./pages/Settings";
@@ -69,19 +89,29 @@ const router = createBrowserRouter(
       
       {/* Invoices routes (dropdown children) */}
       <Route path="/invoices" element={<ProtectedRoute><PageTransition><Invoices /></PageTransition></ProtectedRoute>} />
-      <Route path="/invoices/devis" element={<ProtectedRoute><PageTransition><Invoices /></PageTransition></ProtectedRoute>} />
-      <Route path="/invoices/bon-commande" element={<ProtectedRoute><PageTransition><Invoices /></PageTransition></ProtectedRoute>} />
-      <Route path="/invoices/bon-livraison" element={<ProtectedRoute><PageTransition><Invoices /></PageTransition></ProtectedRoute>} />
-      <Route path="/invoices/credit" element={<ProtectedRoute><PageTransition><Invoices /></PageTransition></ProtectedRoute>} />
-      <Route path="/invoices/recu" element={<ProtectedRoute><PageTransition><Invoices /></PageTransition></ProtectedRoute>} />
+      <Route path="/invoices/devis" element={<ProtectedRoute><PageTransition><SalesDevis /></PageTransition></ProtectedRoute>} />
+      <Route path="/invoices/devis/new" element={<ProtectedRoute><PageTransition><SalesDevisNew /></PageTransition></ProtectedRoute>} />
+      <Route path="/invoices/bon-commande" element={<ProtectedRoute><PageTransition><SalesBonCommande /></PageTransition></ProtectedRoute>} />
+      <Route path="/invoices/bon-commande/new" element={<ProtectedRoute><PageTransition><SalesBonCommandeNew /></PageTransition></ProtectedRoute>} />
+      <Route path="/invoices/bon-livraison" element={<ProtectedRoute><PageTransition><SalesBonLivraison /></PageTransition></ProtectedRoute>} />
+      <Route path="/invoices/bon-livraison/new" element={<ProtectedRoute><PageTransition><SalesBonLivraisonNew /></PageTransition></ProtectedRoute>} />
+      <Route path="/invoices/credit" element={<ProtectedRoute><PageTransition><SalesFactureCredit /></PageTransition></ProtectedRoute>} />
+      <Route path="/invoices/credit/new" element={<ProtectedRoute><PageTransition><SalesFactureCreditNew /></PageTransition></ProtectedRoute>} />
+      <Route path="/invoices/recu" element={<ProtectedRoute><PageTransition><SalesFacturePayee /></PageTransition></ProtectedRoute>} />
+      <Route path="/invoices/recu/new" element={<ProtectedRoute><PageTransition><SalesFacturePayeeNew /></PageTransition></ProtectedRoute>} />
       
       {/* Purchases routes (dropdown children) */}
       <Route path="/purchases" element={<ProtectedRoute><PageTransition><Purchases /></PageTransition></ProtectedRoute>} />
-      <Route path="/purchases/devis" element={<ProtectedRoute><PageTransition><Purchases /></PageTransition></ProtectedRoute>} />
-      <Route path="/purchases/bon-commande" element={<ProtectedRoute><PageTransition><Purchases /></PageTransition></ProtectedRoute>} />
-      <Route path="/purchases/bon-livraison" element={<ProtectedRoute><PageTransition><Purchases /></PageTransition></ProtectedRoute>} />
-      <Route path="/purchases/credit" element={<ProtectedRoute><PageTransition><Purchases /></PageTransition></ProtectedRoute>} />
-      <Route path="/purchases/recu" element={<ProtectedRoute><PageTransition><Purchases /></PageTransition></ProtectedRoute>} />
+      <Route path="/purchases/devis" element={<ProtectedRoute><PageTransition><PurchaseDevis /></PageTransition></ProtectedRoute>} />
+      <Route path="/purchases/devis/new" element={<ProtectedRoute><PageTransition><PurchaseDevisNew /></PageTransition></ProtectedRoute>} />
+      <Route path="/purchases/bon-commande" element={<ProtectedRoute><PageTransition><PurchaseBonCommande /></PageTransition></ProtectedRoute>} />
+      <Route path="/purchases/bon-commande/new" element={<ProtectedRoute><PageTransition><PurchaseBonCommandeNew /></PageTransition></ProtectedRoute>} />
+      <Route path="/purchases/bon-livraison" element={<ProtectedRoute><PageTransition><PurchaseBonLivraison /></PageTransition></ProtectedRoute>} />
+      <Route path="/purchases/bon-livraison/new" element={<ProtectedRoute><PageTransition><PurchaseBonLivraisonNew /></PageTransition></ProtectedRoute>} />
+      <Route path="/purchases/credit" element={<ProtectedRoute><PageTransition><PurchaseFactureCredit /></PageTransition></ProtectedRoute>} />
+      <Route path="/purchases/credit/new" element={<ProtectedRoute><PageTransition><PurchaseFactureCreditNew /></PageTransition></ProtectedRoute>} />
+      <Route path="/purchases/recu" element={<ProtectedRoute><PageTransition><PurchaseFacturePayee /></PageTransition></ProtectedRoute>} />
+      <Route path="/purchases/recu/new" element={<ProtectedRoute><PageTransition><PurchaseFacturePayeeNew /></PageTransition></ProtectedRoute>} />
       
       {/* Stock routes */}
       <Route path="/stock/produits" element={<ProtectedRoute><PageTransition><StockProducts /></PageTransition></ProtectedRoute>} />
