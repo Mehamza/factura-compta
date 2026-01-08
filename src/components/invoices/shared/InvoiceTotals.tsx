@@ -1,24 +1,42 @@
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
-import type { InvoiceTotals as TotalsType } from './types';
+import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
+import { Percent, DollarSign } from 'lucide-react';
+import type { InvoiceTotals as TotalsType, DiscountConfig } from './types';
 
 interface InvoiceTotalsProps {
   totals: TotalsType;
   stampIncluded: boolean;
   onStampChange: (checked: boolean) => void;
+  discount?: DiscountConfig;
+  onDiscountChange?: (discount: DiscountConfig) => void;
   currency?: string;
   showStamp?: boolean;
+  showDiscount?: boolean;
 }
 
 export function InvoiceTotals({ 
   totals, 
   stampIncluded, 
-  onStampChange, 
+  onStampChange,
+  discount = { type: 'percent', value: 0 },
+  onDiscountChange,
   currency = 'TND',
-  showStamp = true 
+  showStamp = true,
+  showDiscount = true,
 }: InvoiceTotalsProps) {
   const formatAmount = (amount: number) => {
     return `${amount.toFixed(3)} ${currency}`;
+  };
+
+  const handleDiscountTypeChange = (type: 'percent' | 'fixed') => {
+    onDiscountChange?.({ ...discount, type });
+  };
+
+  const handleDiscountValueChange = (value: string) => {
+    const numValue = parseFloat(value) || 0;
+    onDiscountChange?.({ ...discount, value: numValue });
   };
 
   return (
@@ -27,6 +45,48 @@ export function InvoiceTotals({
         <span className="text-muted-foreground">Sous-total HT</span>
         <span className="font-medium">{formatAmount(totals.subtotal)}</span>
       </div>
+
+      {/* Discount input */}
+      {showDiscount && onDiscountChange && (
+        <div className="flex items-center justify-between gap-2 text-sm">
+          <div className="flex items-center gap-2">
+            <Label className="text-muted-foreground">Remise</Label>
+            <div className="flex border rounded-md overflow-hidden">
+              <Button
+                type="button"
+                variant={discount.type === 'percent' ? 'default' : 'ghost'}
+                size="sm"
+                className="h-7 px-2 rounded-none"
+                onClick={() => handleDiscountTypeChange('percent')}
+              >
+                <Percent className="h-3 w-3" />
+              </Button>
+              <Button
+                type="button"
+                variant={discount.type === 'fixed' ? 'default' : 'ghost'}
+                size="sm"
+                className="h-7 px-2 rounded-none"
+                onClick={() => handleDiscountTypeChange('fixed')}
+              >
+                {currency}
+              </Button>
+            </div>
+            <Input
+              type="number"
+              min="0"
+              step={discount.type === 'percent' ? '0.1' : '0.001'}
+              max={discount.type === 'percent' ? '100' : undefined}
+              value={discount.value || ''}
+              onChange={(e) => handleDiscountValueChange(e.target.value)}
+              className="w-20 h-7 text-right"
+              placeholder="0"
+            />
+          </div>
+          {totals.discountAmount > 0 && (
+            <span className="font-medium text-destructive">-{formatAmount(totals.discountAmount)}</span>
+          )}
+        </div>
+      )}
       
       {totals.totalFodec > 0 && (
         <div className="flex justify-between text-sm">
