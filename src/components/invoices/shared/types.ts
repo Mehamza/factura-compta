@@ -55,33 +55,49 @@ export interface Product {
 export interface InvoiceTotals {
   subtotal: number;
   totalFodec: number;
+  discountAmount: number;
   baseTVA: number;
   taxAmount: number;
   stamp: number;
   total: number;
 }
 
-export interface InvoiceFormData {
-  client_id: string;
-  supplier_id: string;
-  issue_date: string;
-  due_date: string;
-  validity_date: string;
-  stamp_included: boolean;
-  notes: string;
-  status: string;
-  currency: string;
-  template_type: string;
+export interface DiscountConfig {
+  type: 'percent' | 'fixed';
+  value: number;
 }
 
 export const STAMP_AMOUNT = 1; // TND
 
-export const calculateTotals = (items: InvoiceItem[], stampIncluded: boolean): InvoiceTotals => {
+export const calculateTotals = (
+  items: InvoiceItem[], 
+  stampIncluded: boolean,
+  discount?: DiscountConfig
+): InvoiceTotals => {
   const subtotal = items.reduce((sum, item) => sum + Number(item.total || 0), 0);
   const totalFodec = items.reduce((sum, item) => sum + Number(item.fodec_amount || 0), 0);
-  const taxAmount = items.reduce((sum, item) => sum + Number(item.vat_amount || 0), 0);
-  const baseTVA = subtotal + totalFodec;
+  
+  // Calculate discount
+  let discountAmount = 0;
+  if (discount && discount.value > 0) {
+    if (discount.type === 'percent') {
+      discountAmount = subtotal * (discount.value / 100);
+    } else {
+      discountAmount = discount.value;
+    }
+  }
+  
+  const subtotalAfterDiscount = subtotal - discountAmount;
+  const baseTVA = subtotalAfterDiscount + totalFodec;
+  const taxAmount = items.reduce((sum, item) => {
+    const itemHT = Number(item.total || 0);
+    const itemFodec = Number(item.fodec_amount || 0);
+    // Proportionally reduce tax based on discount
+    const discountRatio = subtotal > 0 ? (subtotalAfterDiscount / subtotal) : 1;
+    const adjustedHT = itemHT * discountRatio;
+    return sum + ((adjustedHT + itemFodec) * (Number(item.vat_rate) / 100));
+  }, 0);
   const stamp = stampIncluded ? STAMP_AMOUNT : 0;
   const total = baseTVA + taxAmount + stamp;
-  return { subtotal, totalFodec, baseTVA, taxAmount, stamp, total };
+  return { subtotal, totalFodec, discountAmount, baseTVA, taxAmount, stamp, total };
 };

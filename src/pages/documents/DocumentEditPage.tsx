@@ -1,5 +1,5 @@
-import { useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useMemo, useState, useEffect, useCallback } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -25,45 +25,107 @@ import {
   type Product,
   type DiscountConfig,
 } from '@/components/invoices/shared';
+import { ArrowLeft } from 'lucide-react';
 
-export default function DocumentNewPage({ kind }: { kind: DocumentKind }) {
+export default function DocumentEditPage({ kind }: { kind: DocumentKind }) {
+  const { id } = useParams<{ id: string }>();
   const { toast } = useToast();
   const navigate = useNavigate();
-  const { config, create, handleStockMovement } = useInvoices(kind);
+  const { config, getById, update, handleStockMovement } = useInvoices(kind);
   const { companySettings } = useCompanySettings();
 
+  const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [status, setStatus] = useState(config.defaultStatus);
 
-  const today = useMemo(() => new Date().toISOString().slice(0, 10), []);
-  const defaultDueDate = useMemo(() => {
-    const d = new Date();
-    d.setDate(d.getDate() + 30);
-    return d.toISOString().slice(0, 10);
-  }, []);
-
-  const [issueDate, setIssueDate] = useState(today);
-  const [dueDate, setDueDate] = useState(defaultDueDate);
+  const [issueDate, setIssueDate] = useState('');
+  const [dueDate, setDueDate] = useState('');
   const [validityDate, setValidityDate] = useState('');
   const [clientId, setClientId] = useState('');
   const [supplierId, setSupplierId] = useState('');
   const [notes, setNotes] = useState('');
   const [stampIncluded, setStampIncluded] = useState(false);
-  const [currency] = useState(companySettings?.default_currency || 'TND');
+  const [currency, setCurrency] = useState(companySettings?.default_currency || 'TND');
   const [discount, setDiscount] = useState<DiscountConfig>({ type: 'percent', value: 0 });
 
   const defaultVatRate = companySettings?.default_vat_rate ?? 19;
 
-  // Items state
-  const [items, setItems] = useState<InvoiceItem[]>([
-    { reference: '', description: '', quantity: 1, unit_price: 0, vat_rate: defaultVatRate, vat_amount: 0, fodec_applicable: false, fodec_rate: 0.01, fodec_amount: 0, total: 0 }
-  ]);
+  const [items, setItems] = useState<InvoiceItem[]>([]);
   const [itemProductMap, setItemProductMap] = useState<Record<number, string>>({});
-  const [manualLines, setManualLines] = useState<Record<number, boolean>>({ 0: true });
+  const [manualLines, setManualLines] = useState<Record<number, boolean>>({});
 
   const priceType = config.module === 'achats' ? 'purchase' : 'sale';
 
   const totals = useMemo(() => calculateTotals(items, stampIncluded, discount), [items, stampIncluded, discount]);
+
+  // Load invoice data
+  const loadInvoice = useCallback(async () => {
+    if (!id) return;
+    setLoading(true);
+    const { invoice, items: invoiceItems, error } = await getById(id);
+    if (error) {
+      toast({ variant: 'destructive', title: 'Erreur', description: error.message });
+      navigate('..');
+      return;
+    }
+    if (!invoice) {
+      toast({ variant: 'destructive', title: 'Erreur', description: 'Document non trouvé' });
+      navigate('..');
+      return;
+    }
+
+    setIssueDate(invoice.issue_date || '');
+    setDueDate(invoice.due_date || '');
+    setValidityDate(invoice.validity_date || '');
+    setStatus(invoice.status || config.defaultStatus);
+    setClientId(invoice.client_id || '');
+    setSupplierId(invoice.supplier_id || '');
+    setNotes(invoice.notes || '');
+    setStampIncluded(invoice.stamp_included || false);
+    setCurrency(invoice.currency || 'TND');
+
+    const loadedItems: InvoiceItem[] = invoiceItems.map((item: any) => ({
+      id: item.id,
+      reference: item.reference || '',
+      description: item.description || '',
+      quantity: item.quantity || 1,
+      unit_price: item.unit_price || 0,
+      vat_rate: item.vat_rate ?? defaultVatRate,
+      vat_amount: item.vat_amount || 0,
+      fodec_applicable: item.fodec_applicable || false,
+      fodec_rate: item.fodec_rate || 0.01,
+      fodec_amount: item.fodec_amount || 0,
+      total: item.total || 0,
+    }));
+
+    if (loadedItems.length === 0) {
+      loadedItems.push({
+        reference: '',
+        description: '',
+        quantity: 1,
+        unit_price: 0,
+        vat_rate: defaultVatRate,
+        vat_amount: 0,
+        fodec_applicable: false,
+        fodec_rate: 0.01,
+        fodec_amount: 0,
+        total: 0,
+      });
+    }
+
+    setItems(loadedItems);
+    // All loaded items are considered manual (editable)
+    const manual: Record<number, boolean> = {};
+    loadedItems.forEach((_, i) => {
+      manual[i] = true;
+    });
+    setManualLines(manual);
+    setLoading(false);
+  }, [id, getById, toast, navigate, config.defaultStatus, defaultVatRate]);
+
+  useEffect(() => {
+    loadInvoice();
+  }, [loadInvoice]);
 
   const handleProductSelect = (index: number, product: Product) => {
     setItemProductMap(prev => ({ ...prev, [index]: product.id }));
@@ -144,7 +206,6 @@ export default function DocumentNewPage({ kind }: { kind: DocumentKind }) {
     if (items.length <= 1) return;
     setItems(items.filter((_, i) => i !== index));
     
-    // Update maps
     const newProductMap: Record<number, string> = {};
     const newManualLines: Record<number, boolean> = {};
     Object.keys(itemProductMap).forEach(k => {
@@ -164,7 +225,6 @@ export default function DocumentNewPage({ kind }: { kind: DocumentKind }) {
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    // Validation
     if (config.requiresClient && !clientId) {
       toast({ variant: 'destructive', title: 'Erreur', description: 'Veuillez sélectionner un client' });
       return;
@@ -193,7 +253,7 @@ export default function DocumentNewPage({ kind }: { kind: DocumentKind }) {
         total: Number(item.total) || 0,
       }));
 
-      const invoice = await create({
+      await update(id!, {
         issue_date: issueDate,
         due_date: dueDate,
         validity_date: validityDate || null,
@@ -210,37 +270,40 @@ export default function DocumentNewPage({ kind }: { kind: DocumentKind }) {
         total: totals.total,
       }, invoiceItems);
 
-      // Handle stock movement for bon de livraison
-      if (config.affectsStock && config.stockMovementType) {
-        try {
-          await handleStockMovement(invoice.id, config.stockMovementType);
-          toast({ title: 'Stock mis à jour', description: 'Les mouvements de stock ont été enregistrés.' });
-        } catch (stockErr: any) {
-          toast({ variant: 'destructive', title: 'Attention', description: 'Document créé mais erreur stock: ' + stockErr?.message });
-        }
-      }
-
-      toast({ title: 'Succès', description: `${config.label} créé avec succès` });
+      toast({ title: 'Succès', description: `${config.label} mis à jour avec succès` });
       navigate('..');
     } catch (err: any) {
-      toast({ variant: 'destructive', title: 'Erreur', description: err?.message || 'Création impossible' });
+      toast({ variant: 'destructive', title: 'Erreur', description: err?.message || 'Modification impossible' });
     } finally {
       setSubmitting(false);
     }
   };
 
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
+      <div className="flex items-center gap-4">
+        <Button variant="ghost" size="icon" onClick={() => navigate('..')}>
+          <ArrowLeft className="h-4 w-4" />
+        </Button>
+        <h1 className="text-xl font-semibold">Modifier — {config.label}</h1>
+      </div>
+
       <Card>
         <CardHeader>
-          <div className="text-xl font-semibold">Nouveau — {config.label}</div>
-          <div className="text-sm text-muted-foreground">Remplissez les informations du document</div>
+          <div className="text-sm text-muted-foreground">Modifiez les informations du document</div>
         </CardHeader>
         <CardContent>
           <form onSubmit={onSubmit} className="space-y-6">
             {/* Header info */}
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-              {/* Client or Supplier selector */}
               {config.requiresClient && (
                 <div className="space-y-2">
                   <Label>Client *</Label>
@@ -274,12 +337,12 @@ export default function DocumentNewPage({ kind }: { kind: DocumentKind }) {
                 </div>
               )}
 
-              {kind === 'devis' || kind === 'devis_achat' ? (
+              {(kind === 'devis' || kind === 'devis_achat') && (
                 <div className="space-y-2">
                   <Label>Date de validité</Label>
                   <Input type="date" value={validityDate} onChange={(e) => setValidityDate(e.target.value)} />
                 </div>
-              ) : null}
+              )}
 
               <div className="space-y-2">
                 <Label>Statut</Label>
@@ -341,7 +404,7 @@ export default function DocumentNewPage({ kind }: { kind: DocumentKind }) {
                 Annuler
               </Button>
               <Button type="submit" disabled={submitting}>
-                {submitting ? 'Création...' : 'Créer le document'}
+                {submitting ? 'Enregistrement...' : 'Enregistrer les modifications'}
               </Button>
             </div>
           </form>
