@@ -13,9 +13,13 @@ export interface InvoiceTemplateData {
   base_tva?: number;
   stamp_included?: boolean;
   stamp_amount?: number;
+  discount_amount?: number;
+  discount_type?: 'percent' | 'fixed';
+  discount_value?: number;
   notes?: string;
   currency: string;
   template_type: string;
+  document_title?: string;
   client?: {
     id?: string;
     name: string;
@@ -481,7 +485,7 @@ export async function generateClassicPDF(invoice: InvoiceTemplateData, items: In
   const currency = currencies[invoice.currency] || currencies.TND;
   
   // Professional header
-  let y = await drawProfessionalHeader(doc, pageWidth, invoice.company, 'FACTURE');
+  let y = await drawProfessionalHeader(doc, pageWidth, invoice.company, invoice.document_title || 'FACTURE');
   
   // Invoice info box
   y = drawInvoiceInfoBox(doc, pageWidth, y, invoice);
@@ -544,6 +548,17 @@ export async function generateClassicPDF(invoice: InvoiceTemplateData, items: In
   doc.setFontSize(10);
   doc.text('Sous-total HT:', 130, y);
   doc.text(formatCurrency(invoice.subtotal, invoice.currency), pageWidth - 25, y, { align: 'right' });
+  
+  // Discount (Remise)
+  if ((invoice.discount_amount || 0) > 0) {
+    y += 7;
+    const discountLabel = invoice.discount_type === 'percent' 
+      ? `Remise (${invoice.discount_value}%):` 
+      : 'Remise:';
+    doc.text(discountLabel, 130, y);
+    doc.text(`-${formatCurrency(invoice.discount_amount || 0, invoice.currency)}`, pageWidth - 25, y, { align: 'right' });
+  }
+  
   if ((invoice.fodec_amount_total || 0) > 0) {
     y += 7;
     doc.text('Total FODEC:', 130, y);
@@ -619,7 +634,7 @@ export async function generateModernPDF(invoice: InvoiceTemplateData, items: Inv
   const pageHeight = doc.internal.pageSize.getHeight();
   
   // Professional header
-  let y = await drawProfessionalHeader(doc, pageWidth, invoice.company, 'FACTURE');
+  let y = await drawProfessionalHeader(doc, pageWidth, invoice.company, invoice.document_title || 'FACTURE');
   
   // Invoice info box
   y = drawInvoiceInfoBox(doc, pageWidth, y, invoice);
@@ -661,30 +676,48 @@ export async function generateModernPDF(invoice: InvoiceTemplateData, items: Inv
   // Totals with colored background
   y += 5;
   doc.setFillColor(245, 247, 250);
-  const boxHeight = invoice.stamp_included ? 45 : 35;
+  let boxHeight = 35;
+  if (invoice.stamp_included) boxHeight += 8;
+  if ((invoice.discount_amount || 0) > 0) boxHeight += 8;
   doc.roundedRect(120, y - 3, 70, boxHeight, 3, 3, 'F');
   
+  let totalsY = y + 5;
   doc.setFontSize(10);
-  doc.text('Sous-total HT:', 125, y + 5);
-  doc.text(formatCurrency(invoice.subtotal, invoice.currency), 185, y + 5, { align: 'right' });
-  if ((invoice.fodec_amount_total || 0) > 0) {
-    doc.text('FODEC:', 125, y + 13);
-    doc.text(formatCurrency(invoice.fodec_amount_total || 0, invoice.currency), 185, y + 13, { align: 'right' });
-    y += 8;
-  }
-  doc.text('Montant TVA:', 125, y + 13);
-  doc.text(formatCurrency(invoice.tax_amount, invoice.currency), 185, y + 13, { align: 'right' });
-  if (invoice.stamp_included) {
-    doc.text('Timbre fiscal:', 125, y + 21);
-    doc.text(formatCurrency(invoice.stamp_amount || 0, invoice.currency), 185, y + 21, { align: 'right' });
-    y += 8;
+  doc.text('Sous-total HT:', 125, totalsY);
+  doc.text(formatCurrency(invoice.subtotal, invoice.currency), 185, totalsY, { align: 'right' });
+  
+  // Discount
+  if ((invoice.discount_amount || 0) > 0) {
+    totalsY += 8;
+    const discountLabel = invoice.discount_type === 'percent' 
+      ? `Remise (${invoice.discount_value}%):` 
+      : 'Remise:';
+    doc.text(discountLabel, 125, totalsY);
+    doc.text(`-${formatCurrency(invoice.discount_amount || 0, invoice.currency)}`, 185, totalsY, { align: 'right' });
   }
   
+  if ((invoice.fodec_amount_total || 0) > 0) {
+    totalsY += 8;
+    doc.text('FODEC:', 125, totalsY);
+    doc.text(formatCurrency(invoice.fodec_amount_total || 0, invoice.currency), 185, totalsY, { align: 'right' });
+  }
+  totalsY += 8;
+  doc.text('Montant TVA:', 125, totalsY);
+  doc.text(formatCurrency(invoice.tax_amount, invoice.currency), 185, totalsY, { align: 'right' });
+  if (invoice.stamp_included) {
+    totalsY += 8;
+    doc.text('Timbre fiscal:', 125, totalsY);
+    doc.text(formatCurrency(invoice.stamp_amount || 0, invoice.currency), 185, totalsY, { align: 'right' });
+  }
+  
+  totalsY += 8;
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(12);
   doc.setTextColor(41, 98, 255);
-  doc.text('TOTAL TTC:', 125, y + 29);
-  doc.text(formatCurrency(invoice.total, invoice.currency), 185, y + 29, { align: 'right' });
+  doc.text('TOTAL TTC:', 125, totalsY);
+  doc.text(formatCurrency(invoice.total, invoice.currency), 185, totalsY, { align: 'right' });
+  
+  y = totalsY;
   
   // Amount in words
   y += 40;
@@ -734,7 +767,7 @@ export async function generateMinimalPDF(invoice: InvoiceTemplateData, items: In
   const pageHeight = doc.internal.pageSize.getHeight();
   
   // Professional header
-  let y = await drawProfessionalHeader(doc, pageWidth, invoice.company, 'FACTURE');
+  let y = await drawProfessionalHeader(doc, pageWidth, invoice.company, invoice.document_title || 'FACTURE');
   
   // Invoice info box
   y = drawInvoiceInfoBox(doc, pageWidth, y, invoice);
@@ -782,6 +815,18 @@ export async function generateMinimalPDF(invoice: InvoiceTemplateData, items: In
   doc.text('Sous-total HT', 140, y);
   doc.setTextColor(0, 0, 0);
   doc.text(formatCurrency(invoice.subtotal, invoice.currency), pageWidth - 25, y, { align: 'right' });
+  
+  // Discount
+  if ((invoice.discount_amount || 0) > 0) {
+    y += 7;
+    doc.setTextColor(120, 120, 120);
+    const discountLabel = invoice.discount_type === 'percent' 
+      ? `Remise (${invoice.discount_value}%)` 
+      : 'Remise';
+    doc.text(discountLabel, 140, y);
+    doc.setTextColor(0, 0, 0);
+    doc.text(`-${formatCurrency(invoice.discount_amount || 0, invoice.currency)}`, pageWidth - 25, y, { align: 'right' });
+  }
   
   y += 7;
   doc.setTextColor(120, 120, 120);
