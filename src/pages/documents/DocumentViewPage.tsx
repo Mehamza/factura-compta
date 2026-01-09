@@ -6,23 +6,40 @@ import { useToast } from '@/hooks/use-toast';
 import { useInvoices } from '@/hooks/useInvoices';
 import { useCompanySettings } from '@/hooks/useCompanySettings';
 import type { DocumentKind } from '@/config/documentTypes';
-import { getDocumentTypeConfig } from '@/config/documentTypes';
+import { getDocumentTypeConfig, documentTypeConfig } from '@/config/documentTypes';
 import { StatusBadge } from '@/components/invoices/shared';
-import { calculateTotals, type InvoiceItem, type DiscountConfig, STAMP_AMOUNT } from '@/components/invoices/shared/types';
+import { calculateTotals, type InvoiceItem, STAMP_AMOUNT } from '@/components/invoices/shared/types';
 import { generateInvoiceWithTemplate, type InvoiceTemplateData, type InvoiceItem as PDFInvoiceItem } from '@/lib/invoiceTemplates';
-import { ArrowLeft, Pencil, Printer, Download } from 'lucide-react';
+import { ArrowLeft, Pencil, Printer, Download, ArrowRight } from 'lucide-react';
+
+// Map document kind to route segment
+const kindToRoute: Record<DocumentKind, string> = {
+  devis: '/invoices/devis',
+  bon_commande: '/invoices/bon-commande',
+  bon_livraison: '/invoices/bon-livraison',
+  facture_credit: '/invoices/credit',
+  facture_payee: '/invoices/payee',
+  devis_achat: '/purchases/devis',
+  bon_commande_achat: '/purchases/bon-commande',
+  bon_livraison_achat: '/purchases/bon-livraison',
+  facture_credit_achat: '/purchases/credit',
+  facture_payee_achat: '/purchases/payee',
+};
 
 export default function DocumentViewPage({ kind }: { kind: DocumentKind }) {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { config, getById } = useInvoices(kind);
+  const { config, getById, convert } = useInvoices(kind);
   const { companySettings } = useCompanySettings();
 
   const [invoice, setInvoice] = useState<any>(null);
   const [items, setItems] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
+  const [converting, setConverting] = useState<DocumentKind | null>(null);
+
+  const docConfig = getDocumentTypeConfig(kind);
 
   useEffect(() => {
     if (!id) return;
@@ -39,6 +56,21 @@ export default function DocumentViewPage({ kind }: { kind: DocumentKind }) {
     })();
   }, [id, getById, toast]);
 
+  const handleConvert = async (targetKind: DocumentKind) => {
+    if (!id) return;
+    setConverting(targetKind);
+    try {
+      const newInvoice = await convert(id, targetKind);
+      toast({ title: 'Succès', description: `Converti en ${documentTypeConfig[targetKind].label}` });
+      // Navigate to the new document
+      navigate(`${kindToRoute[targetKind]}/${newInvoice.id}`);
+    } catch (err: any) {
+      toast({ variant: 'destructive', title: 'Erreur', description: err?.message || 'Erreur lors de la conversion' });
+    } finally {
+      setConverting(null);
+    }
+  };
+
   const handleGeneratePDF = async () => {
     if (!invoice || !companySettings) {
       toast({ variant: 'destructive', title: 'Erreur', description: 'Données manquantes pour générer le PDF' });
@@ -47,7 +79,6 @@ export default function DocumentViewPage({ kind }: { kind: DocumentKind }) {
 
     setGenerating(true);
     try {
-      // Calculate totals with discount
       const invoiceItems: InvoiceItem[] = items.map(item => ({
         id: item.id,
         reference: item.reference || '',
@@ -63,13 +94,8 @@ export default function DocumentViewPage({ kind }: { kind: DocumentKind }) {
       }));
 
       const stampIncluded = invoice.stamp_included ?? false;
-      
-      // Estimate discount from stored values (if available in invoice)
-      // For now, we recalculate from items
       const totals = calculateTotals(invoiceItems, stampIncluded);
 
-      // Build PDF data
-      const docConfig = getDocumentTypeConfig(kind);
       const pdfData: InvoiceTemplateData = {
         invoice_number: invoice.invoice_number,
         issue_date: invoice.issue_date,
@@ -162,7 +188,6 @@ export default function DocumentViewPage({ kind }: { kind: DocumentKind }) {
     return <div className="text-center py-8 text-muted-foreground">Document non trouvé</div>;
   }
 
-  // Calculate totals for display
   const invoiceItems: InvoiceItem[] = items.map(item => ({
     id: item.id,
     reference: item.reference || '',
@@ -180,26 +205,52 @@ export default function DocumentViewPage({ kind }: { kind: DocumentKind }) {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-4 flex-wrap">
         <Button variant="ghost" size="icon" onClick={() => navigate('..')}>
           <ArrowLeft className="h-4 w-4" />
         </Button>
-        <div className="flex-1">
-          <h1 className="text-xl font-semibold">{config.label} — {invoice.invoice_number}</h1>
+        <div className="flex-1 min-w-0">
+          <h1 className="text-xl font-semibold truncate">{config.label} — {invoice.invoice_number}</h1>
           <p className="text-sm text-muted-foreground">{invoice.issue_date}</p>
         </div>
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={handlePrint}>
+        <div className="flex gap-2 flex-wrap">
+          <Button variant="outline" size="sm" onClick={handlePrint}>
             <Printer className="h-4 w-4 mr-2" /> Imprimer
           </Button>
-          <Button variant="outline" onClick={handleGeneratePDF} disabled={generating}>
-            <Download className="h-4 w-4 mr-2" /> {generating ? 'Génération...' : 'Télécharger PDF'}
+          <Button variant="outline" size="sm" onClick={handleGeneratePDF} disabled={generating}>
+            <Download className="h-4 w-4 mr-2" /> {generating ? 'Génération...' : 'PDF'}
           </Button>
-          <Button variant="outline" onClick={() => navigate(`edit`)}>
+          <Button variant="outline" size="sm" onClick={() => navigate(`edit`)}>
             <Pencil className="h-4 w-4 mr-2" /> Modifier
           </Button>
         </div>
       </div>
+
+      {/* Conversion Buttons */}
+      {docConfig.canConvertTo.length > 0 && (
+        <Card>
+          <CardContent className="py-4">
+            <div className="flex items-center gap-4 flex-wrap">
+              <span className="text-sm font-medium text-muted-foreground">Convertir en:</span>
+              {docConfig.canConvertTo.map((targetKind) => {
+                const targetConfig = documentTypeConfig[targetKind];
+                return (
+                  <Button
+                    key={targetKind}
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => handleConvert(targetKind)}
+                    disabled={converting !== null}
+                  >
+                    <ArrowRight className="h-4 w-4 mr-2" />
+                    {converting === targetKind ? 'Conversion...' : targetConfig.label}
+                  </Button>
+                );
+              })}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
