@@ -41,7 +41,11 @@ create index if not exists idx_payments_paid_at on public.payments(paid_at);
 -- Helper function: invoice balance
 create or replace function public.invoice_outstanding(p_invoice_id uuid)
 returns numeric language sql as $$
-  select (i.total - coalesce((select sum(p.amount) from public.payments p where p.invoice_id = i.id), 0))
+  select (
+    i.total
+    + coalesce((select sum(cn.total) from public.invoices cn where cn.source_invoice_id = i.id), 0)
+    - coalesce((select sum(p.amount) from public.payments p where p.invoice_id = i.id), 0)
+  )
   from public.invoices i where i.id = p_invoice_id;
 $$;
 

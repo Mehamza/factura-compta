@@ -28,6 +28,7 @@ export type InvoiceRow = {
   stamp_amount: number;
   validity_date: string | null;
   reference_devis: string | null;
+  source_invoice_id?: string | null;
   created_at: string;
   document_kind: string;
   clients?: any;
@@ -130,6 +131,7 @@ export const useInvoices = (kind: DocumentKind) => {
         supplier_id: payload.supplier_id ?? null,
         validity_date: payload.validity_date ?? null,
         reference_devis: payload.reference_devis ?? null,
+        source_invoice_id: (payload as any).source_invoice_id ?? null,
         document_kind: kind,
       };
 
@@ -195,6 +197,7 @@ export const useInvoices = (kind: DocumentKind) => {
           stamp_included: payload.stamp_included,
           stamp_amount: payload.stamp_amount,
           validity_date: payload.validity_date,
+          source_invoice_id: (payload as any).source_invoice_id,
         })
         .eq('id', id)
         .select()
@@ -244,6 +247,8 @@ export const useInvoices = (kind: DocumentKind) => {
 
       const reference = source.invoice_number;
 
+      const isTargetCreditNote = targetKind === 'facture_avoir' || targetKind === 'avoir_achat';
+
       const now = new Date();
       const year = String(now.getFullYear());
       const next = (companySettings as any)?.invoice_next_number ?? 1;
@@ -264,20 +269,21 @@ export const useInvoices = (kind: DocumentKind) => {
         issue_date: new Date().toISOString().slice(0, 10),
         due_date: source.due_date,
         status: targetCfg.defaultStatus,
-        subtotal: source.subtotal,
+        subtotal: isTargetCreditNote ? -Math.abs(Number(source.subtotal ?? 0)) : source.subtotal,
         tax_rate: source.tax_rate ?? 0,
-        tax_amount: source.tax_amount,
-        fodec_amount: source.fodec_amount ?? 0,
-        total: source.total,
+        tax_amount: isTargetCreditNote ? -Math.abs(Number(source.tax_amount ?? 0)) : source.tax_amount,
+        fodec_amount: isTargetCreditNote ? -Math.abs(Number(source.fodec_amount ?? 0)) : (source.fodec_amount ?? 0),
+        total: isTargetCreditNote ? -Math.abs(Number(source.total ?? 0)) : source.total,
         notes: source.notes,
         currency: source.currency,
         template_type: source.template_type,
-        stamp_included: source.stamp_included,
-        stamp_amount: source.stamp_amount,
+        stamp_included: isTargetCreditNote ? false : source.stamp_included,
+        stamp_amount: isTargetCreditNote ? 0 : source.stamp_amount,
         validity_date: source.validity_date,
         reference_devis: reference,
         created_by_user_id: user.id,
         document_kind: targetKind,
+        source_invoice_id: isTargetCreditNote ? source.id : null,
       };
 
       const { data: created, error: insErr } = await supabase
@@ -295,13 +301,13 @@ export const useInvoices = (kind: DocumentKind) => {
           reference: item.reference,
           description: item.description,
           quantity: item.quantity,
-          unit_price: item.unit_price,
+          unit_price: isTargetCreditNote ? -Math.abs(Number(item.unit_price ?? 0)) : item.unit_price,
           vat_rate: item.vat_rate,
-          vat_amount: item.vat_amount,
+          vat_amount: isTargetCreditNote ? -Math.abs(Number(item.vat_amount ?? 0)) : item.vat_amount,
           fodec_applicable: item.fodec_applicable,
           fodec_rate: item.fodec_rate,
-          fodec_amount: item.fodec_amount,
-          total: item.total,
+          fodec_amount: isTargetCreditNote ? -Math.abs(Number(item.fodec_amount ?? 0)) : item.fodec_amount,
+          total: isTargetCreditNote ? -Math.abs(Number(item.total ?? 0)) : item.total,
         }));
         
         await supabase.from('invoice_items').insert(itemsToInsert);

@@ -7,12 +7,12 @@ export type DocumentKind =
   | 'bon_livraison'
   | 'facture_credit'
   | 'facture_payee'
+  | 'facture_avoir'
   // Achats
-  | 'devis_achat'
   | 'bon_commande_achat'
   | 'bon_livraison_achat'
   | 'facture_credit_achat'
-  | 'facture_payee_achat';
+  | 'avoir_achat';
 
 export type StockMovementType = 'entry' | 'exit';
 
@@ -81,7 +81,7 @@ export const documentTypeConfig: Record<DocumentKind, DocumentTypeConfig> = {
     requiresClient: true,
     requiresSupplier: false,
     requiresDueDate: true,
-    canConvertTo: ['facture_payee'],
+    canConvertTo: ['facture_payee', 'facture_avoir'],
     defaultStatus: 'draft',
     statusOptions: ['draft', 'sent', 'overdue', 'partial', 'cancelled'],
   },
@@ -98,23 +98,23 @@ export const documentTypeConfig: Record<DocumentKind, DocumentTypeConfig> = {
     defaultStatus: 'paid',
     statusOptions: ['paid'],
   },
-
-  devis_achat: {
-    kind: 'devis_achat',
-    label: "Devis d'achat",
-    prefix: 'DEV-A',
-    module: 'achats',
-    affectsStock: false,
-    requiresClient: false,
-    requiresSupplier: true,
+  facture_avoir: {
+    kind: 'facture_avoir',
+    label: "Facture d'avoir",
+    prefix: 'AV',
+    module: 'ventes',
+    affectsStock: true,
+    stockMovementType: 'entry',
+    requiresClient: true,
+    requiresSupplier: false,
     requiresDueDate: false,
-    canConvertTo: ['bon_commande_achat'],
-    defaultStatus: 'purchase_quote',
-    statusOptions: ['purchase_quote', 'sent', 'accepted', 'rejected', 'expired', 'cancelled'],
+    canConvertTo: [],
+    defaultStatus: 'draft',
+    statusOptions: ['draft', 'validated'],
   },
   bon_commande_achat: {
     kind: 'bon_commande_achat',
-    label: "Bon de commande (achat)",
+    label: 'Commande fournisseur',
     prefix: 'BC-A',
     module: 'achats',
     affectsStock: false,
@@ -127,7 +127,7 @@ export const documentTypeConfig: Record<DocumentKind, DocumentTypeConfig> = {
   },
   bon_livraison_achat: {
     kind: 'bon_livraison_achat',
-    label: "Bon de livraison (achat)",
+    label: 'Bon de réception',
     prefix: 'BL-A',
     module: 'achats',
     affectsStock: true,
@@ -135,36 +135,52 @@ export const documentTypeConfig: Record<DocumentKind, DocumentTypeConfig> = {
     requiresClient: false,
     requiresSupplier: true,
     requiresDueDate: false,
-    canConvertTo: ['facture_credit_achat', 'facture_payee_achat'],
+    canConvertTo: ['facture_credit_achat'],
     defaultStatus: 'draft',
     statusOptions: ['draft', 'delivered', 'cancelled'],
   },
   facture_credit_achat: {
     kind: 'facture_credit_achat',
-    label: "Facture fournisseur (à crédit)",
+    label: "Facture d'achat",
     prefix: 'FAC-A',
     module: 'achats',
     affectsStock: false,
     requiresClient: false,
     requiresSupplier: true,
     requiresDueDate: true,
-    canConvertTo: ['facture_payee_achat'],
+    canConvertTo: ['avoir_achat'],
     defaultStatus: 'draft',
     statusOptions: ['draft', 'sent', 'overdue', 'partial', 'cancelled'],
   },
-  facture_payee_achat: {
-    kind: 'facture_payee_achat',
-    label: "Facture fournisseur (payée)",
-    prefix: 'REC-A',
+  avoir_achat: {
+    kind: 'avoir_achat',
+    label: 'Avoir fournisseur',
+    prefix: 'AV-A',
     module: 'achats',
-    affectsStock: false,
+    affectsStock: true,
+    stockMovementType: 'exit',
     requiresClient: false,
     requiresSupplier: true,
     requiresDueDate: false,
     canConvertTo: [],
-    defaultStatus: 'paid',
-    statusOptions: ['paid'],
+    defaultStatus: 'draft',
+    statusOptions: ['draft', 'validated'],
   },
 };
 
 export const getDocumentTypeConfig = (kind: DocumentKind) => documentTypeConfig[kind];
+
+export const isCreditNoteKind = (kind: DocumentKind) => kind === 'facture_avoir' || kind === 'avoir_achat';
+
+export const documentKindToRoute: Record<DocumentKind, string> = {
+  devis: '/invoices/devis',
+  bon_commande: '/invoices/bon-commande',
+  bon_livraison: '/invoices/bon-livraison',
+  facture_credit: '/invoices/credit',
+  facture_payee: '/invoices/recu',
+  facture_avoir: '/invoices/avoir',
+  bon_commande_achat: '/purchases/bon-commande',
+  bon_livraison_achat: '/purchases/bon-livraison',
+  facture_credit_achat: '/purchases/credit',
+  avoir_achat: '/purchases/avoir',
+};

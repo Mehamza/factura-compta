@@ -16,6 +16,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useInvoices } from '@/hooks/useInvoices';
 import { useCompanySettings } from '@/hooks/useCompanySettings';
 import type { DocumentKind } from '@/config/documentTypes';
+import { isCreditNoteKind } from '@/config/documentTypes';
 import {
   InvoiceItemsTable,
   InvoiceTotals,
@@ -26,6 +27,15 @@ import {
   type DiscountConfig,
 } from '@/components/invoices/shared';
 import { ArrowLeft } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/hooks/useAuth';
+
+type SourceInvoiceOption = {
+  id: string;
+  invoice_number: string;
+  clients?: { name?: string | null } | null;
+  suppliers?: { name?: string | null } | null;
+};
 
 export default function DocumentEditPage({ kind }: { kind: DocumentKind }) {
   const { id } = useParams<{ id: string }>();
@@ -33,6 +43,9 @@ export default function DocumentEditPage({ kind }: { kind: DocumentKind }) {
   const navigate = useNavigate();
   const { config, getById, update, handleStockMovement } = useInvoices(kind);
   const { companySettings } = useCompanySettings();
+  const { activeCompanyId } = useAuth();
+
+  const isCreditNote = isCreditNoteKind(kind);
 
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -48,6 +61,10 @@ export default function DocumentEditPage({ kind }: { kind: DocumentKind }) {
   const [currency, setCurrency] = useState(companySettings?.default_currency || 'TND');
   const [discount, setDiscount] = useState<DiscountConfig>({ type: 'percent', value: 0 });
 
+  const [sourceInvoiceId, setSourceInvoiceId] = useState<string>('');
+  const [sourceInvoices, setSourceInvoices] = useState<SourceInvoiceOption[]>([]);
+  const [loadingSourceInvoices, setLoadingSourceInvoices] = useState(false);
+
   const defaultVatRate = companySettings?.default_vat_rate ?? 19;
 
   const [items, setItems] = useState<InvoiceItem[]>([]);
@@ -57,6 +74,35 @@ export default function DocumentEditPage({ kind }: { kind: DocumentKind }) {
   const priceType = config.module === 'achats' ? 'purchase' : 'sale';
 
   const totals = useMemo(() => calculateTotals(items, stampIncluded, discount), [items, stampIncluded, discount]);
+
+  useEffect(() => {
+    if (!isCreditNote) return;
+    setStampIncluded(false);
+  }, [isCreditNote]);
+
+  useEffect(() => {
+    if (!isCreditNote || !activeCompanyId) return;
+    const allowedSourceKinds = kind === 'facture_avoir'
+      ? ['facture_credit', 'facture_payee']
+      : ['facture_credit_achat'];
+
+    setLoadingSourceInvoices(true);
+    supabase
+      .from('invoices')
+      .select('id, invoice_number, clients(name), suppliers(name)')
+      .eq('company_id', activeCompanyId)
+      .in('document_kind', allowedSourceKinds as any)
+      .order('created_at', { ascending: false })
+      .then(({ data, error }) => {
+        if (error) {
+          toast({ variant: 'destructive', title: 'Erreur', description: error.message });
+          setSourceInvoices([]);
+        } else {
+          setSourceInvoices((data || []) as any);
+        }
+      })
+      .finally(() => setLoadingSourceInvoices(false));
+  }, [activeCompanyId, isCreditNote, kind, toast]);
 
   // Load invoice data
   const loadInvoice = useCallback(async () => {
@@ -83,6 +129,7 @@ export default function DocumentEditPage({ kind }: { kind: DocumentKind }) {
     setNotes(invoice.notes || '');
     setStampIncluded(invoice.stamp_included || false);
     setCurrency(invoice.currency || 'TND');
+    setSourceInvoiceId((invoice as any).source_invoice_id || '');
 
     const loadedItems: InvoiceItem[] = invoiceItems.map((item: any) => ({
       id: item.id,
@@ -225,6 +272,11 @@ export default function DocumentEditPage({ kind }: { kind: DocumentKind }) {
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
+    if (isCreditNote && !sourceInvoiceId) {
+      toast({ variant: 'destructive', title: 'Erreur', description: 'Veuillez sélectionner une facture source' });
+      return;
+    }
+
     if (config.requiresClient && !clientId) {
       toast({ variant: 'destructive', title: 'Erreur', description: 'Veuillez sélectionner un client' });
       return;
@@ -262,12 +314,13 @@ export default function DocumentEditPage({ kind }: { kind: DocumentKind }) {
         supplier_id: supplierId || null,
         notes: notes || null,
         currency,
-        stamp_included: stampIncluded,
-        stamp_amount: totals.stamp,
+        stamp_included: isCreditNote ? false : stampIncluded,
+        stamp_amount: isCreditNote ? 0 : totals.stamp,
         subtotal: totals.subtotal,
         tax_amount: totals.taxAmount,
         fodec_amount: totals.totalFodec,
         total: totals.total,
+        source_invoice_id: isCreditNote ? sourceInvoiceId : null,
       }, invoiceItems);
 
       toast({ title: 'Succès', description: `${config.label} mis à jour avec succès` });
@@ -304,6 +357,27 @@ export default function DocumentEditPage({ kind }: { kind: DocumentKind }) {
           <form onSubmit={onSubmit} className="space-y-6">
             {/* Header info */}
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+              {isCreditNote && (
+                <div className="space-y-2 lg:col-span-2">
+                  <Label>Facture source *</Label>
+                  <Select
+                    value={sourceInvoiceId}
+                    onValueChange={setSourceInvoiceId}
+                    disabled={loadingSourceInvoices || Boolean(sourceInvoiceId)}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder={loadingSourceInvoices ? 'Chargement...' : 'Sélectionner une facture'} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {sourceInvoices.map((inv) => (
+                        <SelectItem key={inv.id} value={inv.id}>
+                          {inv.invoice_number} — {inv.clients?.name || inv.suppliers?.name || ''}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
               {config.requiresClient && (
                 <div className="space-y-2">
                   <Label>Client *</Label>
@@ -311,6 +385,7 @@ export default function DocumentEditPage({ kind }: { kind: DocumentKind }) {
                     type="client"
                     value={clientId}
                     onChange={setClientId}
+                    disabled={isCreditNote}
                   />
                 </div>
               )}
@@ -321,6 +396,7 @@ export default function DocumentEditPage({ kind }: { kind: DocumentKind }) {
                     type="supplier"
                     value={supplierId}
                     onChange={setSupplierId}
+                    disabled={isCreditNote}
                   />
                 </div>
               )}
@@ -337,7 +413,7 @@ export default function DocumentEditPage({ kind }: { kind: DocumentKind }) {
                 </div>
               )}
 
-              {(kind === 'devis' || kind === 'devis_achat') && (
+              {kind === 'devis' && (
                 <div className="space-y-2">
                   <Label>Date de validité</Label>
                   <Input type="date" value={validityDate} onChange={(e) => setValidityDate(e.target.value)} />
@@ -393,8 +469,8 @@ export default function DocumentEditPage({ kind }: { kind: DocumentKind }) {
                 discount={discount}
                 onDiscountChange={setDiscount}
                 currency={currency}
-                showStamp={config.module === 'ventes'}
-                showDiscount={true}
+                showStamp={config.module === 'ventes' && !isCreditNote}
+                showDiscount={!isCreditNote}
               />
             </div>
 

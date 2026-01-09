@@ -36,11 +36,11 @@ import SalesFacturePayee from "./pages/documents/SalesFacturePayee";
 import SalesFacturePayeeNew from "./pages/documents/SalesFacturePayeeNew";
 import SalesFacturePayeeView from "./pages/documents/SalesFacturePayeeView";
 import SalesFacturePayeeEdit from "./pages/documents/SalesFacturePayeeEdit";
+import SalesFactureAvoir from "./pages/documents/SalesFactureAvoir";
+import SalesFactureAvoirNew from "./pages/documents/SalesFactureAvoirNew";
+import SalesFactureAvoirView from "./pages/documents/SalesFactureAvoirView";
+import SalesFactureAvoirEdit from "./pages/documents/SalesFactureAvoirEdit";
 // Purchase documents
-import PurchaseDevis from "./pages/documents/PurchaseDevis";
-import PurchaseDevisNew from "./pages/documents/PurchaseDevisNew";
-import PurchaseDevisView from "./pages/documents/PurchaseDevisView";
-import PurchaseDevisEdit from "./pages/documents/PurchaseDevisEdit";
 import PurchaseBonCommande from "./pages/documents/PurchaseBonCommande";
 import PurchaseBonCommandeNew from "./pages/documents/PurchaseBonCommandeNew";
 import PurchaseBonCommandeView from "./pages/documents/PurchaseBonCommandeView";
@@ -53,10 +53,10 @@ import PurchaseFactureCredit from "./pages/documents/PurchaseFactureCredit";
 import PurchaseFactureCreditNew from "./pages/documents/PurchaseFactureCreditNew";
 import PurchaseFactureCreditView from "./pages/documents/PurchaseFactureCreditView";
 import PurchaseFactureCreditEdit from "./pages/documents/PurchaseFactureCreditEdit";
-import PurchaseFacturePayee from "./pages/documents/PurchaseFacturePayee";
-import PurchaseFacturePayeeNew from "./pages/documents/PurchaseFacturePayeeNew";
-import PurchaseFacturePayeeView from "./pages/documents/PurchaseFacturePayeeView";
-import PurchaseFacturePayeeEdit from "./pages/documents/PurchaseFacturePayeeEdit";
+import PurchaseAvoir from "./pages/documents/PurchaseAvoir";
+import PurchaseAvoirNew from "./pages/documents/PurchaseAvoirNew";
+import PurchaseAvoirView from "./pages/documents/PurchaseAvoirView";
+import PurchaseAvoirEdit from "./pages/documents/PurchaseAvoirEdit";
 // Other pages
 import Documents from "./pages/Documents";
 import Users from "./pages/Users";
@@ -132,13 +132,14 @@ const router = createBrowserRouter(
       <Route path="/invoices/recu/new" element={<ProtectedRoute><PageTransition><SalesFacturePayeeNew /></PageTransition></ProtectedRoute>} />
       <Route path="/invoices/recu/:id" element={<ProtectedRoute><PageTransition><SalesFacturePayeeView /></PageTransition></ProtectedRoute>} />
       <Route path="/invoices/recu/:id/edit" element={<ProtectedRoute><PageTransition><SalesFacturePayeeEdit /></PageTransition></ProtectedRoute>} />
+
+      <Route path="/invoices/avoir" element={<ProtectedRoute><PageTransition><SalesFactureAvoir /></PageTransition></ProtectedRoute>} />
+      <Route path="/invoices/avoir/new" element={<ProtectedRoute><PageTransition><SalesFactureAvoirNew /></PageTransition></ProtectedRoute>} />
+      <Route path="/invoices/avoir/:id" element={<ProtectedRoute><PageTransition><SalesFactureAvoirView /></PageTransition></ProtectedRoute>} />
+      <Route path="/invoices/avoir/:id/edit" element={<ProtectedRoute><PageTransition><SalesFactureAvoirEdit /></PageTransition></ProtectedRoute>} />
       
       {/* Purchase invoice routes */}
       <Route path="/purchases" element={<ProtectedRoute><PageTransition><Purchases /></PageTransition></ProtectedRoute>} />
-      <Route path="/purchases/devis" element={<ProtectedRoute><PageTransition><PurchaseDevis /></PageTransition></ProtectedRoute>} />
-      <Route path="/purchases/devis/new" element={<ProtectedRoute><PageTransition><PurchaseDevisNew /></PageTransition></ProtectedRoute>} />
-      <Route path="/purchases/devis/:id" element={<ProtectedRoute><PageTransition><PurchaseDevisView /></PageTransition></ProtectedRoute>} />
-      <Route path="/purchases/devis/:id/edit" element={<ProtectedRoute><PageTransition><PurchaseDevisEdit /></PageTransition></ProtectedRoute>} />
       <Route path="/purchases/bon-commande" element={<ProtectedRoute><PageTransition><PurchaseBonCommande /></PageTransition></ProtectedRoute>} />
       <Route path="/purchases/bon-commande/new" element={<ProtectedRoute><PageTransition><PurchaseBonCommandeNew /></PageTransition></ProtectedRoute>} />
       <Route path="/purchases/bon-commande/:id" element={<ProtectedRoute><PageTransition><PurchaseBonCommandeView /></PageTransition></ProtectedRoute>} />
@@ -151,10 +152,11 @@ const router = createBrowserRouter(
       <Route path="/purchases/credit/new" element={<ProtectedRoute><PageTransition><PurchaseFactureCreditNew /></PageTransition></ProtectedRoute>} />
       <Route path="/purchases/credit/:id" element={<ProtectedRoute><PageTransition><PurchaseFactureCreditView /></PageTransition></ProtectedRoute>} />
       <Route path="/purchases/credit/:id/edit" element={<ProtectedRoute><PageTransition><PurchaseFactureCreditEdit /></PageTransition></ProtectedRoute>} />
-      <Route path="/purchases/recu" element={<ProtectedRoute><PageTransition><PurchaseFacturePayee /></PageTransition></ProtectedRoute>} />
-      <Route path="/purchases/recu/new" element={<ProtectedRoute><PageTransition><PurchaseFacturePayeeNew /></PageTransition></ProtectedRoute>} />
-      <Route path="/purchases/recu/:id" element={<ProtectedRoute><PageTransition><PurchaseFacturePayeeView /></PageTransition></ProtectedRoute>} />
-      <Route path="/purchases/recu/:id/edit" element={<ProtectedRoute><PageTransition><PurchaseFacturePayeeEdit /></PageTransition></ProtectedRoute>} />
+
+      <Route path="/purchases/avoir" element={<ProtectedRoute><PageTransition><PurchaseAvoir /></PageTransition></ProtectedRoute>} />
+      <Route path="/purchases/avoir/new" element={<ProtectedRoute><PageTransition><PurchaseAvoirNew /></PageTransition></ProtectedRoute>} />
+      <Route path="/purchases/avoir/:id" element={<ProtectedRoute><PageTransition><PurchaseAvoirView /></PageTransition></ProtectedRoute>} />
+      <Route path="/purchases/avoir/:id/edit" element={<ProtectedRoute><PageTransition><PurchaseAvoirEdit /></PageTransition></ProtectedRoute>} />
       
       {/* Stock routes */}
       <Route path="/stock/produits" element={<ProtectedRoute><PageTransition><StockProducts /></PageTransition></ProtectedRoute>} />

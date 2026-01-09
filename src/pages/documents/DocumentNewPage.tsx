@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
@@ -16,6 +16,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useInvoices } from '@/hooks/useInvoices';
 import { useCompanySettings } from '@/hooks/useCompanySettings';
 import type { DocumentKind } from '@/config/documentTypes';
+import { isCreditNoteKind } from '@/config/documentTypes';
 import {
   InvoiceItemsTable,
   InvoiceTotals,
@@ -25,12 +26,27 @@ import {
   type Product,
   type DiscountConfig,
 } from '@/components/invoices/shared';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/hooks/useAuth';
+
+type SourceInvoiceOption = {
+  id: string;
+  invoice_number: string;
+  client_id: string | null;
+  supplier_id: string | null;
+  issue_date: string | null;
+  clients?: { name?: string | null } | null;
+  suppliers?: { name?: string | null } | null;
+};
 
 export default function DocumentNewPage({ kind }: { kind: DocumentKind }) {
   const { toast } = useToast();
   const navigate = useNavigate();
   const { config, create, handleStockMovement } = useInvoices(kind);
   const { companySettings } = useCompanySettings();
+  const { activeCompanyId } = useAuth();
+
+  const isCreditNote = isCreditNoteKind(kind);
 
   const [submitting, setSubmitting] = useState(false);
   const [status, setStatus] = useState(config.defaultStatus);
@@ -52,6 +68,10 @@ export default function DocumentNewPage({ kind }: { kind: DocumentKind }) {
   const [currency] = useState(companySettings?.default_currency || 'TND');
   const [discount, setDiscount] = useState<DiscountConfig>({ type: 'percent', value: 0 });
 
+  const [sourceInvoiceId, setSourceInvoiceId] = useState<string>('');
+  const [sourceInvoices, setSourceInvoices] = useState<SourceInvoiceOption[]>([]);
+  const [loadingSourceInvoices, setLoadingSourceInvoices] = useState(false);
+
   const defaultVatRate = companySettings?.default_vat_rate ?? 19;
 
   // Items state
@@ -64,6 +84,98 @@ export default function DocumentNewPage({ kind }: { kind: DocumentKind }) {
   const priceType = config.module === 'achats' ? 'purchase' : 'sale';
 
   const totals = useMemo(() => calculateTotals(items, stampIncluded, discount), [items, stampIncluded, discount]);
+
+  useEffect(() => {
+    if (!isCreditNote) return;
+    setStampIncluded(false);
+  }, [isCreditNote]);
+
+  useEffect(() => {
+    if (!isCreditNote || !activeCompanyId) return;
+    const allowedSourceKinds = kind === 'facture_avoir'
+      ? ['facture_credit', 'facture_payee']
+      : ['facture_credit_achat'];
+
+    let cancelled = false;
+    (async () => {
+      setLoadingSourceInvoices(true);
+      try {
+        const { data, error } = await supabase
+          .from('invoices')
+          .select('id, invoice_number, client_id, supplier_id, issue_date, clients(name), suppliers(name)')
+          .eq('company_id', activeCompanyId)
+          .in('document_kind', allowedSourceKinds as any)
+          .order('created_at', { ascending: false });
+
+        if (cancelled) return;
+
+        if (error) {
+          toast({ variant: 'destructive', title: 'Erreur', description: error.message });
+          setSourceInvoices([]);
+        } else {
+          setSourceInvoices((data || []) as any);
+        }
+      } finally {
+        if (!cancelled) setLoadingSourceInvoices(false);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [activeCompanyId, isCreditNote, kind, toast]);
+
+  const loadFromSourceInvoice = async (invoiceId: string) => {
+    if (!invoiceId) return;
+    const { data: inv, error: invErr } = await supabase
+      .from('invoices')
+      .select('id, client_id, supplier_id')
+      .eq('id', invoiceId)
+      .maybeSingle();
+    if (invErr) throw invErr;
+    if (!inv) throw new Error('Facture source introuvable');
+
+    const { data: itms, error: itemsErr } = await supabase
+      .from('invoice_items')
+      .select('*')
+      .eq('invoice_id', invoiceId);
+    if (itemsErr) throw itemsErr;
+
+    setClientId(inv.client_id || '');
+    setSupplierId(inv.supplier_id || '');
+
+    const negated: InvoiceItem[] = (itms || []).map((item: any) => {
+      const quantity = Number(item.quantity ?? 1);
+      const unitPrice = -Math.abs(Number(item.unit_price ?? 0));
+      const ht = quantity * unitPrice;
+      const fodecApplicable = Boolean(item.fodec_applicable);
+      const fodecRate = Number(item.fodec_rate ?? 0.01);
+      const fodecAmount = fodecApplicable ? ht * fodecRate : 0;
+      const vatRate = Number(item.vat_rate ?? defaultVatRate);
+      const vatAmount = (ht + fodecAmount) * (vatRate / 100);
+
+      return {
+        reference: item.reference || '',
+        description: item.description || '',
+        quantity,
+        unit_price: unitPrice,
+        vat_rate: vatRate,
+        vat_amount: item.vat_amount != null ? -Math.abs(Number(item.vat_amount)) : vatAmount,
+        fodec_applicable: fodecApplicable,
+        fodec_rate: fodecRate,
+        fodec_amount: item.fodec_amount != null ? -Math.abs(Number(item.fodec_amount)) : fodecAmount,
+        total: item.total != null ? -Math.abs(Number(item.total)) : ht,
+      };
+    });
+
+    if (negated.length > 0) {
+      setItems(negated);
+      const manual: Record<number, boolean> = {};
+      negated.forEach((_, i) => (manual[i] = true));
+      setManualLines(manual);
+      setItemProductMap({});
+    }
+  };
 
   const handleProductSelect = (index: number, product: Product) => {
     setItemProductMap(prev => ({ ...prev, [index]: product.id }));
@@ -164,6 +276,11 @@ export default function DocumentNewPage({ kind }: { kind: DocumentKind }) {
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
+    if (isCreditNote && !sourceInvoiceId) {
+      toast({ variant: 'destructive', title: 'Erreur', description: 'Veuillez sélectionner une facture source' });
+      return;
+    }
+
     // Validation
     if (config.requiresClient && !clientId) {
       toast({ variant: 'destructive', title: 'Erreur', description: 'Veuillez sélectionner un client' });
@@ -202,12 +319,13 @@ export default function DocumentNewPage({ kind }: { kind: DocumentKind }) {
         supplier_id: supplierId || null,
         notes: notes || null,
         currency,
-        stamp_included: stampIncluded,
-        stamp_amount: totals.stamp,
+        stamp_included: isCreditNote ? false : stampIncluded,
+        stamp_amount: isCreditNote ? 0 : totals.stamp,
         subtotal: totals.subtotal,
         tax_amount: totals.taxAmount,
         fodec_amount: totals.totalFodec,
         total: totals.total,
+        source_invoice_id: isCreditNote ? sourceInvoiceId : null,
       }, invoiceItems);
 
       // Handle stock movement for bon de livraison
@@ -240,6 +358,34 @@ export default function DocumentNewPage({ kind }: { kind: DocumentKind }) {
           <form onSubmit={onSubmit} className="space-y-6">
             {/* Header info */}
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+              {isCreditNote && (
+                <div className="space-y-2 lg:col-span-2">
+                  <Label>Facture source *</Label>
+                  <Select
+                    value={sourceInvoiceId}
+                    onValueChange={async (v) => {
+                      setSourceInvoiceId(v);
+                      try {
+                        await loadFromSourceInvoice(v);
+                      } catch (err: any) {
+                        toast({ variant: 'destructive', title: 'Erreur', description: err?.message || 'Chargement impossible' });
+                      }
+                    }}
+                    disabled={loadingSourceInvoices}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder={loadingSourceInvoices ? 'Chargement...' : 'Sélectionner une facture'} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {sourceInvoices.map((inv) => (
+                        <SelectItem key={inv.id} value={inv.id}>
+                          {inv.invoice_number} — {inv.clients?.name || inv.suppliers?.name || ''}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
               {/* Client or Supplier selector */}
               {config.requiresClient && (
                 <div className="space-y-2">
@@ -248,6 +394,7 @@ export default function DocumentNewPage({ kind }: { kind: DocumentKind }) {
                     type="client"
                     value={clientId}
                     onChange={setClientId}
+                    disabled={isCreditNote}
                   />
                 </div>
               )}
@@ -258,6 +405,7 @@ export default function DocumentNewPage({ kind }: { kind: DocumentKind }) {
                     type="supplier"
                     value={supplierId}
                     onChange={setSupplierId}
+                    disabled={isCreditNote}
                   />
                 </div>
               )}
@@ -274,7 +422,7 @@ export default function DocumentNewPage({ kind }: { kind: DocumentKind }) {
                 </div>
               )}
 
-              {kind === 'devis' || kind === 'devis_achat' ? (
+              {kind === 'devis' ? (
                 <div className="space-y-2">
                   <Label>Date de validité</Label>
                   <Input type="date" value={validityDate} onChange={(e) => setValidityDate(e.target.value)} />
@@ -330,8 +478,8 @@ export default function DocumentNewPage({ kind }: { kind: DocumentKind }) {
                 discount={discount}
                 onDiscountChange={setDiscount}
                 currency={currency}
-                showStamp={config.module === 'ventes'}
-                showDiscount={true}
+                showStamp={config.module === 'ventes' && !isCreditNote}
+                showDiscount={!isCreditNote}
               />
             </div>
 

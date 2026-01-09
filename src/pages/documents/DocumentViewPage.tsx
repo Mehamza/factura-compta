@@ -6,25 +6,11 @@ import { useToast } from '@/hooks/use-toast';
 import { useInvoices } from '@/hooks/useInvoices';
 import { useCompanySettings } from '@/hooks/useCompanySettings';
 import type { DocumentKind } from '@/config/documentTypes';
-import { getDocumentTypeConfig, documentTypeConfig } from '@/config/documentTypes';
+import { getDocumentTypeConfig, documentTypeConfig, documentKindToRoute } from '@/config/documentTypes';
 import { StatusBadge } from '@/components/invoices/shared';
 import { calculateTotals, type InvoiceItem, STAMP_AMOUNT } from '@/components/invoices/shared/types';
 import { generateInvoiceWithTemplate, type InvoiceTemplateData, type InvoiceItem as PDFInvoiceItem } from '@/lib/invoiceTemplates';
 import { ArrowLeft, Pencil, Printer, Download, ArrowRight } from 'lucide-react';
-
-// Map document kind to route segment
-const kindToRoute: Record<DocumentKind, string> = {
-  devis: '/invoices/devis',
-  bon_commande: '/invoices/bon-commande',
-  bon_livraison: '/invoices/bon-livraison',
-  facture_credit: '/invoices/credit',
-  facture_payee: '/invoices/payee',
-  devis_achat: '/purchases/devis',
-  bon_commande_achat: '/purchases/bon-commande',
-  bon_livraison_achat: '/purchases/bon-livraison',
-  facture_credit_achat: '/purchases/credit',
-  facture_payee_achat: '/purchases/payee',
-};
 
 export default function DocumentViewPage({ kind }: { kind: DocumentKind }) {
   const { id } = useParams<{ id: string }>();
@@ -63,7 +49,7 @@ export default function DocumentViewPage({ kind }: { kind: DocumentKind }) {
       const newInvoice = await convert(id, targetKind);
       toast({ title: 'Succès', description: `Converti en ${documentTypeConfig[targetKind].label}` });
       // Navigate to the new document
-      navigate(`${kindToRoute[targetKind]}/${newInvoice.id}`);
+      navigate(`${documentKindToRoute[targetKind]}/${newInvoice.id}`);
     } catch (err: any) {
       toast({ variant: 'destructive', title: 'Erreur', description: err?.message || 'Erreur lors de la conversion' });
     } finally {
