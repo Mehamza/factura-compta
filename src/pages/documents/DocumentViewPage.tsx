@@ -4,19 +4,25 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { useInvoices } from '@/hooks/useInvoices';
+import { useCompanySettings } from '@/hooks/useCompanySettings';
 import type { DocumentKind } from '@/config/documentTypes';
+import { getDocumentTypeConfig } from '@/config/documentTypes';
 import { StatusBadge } from '@/components/invoices/shared';
-import { ArrowLeft, Pencil, Printer } from 'lucide-react';
+import { calculateTotals, type InvoiceItem, type DiscountConfig, STAMP_AMOUNT } from '@/components/invoices/shared/types';
+import { generateInvoiceWithTemplate, type InvoiceTemplateData, type InvoiceItem as PDFInvoiceItem } from '@/lib/invoiceTemplates';
+import { ArrowLeft, Pencil, Printer, Download } from 'lucide-react';
 
 export default function DocumentViewPage({ kind }: { kind: DocumentKind }) {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { toast } = useToast();
   const { config, getById } = useInvoices(kind);
+  const { companySettings } = useCompanySettings();
 
   const [invoice, setInvoice] = useState<any>(null);
   const [items, setItems] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [generating, setGenerating] = useState(false);
 
   useEffect(() => {
     if (!id) return;
@@ -33,6 +39,121 @@ export default function DocumentViewPage({ kind }: { kind: DocumentKind }) {
     })();
   }, [id, getById, toast]);
 
+  const handleGeneratePDF = async () => {
+    if (!invoice || !companySettings) {
+      toast({ variant: 'destructive', title: 'Erreur', description: 'Données manquantes pour générer le PDF' });
+      return;
+    }
+
+    setGenerating(true);
+    try {
+      // Calculate totals with discount
+      const invoiceItems: InvoiceItem[] = items.map(item => ({
+        id: item.id,
+        reference: item.reference || '',
+        description: item.description,
+        quantity: item.quantity,
+        unit_price: item.unit_price,
+        vat_rate: item.vat_rate || 0,
+        vat_amount: item.vat_amount || 0,
+        fodec_applicable: item.fodec_applicable,
+        fodec_rate: item.fodec_rate,
+        fodec_amount: item.fodec_amount || 0,
+        total: item.total,
+      }));
+
+      const stampIncluded = invoice.stamp_included ?? false;
+      
+      // Estimate discount from stored values (if available in invoice)
+      // For now, we recalculate from items
+      const totals = calculateTotals(invoiceItems, stampIncluded);
+
+      // Build PDF data
+      const docConfig = getDocumentTypeConfig(kind);
+      const pdfData: InvoiceTemplateData = {
+        invoice_number: invoice.invoice_number,
+        issue_date: invoice.issue_date,
+        due_date: invoice.due_date || invoice.issue_date,
+        subtotal: invoice.subtotal || totals.subtotal,
+        tax_rate: invoice.tax_rate || 19,
+        tax_amount: invoice.tax_amount || totals.taxAmount,
+        total: invoice.total || totals.total,
+        fodec_amount_total: invoice.fodec_amount || totals.totalFodec,
+        base_tva: totals.baseTVA,
+        stamp_included: stampIncluded,
+        stamp_amount: stampIncluded ? STAMP_AMOUNT : 0,
+        discount_amount: totals.discountAmount,
+        notes: invoice.notes,
+        currency: invoice.currency || 'TND',
+        template_type: invoice.template_type || 'classic',
+        document_title: docConfig.label.toUpperCase(),
+        client: invoice.clients ? {
+          id: invoice.clients.id,
+          name: invoice.clients.name,
+          address: invoice.clients.address,
+          city: invoice.clients.city,
+          postal_code: invoice.clients.postal_code,
+          phone: invoice.clients.phone,
+          email: invoice.clients.email,
+          siret: invoice.clients.siret,
+          vat_number: invoice.clients.vat_number,
+        } : invoice.suppliers ? {
+          id: invoice.suppliers.id,
+          name: invoice.suppliers.name,
+          address: invoice.suppliers.address,
+          city: invoice.suppliers.city,
+          postal_code: invoice.suppliers.postal_code,
+          phone: invoice.suppliers.phone,
+          email: invoice.suppliers.email,
+          siret: invoice.suppliers.siret,
+          vat_number: invoice.suppliers.vat_number,
+        } : undefined,
+        company: companySettings ? {
+          name: companySettings.legal_name || companySettings.company_name || '',
+          address: companySettings.address || companySettings.company_address || '',
+          city: companySettings.city || companySettings.company_city || '',
+          postal_code: companySettings.postal_code || companySettings.company_postal_code || '',
+          country: companySettings.company_country || '',
+          phone: companySettings.phone || companySettings.company_phone || '',
+          email: companySettings.email || companySettings.company_email || '',
+          vat_number: companySettings.company_vat_number || '',
+          tax_id: companySettings.company_tax_id || companySettings.matricule_fiscale || '',
+          trade_register: companySettings.company_trade_register || '',
+          logo_url: companySettings.logo_url || companySettings.company_logo_url || '',
+          activity: companySettings.activity || '',
+          signature_url: companySettings.signature_url || '',
+          stamp_url: companySettings.stamp_url || '',
+          bank_accounts: companySettings.bank_accounts || [],
+        } : undefined,
+      };
+
+      const pdfItems: PDFInvoiceItem[] = items.map(item => ({
+        reference: item.reference || '',
+        description: item.description,
+        quantity: item.quantity,
+        unit_price: item.unit_price,
+        vat_rate: item.vat_rate,
+        vat_amount: item.vat_amount,
+        fodec_applicable: item.fodec_applicable,
+        fodec_rate: item.fodec_rate,
+        fodec_amount: item.fodec_amount,
+        total: item.total,
+      }));
+
+      await generateInvoiceWithTemplate(pdfData, pdfItems);
+      toast({ title: 'Succès', description: 'PDF généré avec succès' });
+    } catch (error) {
+      console.error('Error generating PDF:', error);
+      toast({ variant: 'destructive', title: 'Erreur', description: 'Erreur lors de la génération du PDF' });
+    } finally {
+      setGenerating(false);
+    }
+  };
+
+  const handlePrint = () => {
+    window.print();
+  };
+
   if (loading) {
     return <div className="flex items-center justify-center h-64"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" /></div>;
   }
@@ -40,6 +161,22 @@ export default function DocumentViewPage({ kind }: { kind: DocumentKind }) {
   if (!invoice) {
     return <div className="text-center py-8 text-muted-foreground">Document non trouvé</div>;
   }
+
+  // Calculate totals for display
+  const invoiceItems: InvoiceItem[] = items.map(item => ({
+    id: item.id,
+    reference: item.reference || '',
+    description: item.description,
+    quantity: item.quantity,
+    unit_price: item.unit_price,
+    vat_rate: item.vat_rate || 0,
+    vat_amount: item.vat_amount || 0,
+    fodec_applicable: item.fodec_applicable,
+    fodec_rate: item.fodec_rate,
+    fodec_amount: item.fodec_amount || 0,
+    total: item.total,
+  }));
+  const totals = calculateTotals(invoiceItems, invoice.stamp_included ?? false);
 
   return (
     <div className="space-y-6">
@@ -51,9 +188,17 @@ export default function DocumentViewPage({ kind }: { kind: DocumentKind }) {
           <h1 className="text-xl font-semibold">{config.label} — {invoice.invoice_number}</h1>
           <p className="text-sm text-muted-foreground">{invoice.issue_date}</p>
         </div>
-        <Button variant="outline" onClick={() => navigate(`edit`)}>
-          <Pencil className="h-4 w-4 mr-2" /> Modifier
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={handlePrint}>
+            <Printer className="h-4 w-4 mr-2" /> Imprimer
+          </Button>
+          <Button variant="outline" onClick={handleGeneratePDF} disabled={generating}>
+            <Download className="h-4 w-4 mr-2" /> {generating ? 'Génération...' : 'Télécharger PDF'}
+          </Button>
+          <Button variant="outline" onClick={() => navigate(`edit`)}>
+            <Pencil className="h-4 w-4 mr-2" /> Modifier
+          </Button>
+        </div>
       </div>
 
       <Card>
@@ -82,23 +227,67 @@ export default function DocumentViewPage({ kind }: { kind: DocumentKind }) {
             <table className="w-full text-sm">
               <thead className="bg-muted">
                 <tr>
+                  <th className="text-left p-3">Réf</th>
                   <th className="text-left p-3">Description</th>
                   <th className="text-right p-3">Qté</th>
-                  <th className="text-right p-3">P.U.</th>
-                  <th className="text-right p-3">Total</th>
+                  <th className="text-right p-3">P.U. HT</th>
+                  <th className="text-right p-3">TVA</th>
+                  <th className="text-right p-3">Total HT</th>
                 </tr>
               </thead>
               <tbody>
                 {items.map((item, i) => (
                   <tr key={i} className="border-t">
-                    <td className="p-3">{item.description || item.reference}</td>
+                    <td className="p-3">{item.reference || '-'}</td>
+                    <td className="p-3">{item.description}</td>
                     <td className="text-right p-3">{item.quantity}</td>
                     <td className="text-right p-3">{Number(item.unit_price).toFixed(3)}</td>
+                    <td className="text-right p-3">{item.vat_rate || 0}%</td>
                     <td className="text-right p-3">{Number(item.total).toFixed(3)}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
+          </div>
+
+          {/* Totals Section */}
+          <div className="flex justify-end">
+            <div className="w-72 space-y-2 text-sm">
+              <div className="flex justify-between">
+                <span>Sous-total HT:</span>
+                <span>{totals.subtotal.toFixed(3)} TND</span>
+              </div>
+              {totals.discountAmount > 0 && (
+                <div className="flex justify-between text-destructive">
+                  <span>Remise:</span>
+                  <span>-{totals.discountAmount.toFixed(3)} TND</span>
+                </div>
+              )}
+              {totals.totalFodec > 0 && (
+                <div className="flex justify-between">
+                  <span>FODEC:</span>
+                  <span>{totals.totalFodec.toFixed(3)} TND</span>
+                </div>
+              )}
+              <div className="flex justify-between">
+                <span>Base TVA:</span>
+                <span>{totals.baseTVA.toFixed(3)} TND</span>
+              </div>
+              <div className="flex justify-between">
+                <span>Montant TVA:</span>
+                <span>{totals.taxAmount.toFixed(3)} TND</span>
+              </div>
+              {invoice.stamp_included && (
+                <div className="flex justify-between">
+                  <span>Timbre fiscal:</span>
+                  <span>{STAMP_AMOUNT.toFixed(3)} TND</span>
+                </div>
+              )}
+              <div className="flex justify-between font-bold text-base border-t pt-2">
+                <span>Total TTC:</span>
+                <span>{totals.total.toFixed(3)} TND</span>
+              </div>
+            </div>
           </div>
 
           {invoice.notes && (
