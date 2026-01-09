@@ -329,7 +329,8 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
             )}>
               {!collapsed && (
                 <Link to="/" className="flex items-center gap-2 font-semibold text-lg text-foreground">
-                  <FileText className="h-5 w-5 text-primary" />
+                  {/* <FileText className="h-5 w-5 text-primary" /> */}
+                  <img src="/logo2.png" alt="SmartFin Logo" className="h-6 w-6" />
                   <span>SmartFin</span>
                 </Link>
               )}

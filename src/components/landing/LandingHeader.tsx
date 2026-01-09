@@ -11,7 +11,8 @@ export default function LandingHeader() {
       <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
         <div className="flex h-16 items-center justify-between">
           <Link to="/" className="flex items-center gap-2 font-semibold transition-transform hover:scale-105">
-            <span className="inline-block h-6 w-6 rounded bg-primary" />
+            {/* <span className="inline-block h-6 w-6 rounded bg-primary" /> */}
+            <img src="/logo2.png" alt="SmartFin Logo" className="h-6 w-6" />
             <span>SmartFin</span>
           </Link>
 
