@@ -417,13 +417,17 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent className="w-56 bg-card" align="end" forceMount>
-                  <DropdownMenuItem asChild className="cursor-pointer">
-                    <Link to="/settings" className="flex items-center gap-3 text-foreground">
-                      <Settings className="h-4 w-4" />
-                      <span>Paramètres</span>
-                    </Link>
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator className="bg-border" />
+                  {!isSuperAdmin && (
+                    <>
+                      <DropdownMenuItem asChild className="cursor-pointer">
+                        <Link to="/settings" className="flex items-center gap-3 text-foreground">
+                          <Settings className="h-4 w-4" />
+                          <span>Paramètres</span>
+                        </Link>
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator className="bg-border" />
+                    </>
+                  )}
                   <DropdownMenuItem asChild className="cursor-pointer">
                     <Link to="/account" className="flex items-center gap-3">
                       <Avatar className="h-8 w-8">
