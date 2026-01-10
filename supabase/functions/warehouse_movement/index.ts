@@ -18,7 +18,7 @@ function json(status: number, body: unknown) {
   });
 }
 
-async function getCallerAndRole(supabaseAdmin: ReturnType<typeof createClient>, req: Request, companyId: string) {
+async function getCallerAndRole(supabaseAdmin: any, req: Request, companyId: string) {
   const authHeader = req.headers.get("authorization");
   if (!authHeader) return { caller: null, role: null, error: json(401, { error: "Missing authorization header" }) };
 
@@ -37,9 +37,10 @@ async function getCallerAndRole(supabaseAdmin: ReturnType<typeof createClient>, 
     .eq("company_id", companyId)
     .maybeSingle();
 
-  if (!membership?.role) return { caller: null, role: null, error: json(403, { error: "Forbidden: not in company" }) };
+  const membershipRole = (membership as { role?: string } | null)?.role;
+  if (!membershipRole) return { caller: null, role: null, error: json(403, { error: "Forbidden: not in company" }) };
 
-  return { caller, role: String(membership.role) as CompanyRole, error: null };
+  return { caller, role: String(membershipRole) as CompanyRole, error: null };
 }
 
 function canCreateMovement(role: CompanyRole) {

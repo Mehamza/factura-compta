@@ -86,22 +86,33 @@ export default function DocumentEditPage({ kind }: { kind: DocumentKind }) {
       ? ['facture_credit', 'facture_payee']
       : ['facture_credit_achat'];
 
-    setLoadingSourceInvoices(true);
-    supabase
-      .from('invoices')
-      .select('id, invoice_number, clients(name), suppliers(name)')
-      .eq('company_id', activeCompanyId)
-      .in('document_kind', allowedSourceKinds as any)
-      .order('created_at', { ascending: false })
-      .then(({ data, error }) => {
+    let cancelled = false;
+    (async () => {
+      setLoadingSourceInvoices(true);
+      try {
+        const { data, error } = await supabase
+          .from('invoices')
+          .select('id, invoice_number, clients(name), suppliers(name)')
+          .eq('company_id', activeCompanyId)
+          .in('document_kind', allowedSourceKinds as any)
+          .order('created_at', { ascending: false });
+
+        if (cancelled) return;
+
         if (error) {
           toast({ variant: 'destructive', title: 'Erreur', description: error.message });
           setSourceInvoices([]);
         } else {
           setSourceInvoices((data || []) as any);
         }
-      })
-      .finally(() => setLoadingSourceInvoices(false));
+      } finally {
+        if (!cancelled) setLoadingSourceInvoices(false);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
   }, [activeCompanyId, isCreditNote, kind, toast]);
 
   // Load invoice data
