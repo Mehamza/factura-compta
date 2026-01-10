@@ -172,6 +172,12 @@ export const navigationConfig: NavigationModule[] = [
     icon: Boxes,
     children: [
       {
+        id: 'entrepots',
+        name: 'Entrepôts',
+        href: '/stock/entrepots',
+        icon: Boxes,
+      },
+      {
         id: 'produits',
         name: 'Produits',
         href: '/stock/produits',

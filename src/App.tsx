@@ -70,6 +70,7 @@ import Accounts from "./pages/Accounts";
 import Reports from "./pages/Reports";
 import StockProducts from "./pages/StockProducts";
 import StockMovements from "./pages/StockMovements";
+import Warehouses from "./pages/Warehouses";
 import SuperAdminDashboard from './pages/SuperAdminDashboard';
 import AdminUsers from "./pages/AdminUsers";
 import AdminPlans from "./pages/AdminPlans";
@@ -161,6 +162,7 @@ const router = createBrowserRouter(
       {/* Stock routes */}
       <Route path="/stock/produits" element={<ProtectedRoute><PageTransition><StockProducts /></PageTransition></ProtectedRoute>} />
       <Route path="/stock/mouvements" element={<ProtectedRoute><PageTransition><StockMovements /></PageTransition></ProtectedRoute>} />
+      <Route path="/stock/entrepots" element={<ProtectedRoute><PageTransition><Warehouses /></PageTransition></ProtectedRoute>} />
       
       {/* Protected routes - locked for cashier role */}
       <Route path="/journal" element={<ProtectedRoute><ModuleProtectedRoute><PageTransition><Journal /></PageTransition></ModuleProtectedRoute></ProtectedRoute>} />

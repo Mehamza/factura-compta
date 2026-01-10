@@ -124,7 +124,7 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
           "flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors",
           isActive
             ? "bg-primary text-primary-foreground"
-            : "text-foreground/70 hover:bg-muted/50 hover:text-foreground",
+            : "text-sidebar-foreground/80 hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground",
           collapsed && "justify-center px-2",
           indent && !collapsed && "pl-9"
         )}
@@ -156,7 +156,7 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
       <div
         className={cn(
           "flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium opacity-50 cursor-not-allowed",
-          "text-muted-foreground",
+          "text-sidebar-foreground/60",
           collapsed && "justify-center px-2"
         )}
       >
@@ -203,7 +203,7 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
                 "flex items-center justify-center px-2 py-2 rounded-md text-sm font-medium transition-colors cursor-pointer",
                 hasActiveChild
                   ? "bg-primary/20 text-primary"
-                  : "text-foreground/70 hover:bg-muted/50 hover:text-foreground"
+                  : "text-sidebar-foreground/80 hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground"
               )}
               onClick={() => toggleDropdown(item.id)}
             >
@@ -237,7 +237,7 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
               "flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors w-full",
               hasActiveChild
                 ? "bg-primary/20 text-primary"
-                : "text-foreground/70 hover:bg-muted/50 hover:text-foreground"
+                : "text-sidebar-foreground/80 hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground"
             )}
           >
             <Icon className="h-4 w-4 shrink-0" />
@@ -315,7 +315,7 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
         {/* Sidebar */}
         <aside
           className={cn(
-            "fixed inset-y-0 left-0 z-50 bg-card border-r border-border transform transition-transform duration-300 ease-in-out lg:translate-x-0 will-change-transform",
+            "fixed inset-y-0 left-0 z-50 bg-[#324052] text-sidebar-foreground border-r border-sidebar-border transform transition-transform duration-300 ease-in-out lg:translate-x-0 will-change-transform",
             sidebarOpen ? "translate-x-0" : "-translate-x-full",
             collapsed ? "w-16" : "w-64"
           )}
@@ -328,7 +328,7 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
               collapsed ? "justify-center" : "justify-between px-4"
             )}>
               {!collapsed && (
-                <Link to="/" className="flex items-center gap-2 font-semibold text-lg text-foreground">
+                <Link to="/" className="flex items-center gap-2 font-semibold text-lg text-sidebar-foreground">
                   {/* <FileText className="h-5 w-5 text-primary" /> */}
                   <img src="/logo2.png" alt="SmartFin Logo" className="h-6 w-6" />
                   <span>SmartFin</span>
@@ -336,13 +336,14 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
               )}
               {collapsed && (
                 <Link to="/" className="flex items-center justify-center">
-                  <FileText className="h-5 w-5 text-primary" />
+                  {/* <FileText className="h-5 w-5 text-primary" /> */}
+                  <img src="/logo2.png" alt="SmartFin Logo" className="h-6 w-6" />
                 </Link>
               )}
               <Button
                 variant="ghost"
                 size="icon"
-                className="lg:hidden transition-transform duration-200 ease-out active:scale-95 text-foreground hover:bg-muted/50"
+                className="lg:hidden transition-transform duration-200 ease-out active:scale-95 text-sidebar-foreground hover:bg-sidebar-accent/50"
                 onClick={() => setSidebarOpen(false)}
                 aria-label="Fermer le menu"
               >

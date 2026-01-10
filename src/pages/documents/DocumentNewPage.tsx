@@ -218,6 +218,17 @@ export default function DocumentNewPage({ kind }: { kind: DocumentKind }) {
     });
   };
 
+  const handleReferenceChange = (index: number, text: string) => {
+    // Treat typing as manual entry (but still allow selecting product from suggestions)
+    handleUpdateItem(index, 'reference', text);
+    setManualLines(prev => ({ ...prev, [index]: true }));
+    setItemProductMap(prev => {
+      const newMap = { ...prev };
+      delete newMap[index];
+      return newMap;
+    });
+  };
+
   const handleUpdateItem = (index: number, field: keyof InvoiceItem, value: string | number | boolean) => {
     const newItems = [...items];
     newItems[index] = { ...newItems[index], [field]: value };
@@ -339,7 +350,7 @@ export default function DocumentNewPage({ kind }: { kind: DocumentKind }) {
       }
 
       toast({ title: 'Succès', description: `${config.label} créé avec succès` });
-      navigate('..');
+      navigate(-1);
     } catch (err: any) {
       toast({ variant: 'destructive', title: 'Erreur', description: err?.message || 'Création impossible' });
     } finally {
@@ -450,11 +461,10 @@ export default function DocumentNewPage({ kind }: { kind: DocumentKind }) {
             <InvoiceItemsTable
               items={items}
               itemProductMap={itemProductMap}
-              manualLines={manualLines}
               priceType={priceType}
               defaultVatRate={defaultVatRate}
               onProductSelect={handleProductSelect}
-              onManualEntry={handleManualEntry}
+              onReferenceChange={handleReferenceChange}
               onUpdateItem={handleUpdateItem}
               onAddItem={handleAddItem}
               onRemoveItem={handleRemoveItem}
@@ -485,7 +495,7 @@ export default function DocumentNewPage({ kind }: { kind: DocumentKind }) {
 
             {/* Actions */}
             <div className="flex gap-3 justify-end">
-              <Button type="button" variant="outline" onClick={() => navigate('..')} disabled={submitting}>
+              <Button type="button" variant="outline" onClick={() => navigate(-1)} disabled={submitting}>
                 Annuler
               </Button>
               <Button type="submit" disabled={submitting}>

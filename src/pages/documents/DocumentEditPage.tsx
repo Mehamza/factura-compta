@@ -215,6 +215,16 @@ export default function DocumentEditPage({ kind }: { kind: DocumentKind }) {
     });
   };
 
+  const handleReferenceChange = (index: number, text: string) => {
+    handleUpdateItem(index, 'reference', text);
+    setManualLines(prev => ({ ...prev, [index]: true }));
+    setItemProductMap(prev => {
+      const newMap = { ...prev };
+      delete newMap[index];
+      return newMap;
+    });
+  };
+
   const handleUpdateItem = (index: number, field: keyof InvoiceItem, value: string | number | boolean) => {
     const newItems = [...items];
     newItems[index] = { ...newItems[index], [field]: value };
@@ -441,11 +451,10 @@ export default function DocumentEditPage({ kind }: { kind: DocumentKind }) {
             <InvoiceItemsTable
               items={items}
               itemProductMap={itemProductMap}
-              manualLines={manualLines}
               priceType={priceType}
               defaultVatRate={defaultVatRate}
               onProductSelect={handleProductSelect}
-              onManualEntry={handleManualEntry}
+              onReferenceChange={handleReferenceChange}
               onUpdateItem={handleUpdateItem}
               onAddItem={handleAddItem}
               onRemoveItem={handleRemoveItem}

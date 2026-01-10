@@ -6,11 +6,10 @@ import type { InvoiceItem, Product } from './types';
 interface InvoiceItemsTableProps {
   items: InvoiceItem[];
   itemProductMap: Record<number, string>;
-  manualLines: Record<number, boolean>;
   priceType: 'sale' | 'purchase';
   defaultVatRate: number;
   onProductSelect: (index: number, product: Product) => void;
-  onManualEntry: (index: number) => void;
+  onReferenceChange: (index: number, text: string) => void;
   onUpdateItem: (index: number, field: keyof InvoiceItem, value: string | number | boolean) => void;
   onAddItem: () => void;
   onRemoveItem: (index: number) => void;
@@ -19,11 +18,10 @@ interface InvoiceItemsTableProps {
 export function InvoiceItemsTable({
   items,
   itemProductMap,
-  manualLines,
   priceType,
   defaultVatRate,
   onProductSelect,
-  onManualEntry,
+  onReferenceChange,
   onUpdateItem,
   onAddItem,
   onRemoveItem,
@@ -58,11 +56,10 @@ export function InvoiceItemsTable({
             item={item}
             index={index}
             productId={itemProductMap[index]}
-            isManual={manualLines[index] || false}
             priceType={priceType}
             defaultVatRate={defaultVatRate}
             onProductSelect={onProductSelect}
-            onManualEntry={onManualEntry}
+            onReferenceChange={onReferenceChange}
             onUpdate={onUpdateItem}
             onRemove={onRemoveItem}
             canRemove={items.length > 1}

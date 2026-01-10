@@ -2,18 +2,17 @@ import { Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
-import { ProductSelector } from './ProductSelector';
+import { ProductRefAutocomplete } from './ProductRefAutocomplete';
 import type { InvoiceItem, Product } from './types';
 
 interface InvoiceItemRowProps {
   item: InvoiceItem;
   index: number;
   productId?: string;
-  isManual: boolean;
   priceType: 'sale' | 'purchase';
   defaultVatRate: number;
   onProductSelect: (index: number, product: Product) => void;
-  onManualEntry: (index: number) => void;
+  onReferenceChange: (index: number, text: string) => void;
   onUpdate: (index: number, field: keyof InvoiceItem, value: string | number | boolean) => void;
   onRemove: (index: number) => void;
   canRemove: boolean;
@@ -23,11 +22,10 @@ export function InvoiceItemRow({
   item,
   index,
   productId,
-  isManual,
   priceType,
   defaultVatRate,
   onProductSelect,
-  onManualEntry,
+  onReferenceChange,
   onUpdate,
   onRemove,
   canRemove,
@@ -38,43 +36,15 @@ export function InvoiceItemRow({
 
   return (
     <div className="grid grid-cols-12 gap-2 items-start p-3 border rounded-lg bg-card">
-      {/* Product selector or manual entry */}
+      {/* Product / Ref (autocomplete + manual typing) */}
       <div className="col-span-12 md:col-span-3">
-        {isManual ? (
-          <div className="space-y-2">
-            <Input
-              placeholder="Référence"
-              value={item.reference}
-              onChange={(e) => onUpdate(index, 'reference', e.target.value)}
-            />
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              className="text-xs"
-              onClick={() => onManualEntry(index)}
-            >
-              Choisir un produit
-            </Button>
-          </div>
-        ) : (
-          <div className="space-y-2">
-            <ProductSelector
-              value={productId || ''}
-              onChange={handleProductChange}
-              priceType={priceType}
-            />
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              className="text-xs"
-              onClick={() => onManualEntry(index)}
-            >
-              Saisie manuelle
-            </Button>
-          </div>
-        )}
+        <ProductRefAutocomplete
+          value={item.reference}
+          selectedProductId={productId}
+          onChangeText={(text) => onReferenceChange(index, text)}
+          onSelectProduct={handleProductChange}
+          priceType={priceType}
+        />
       </div>
 
       {/* Description */}
