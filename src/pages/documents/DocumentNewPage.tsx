@@ -337,7 +337,11 @@ export default function DocumentNewPage({ kind }: { kind: DocumentKind }) {
         fodec_amount: totals.totalFodec,
         total: totals.total,
         source_invoice_id: isCreditNote ? sourceInvoiceId : null,
-      }, invoiceItems);
+        // Persister les informations de remise
+        discount_type: discount.type,
+        discount_value: discount.value,
+        discount_amount: totals.discountAmount,
+      } as any, invoiceItems);
 
       // Handle stock movement for bon de livraison
       if (config.affectsStock && config.stockMovementType) {

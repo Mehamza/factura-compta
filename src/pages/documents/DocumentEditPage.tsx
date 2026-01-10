@@ -141,6 +141,12 @@ export default function DocumentEditPage({ kind }: { kind: DocumentKind }) {
     setStampIncluded(invoice.stamp_included || false);
     setCurrency(invoice.currency || 'TND');
     setSourceInvoiceId((invoice as any).source_invoice_id || '');
+    // Charger les informations de remise existantes
+    const invAny = invoice as any;
+    setDiscount({
+      type: invAny.discount_type || 'percent',
+      value: invAny.discount_value || 0,
+    });
 
     const loadedItems: InvoiceItem[] = invoiceItems.map((item: any) => ({
       id: item.id,
@@ -342,7 +348,11 @@ export default function DocumentEditPage({ kind }: { kind: DocumentKind }) {
         fodec_amount: totals.totalFodec,
         total: totals.total,
         source_invoice_id: isCreditNote ? sourceInvoiceId : null,
-      }, invoiceItems);
+        // Persister les informations de remise
+        discount_type: discount.type,
+        discount_value: discount.value,
+        discount_amount: totals.discountAmount,
+      } as any, invoiceItems);
 
       toast({ title: 'Succès', description: `${config.label} mis à jour avec succès` });
       navigate('..');
