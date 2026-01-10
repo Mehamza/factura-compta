@@ -133,8 +133,11 @@ export const useInvoices = (kind: DocumentKind) => {
         reference_devis: payload.reference_devis ?? null,
         source_invoice_id: (payload as any).source_invoice_id ?? null,
         document_kind: kind,
+        // Persister les informations de remise
+        discount_type: (payload as any).discount_type ?? 'percent',
+        discount_value: (payload as any).discount_value ?? 0,
+        discount_amount: (payload as any).discount_amount ?? 0,
       };
-
       const { data: invoice, error } = await supabase
         .from('invoices')
         .insert(insertPayload)
@@ -198,6 +201,10 @@ export const useInvoices = (kind: DocumentKind) => {
           stamp_amount: payload.stamp_amount,
           validity_date: payload.validity_date,
           source_invoice_id: (payload as any).source_invoice_id,
+          // Persister les informations de remise
+          discount_type: (payload as any).discount_type,
+          discount_value: (payload as any).discount_value,
+          discount_amount: (payload as any).discount_amount,
         })
         .eq('id', id)
         .select()
@@ -335,29 +342,65 @@ export const useInvoices = (kind: DocumentKind) => {
       const { invoice, items } = await getById(invoiceId);
       if (!invoice || items.length === 0) return;
 
-      // Get products by reference (sku)
+      // Vérifier si des mouvements ont déjà été créés pour ce document (idempotence)
+      const { data: existingMovements } = await supabase
+        .from('stock_movements')
+        .select('id')
+        .eq('reference_type', invoice.document_kind)
+        .eq('reference_id', invoiceId)
+        .limit(1);
+
+      if (existingMovements && existingMovements.length > 0) {
+        console.log('Stock movements already exist for this document, skipping');
+        return;
+      }
+
+      // Get products by reference (sku) ou product_id si disponible
       const refs = items.map(i => i.reference).filter(Boolean);
-      if (refs.length === 0) return;
+      const productIds = items.map(i => (i as any).product_id).filter(Boolean);
+      
+      if (refs.length === 0 && productIds.length === 0) return;
 
-      const { data: products } = await supabase
-        .from('products')
-        .select('id, sku, quantity')
-        .eq('company_id', activeCompanyId)
-        .in('sku', refs);
+      // Charger les produits par SKU ou ID
+      let products: any[] = [];
+      if (productIds.length > 0) {
+        const { data } = await supabase
+          .from('products')
+          .select('id, sku, quantity')
+          .eq('company_id', activeCompanyId)
+          .in('id', productIds);
+        products = data || [];
+      } else if (refs.length > 0) {
+        const { data } = await supabase
+          .from('products')
+          .select('id, sku, quantity')
+          .eq('company_id', activeCompanyId)
+          .in('sku', refs);
+        products = data || [];
+      }
 
-      if (!products || products.length === 0) return;
+      if (products.length === 0) return;
 
-      const productMap = new Map(products.map(p => [p.sku, p]));
+      const productMapById = new Map(products.map(p => [p.id, p]));
+      const productMapBySku = new Map(products.map(p => [p.sku, p]));
 
       for (const item of items) {
-        const product = productMap.get(item.reference);
+        // Chercher le produit par ID d'abord, puis par SKU
+        let product = productMapById.get((item as any).product_id);
+        if (!product) product = productMapBySku.get(item.reference);
         if (!product) continue;
 
         const currentQty = Number(product.quantity ?? 0);
-        const itemQty = Number(item.quantity ?? 0);
+        const itemQty = Math.abs(Number(item.quantity ?? 0)); // Abs car les avoirs ont des qtés négatives
         const newQty = movementType === 'entry' 
           ? currentQty + itemQty 
           : currentQty - itemQty;
+
+        // Validation stock pour les sorties (sauf pour les avoirs qui restaurent le stock)
+        if (movementType === 'exit' && newQty < 0) {
+          console.warn(`Stock insuffisant pour ${product.sku}: ${currentQty} disponible, ${itemQty} demandé`);
+          // On continue quand même mais on met 0 comme minimum
+        }
 
         // Update product quantity
         await supabase
@@ -365,7 +408,7 @@ export const useInvoices = (kind: DocumentKind) => {
           .update({ quantity: Math.max(0, newQty) })
           .eq('id', product.id);
 
-        // Insert stock movement
+        // Insert stock movement avec traçabilité
         await supabase.from('stock_movements').insert({
           user_id: user.id,
           company_id: activeCompanyId,
@@ -373,6 +416,8 @@ export const useInvoices = (kind: DocumentKind) => {
           movement_type: movementType,
           quantity: itemQty,
           note: `Document ${invoice.invoice_number}`,
+          reference_type: invoice.document_kind,
+          reference_id: invoiceId,
         });
       }
     },

@@ -500,6 +500,7 @@ export type Database = {
           fodec_rate: number | null
           id: string
           invoice_id: string
+          product_id: string | null
           quantity: number
           reference: string | null
           total: number
@@ -516,6 +517,7 @@ export type Database = {
           fodec_rate?: number | null
           id?: string
           invoice_id: string
+          product_id?: string | null
           quantity?: number
           reference?: string | null
           total: number
@@ -532,6 +534,7 @@ export type Database = {
           fodec_rate?: number | null
           id?: string
           invoice_id?: string
+          product_id?: string | null
           quantity?: number
           reference?: string | null
           total?: number
@@ -554,6 +557,13 @@ export type Database = {
             referencedRelation: "invoices"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "invoice_items_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
         ]
       }
       invoices: {
@@ -563,6 +573,9 @@ export type Database = {
           created_at: string
           created_by_user_id: string | null
           currency: string | null
+          discount_amount: number | null
+          discount_type: string | null
+          discount_value: number | null
           document_kind: string
           due_date: string
           fodec_amount: number | null
@@ -571,6 +584,7 @@ export type Database = {
           issue_date: string
           notes: string | null
           reference_devis: string | null
+          source_invoice_id: string | null
           stamp_amount: number
           stamp_included: boolean
           status: string
@@ -590,6 +604,9 @@ export type Database = {
           created_at?: string
           created_by_user_id?: string | null
           currency?: string | null
+          discount_amount?: number | null
+          discount_type?: string | null
+          discount_value?: number | null
           document_kind?: string
           due_date: string
           fodec_amount?: number | null
@@ -598,6 +615,7 @@ export type Database = {
           issue_date?: string
           notes?: string | null
           reference_devis?: string | null
+          source_invoice_id?: string | null
           stamp_amount?: number
           stamp_included?: boolean
           status?: string
@@ -617,6 +635,9 @@ export type Database = {
           created_at?: string
           created_by_user_id?: string | null
           currency?: string | null
+          discount_amount?: number | null
+          discount_type?: string | null
+          discount_value?: number | null
           document_kind?: string
           due_date?: string
           fodec_amount?: number | null
@@ -625,6 +646,7 @@ export type Database = {
           issue_date?: string
           notes?: string | null
           reference_devis?: string | null
+          source_invoice_id?: string | null
           stamp_amount?: number
           stamp_included?: boolean
           status?: string
@@ -651,6 +673,13 @@ export type Database = {
             columns: ["company_id"]
             isOneToOne: false
             referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoices_source_invoice_id_fkey"
+            columns: ["source_invoice_id"]
+            isOneToOne: false
+            referencedRelation: "invoices"
             referencedColumns: ["id"]
           },
           {
@@ -1072,6 +1101,8 @@ export type Database = {
           note: string | null
           product_id: string
           quantity: number
+          reference_id: string | null
+          reference_type: string | null
           user_id: string
         }
         Insert: {
@@ -1082,6 +1113,8 @@ export type Database = {
           note?: string | null
           product_id: string
           quantity: number
+          reference_id?: string | null
+          reference_type?: string | null
           user_id: string
         }
         Update: {
@@ -1092,6 +1125,8 @@ export type Database = {
           note?: string | null
           product_id?: string
           quantity?: number
+          reference_id?: string | null
+          reference_type?: string | null
           user_id?: string
         }
         Relationships: [
