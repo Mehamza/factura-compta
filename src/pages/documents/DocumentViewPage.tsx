@@ -80,7 +80,12 @@ export default function DocumentViewPage({ kind }: { kind: DocumentKind }) {
       }));
 
       const stampIncluded = invoice.stamp_included ?? false;
-      const totals = calculateTotals(invoiceItems, stampIncluded);
+      // Utiliser la remise stockée dans l'invoice
+      const discount = {
+        type: (invoice.discount_type as 'percent' | 'fixed') || 'percent',
+        value: Number(invoice.discount_value) || 0,
+      };
+      const totals = calculateTotals(invoiceItems, stampIncluded, discount);
 
       const pdfData: InvoiceTemplateData = {
         invoice_number: invoice.invoice_number,
@@ -187,7 +192,12 @@ export default function DocumentViewPage({ kind }: { kind: DocumentKind }) {
     fodec_amount: item.fodec_amount || 0,
     total: item.total,
   }));
-  const totals = calculateTotals(invoiceItems, invoice.stamp_included ?? false);
+  // Utiliser la remise stockée dans l'invoice
+  const discount = {
+    type: (invoice.discount_type as 'percent' | 'fixed') || 'percent',
+    value: Number(invoice.discount_value) || 0,
+  };
+  const totals = calculateTotals(invoiceItems, invoice.stamp_included ?? false, discount);
 
   return (
     <div className="space-y-6">
