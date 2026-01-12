@@ -2,7 +2,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { createBrowserRouter, createRoutesFromElements, RouterProvider, Route } from "react-router-dom";
+import { createBrowserRouter, createRoutesFromElements, RouterProvider, Route, Navigate } from "react-router-dom";
 import { AnimatePresence, motion, MotionConfig } from "framer-motion";
 import { AuthProvider } from "@/hooks/useAuth";
 import { ProtectedRoute } from "@/components/layout/ProtectedRoute";
@@ -28,14 +28,12 @@ import SalesBonLivraison from "./pages/documents/SalesBonLivraison";
 import SalesBonLivraisonNew from "./pages/documents/SalesBonLivraisonNew";
 import SalesBonLivraisonView from "./pages/documents/SalesBonLivraisonView";
 import SalesBonLivraisonEdit from "./pages/documents/SalesBonLivraisonEdit";
-import SalesFactureCredit from "./pages/documents/SalesFactureCredit";
-import SalesFactureCreditNew from "./pages/documents/SalesFactureCreditNew";
-import SalesFactureCreditView from "./pages/documents/SalesFactureCreditView";
-import SalesFactureCreditEdit from "./pages/documents/SalesFactureCreditEdit";
-import SalesFacturePayee from "./pages/documents/SalesFacturePayee";
-import SalesFacturePayeeNew from "./pages/documents/SalesFacturePayeeNew";
-import SalesFacturePayeeView from "./pages/documents/SalesFacturePayeeView";
-import SalesFacturePayeeEdit from "./pages/documents/SalesFacturePayeeEdit";
+// Facture unifiée (remplace facture_credit + facture_payee)
+import SalesFacture from "./pages/documents/SalesFacture";
+import SalesFactureNew from "./pages/documents/SalesFactureNew";
+import SalesFactureView from "./pages/documents/SalesFactureView";
+import SalesFactureEdit from "./pages/documents/SalesFactureEdit";
+// Avoirs
 import SalesFactureAvoir from "./pages/documents/SalesFactureAvoir";
 import SalesFactureAvoirNew from "./pages/documents/SalesFactureAvoirNew";
 import SalesFactureAvoirView from "./pages/documents/SalesFactureAvoirView";
@@ -49,10 +47,12 @@ import PurchaseBonLivraison from "./pages/documents/PurchaseBonLivraison";
 import PurchaseBonLivraisonNew from "./pages/documents/PurchaseBonLivraisonNew";
 import PurchaseBonLivraisonView from "./pages/documents/PurchaseBonLivraisonView";
 import PurchaseBonLivraisonEdit from "./pages/documents/PurchaseBonLivraisonEdit";
-import PurchaseFactureCredit from "./pages/documents/PurchaseFactureCredit";
-import PurchaseFactureCreditNew from "./pages/documents/PurchaseFactureCreditNew";
-import PurchaseFactureCreditView from "./pages/documents/PurchaseFactureCreditView";
-import PurchaseFactureCreditEdit from "./pages/documents/PurchaseFactureCreditEdit";
+// Facture d'achat unifiée (remplace facture_credit_achat)
+import PurchaseFacture from "./pages/documents/PurchaseFacture";
+import PurchaseFactureNew from "./pages/documents/PurchaseFactureNew";
+import PurchaseFactureView from "./pages/documents/PurchaseFactureView";
+import PurchaseFactureEdit from "./pages/documents/PurchaseFactureEdit";
+// Avoirs achats
 import PurchaseAvoir from "./pages/documents/PurchaseAvoir";
 import PurchaseAvoirNew from "./pages/documents/PurchaseAvoirNew";
 import PurchaseAvoirView from "./pages/documents/PurchaseAvoirView";
@@ -125,15 +125,20 @@ const router = createBrowserRouter(
       <Route path="/invoices/bon-livraison/new" element={<ProtectedRoute><PageTransition><SalesBonLivraisonNew /></PageTransition></ProtectedRoute>} />
       <Route path="/invoices/bon-livraison/:id" element={<ProtectedRoute><PageTransition><SalesBonLivraisonView /></PageTransition></ProtectedRoute>} />
       <Route path="/invoices/bon-livraison/:id/edit" element={<ProtectedRoute><PageTransition><SalesBonLivraisonEdit /></PageTransition></ProtectedRoute>} />
-      <Route path="/invoices/credit" element={<ProtectedRoute><PageTransition><SalesFactureCredit /></PageTransition></ProtectedRoute>} />
-      <Route path="/invoices/credit/new" element={<ProtectedRoute><PageTransition><SalesFactureCreditNew /></PageTransition></ProtectedRoute>} />
-      <Route path="/invoices/credit/:id" element={<ProtectedRoute><PageTransition><SalesFactureCreditView /></PageTransition></ProtectedRoute>} />
-      <Route path="/invoices/credit/:id/edit" element={<ProtectedRoute><PageTransition><SalesFactureCreditEdit /></PageTransition></ProtectedRoute>} />
-      <Route path="/invoices/recu" element={<ProtectedRoute><PageTransition><SalesFacturePayee /></PageTransition></ProtectedRoute>} />
-      <Route path="/invoices/recu/new" element={<ProtectedRoute><PageTransition><SalesFacturePayeeNew /></PageTransition></ProtectedRoute>} />
-      <Route path="/invoices/recu/:id" element={<ProtectedRoute><PageTransition><SalesFacturePayeeView /></PageTransition></ProtectedRoute>} />
-      <Route path="/invoices/recu/:id/edit" element={<ProtectedRoute><PageTransition><SalesFacturePayeeEdit /></PageTransition></ProtectedRoute>} />
+      
+      {/* Factures unifiées (nouvelle route) */}
+      <Route path="/invoices/facture" element={<ProtectedRoute><PageTransition><SalesFacture /></PageTransition></ProtectedRoute>} />
+      <Route path="/invoices/facture/new" element={<ProtectedRoute><PageTransition><SalesFactureNew /></PageTransition></ProtectedRoute>} />
+      <Route path="/invoices/facture/:id" element={<ProtectedRoute><PageTransition><SalesFactureView /></PageTransition></ProtectedRoute>} />
+      <Route path="/invoices/facture/:id/edit" element={<ProtectedRoute><PageTransition><SalesFactureEdit /></PageTransition></ProtectedRoute>} />
+      
+      {/* Redirections legacy pour rétro-compatibilité */}
+      <Route path="/invoices/credit" element={<Navigate to="/invoices/facture" replace />} />
+      <Route path="/invoices/credit/*" element={<Navigate to="/invoices/facture" replace />} />
+      <Route path="/invoices/recu" element={<Navigate to="/invoices/facture" replace />} />
+      <Route path="/invoices/recu/*" element={<Navigate to="/invoices/facture" replace />} />
 
+      {/* Avoirs */}
       <Route path="/invoices/avoir" element={<ProtectedRoute><PageTransition><SalesFactureAvoir /></PageTransition></ProtectedRoute>} />
       <Route path="/invoices/avoir/new" element={<ProtectedRoute><PageTransition><SalesFactureAvoirNew /></PageTransition></ProtectedRoute>} />
       <Route path="/invoices/avoir/:id" element={<ProtectedRoute><PageTransition><SalesFactureAvoirView /></PageTransition></ProtectedRoute>} />
@@ -149,11 +154,18 @@ const router = createBrowserRouter(
       <Route path="/purchases/bon-livraison/new" element={<ProtectedRoute><PageTransition><PurchaseBonLivraisonNew /></PageTransition></ProtectedRoute>} />
       <Route path="/purchases/bon-livraison/:id" element={<ProtectedRoute><PageTransition><PurchaseBonLivraisonView /></PageTransition></ProtectedRoute>} />
       <Route path="/purchases/bon-livraison/:id/edit" element={<ProtectedRoute><PageTransition><PurchaseBonLivraisonEdit /></PageTransition></ProtectedRoute>} />
-      <Route path="/purchases/credit" element={<ProtectedRoute><PageTransition><PurchaseFactureCredit /></PageTransition></ProtectedRoute>} />
-      <Route path="/purchases/credit/new" element={<ProtectedRoute><PageTransition><PurchaseFactureCreditNew /></PageTransition></ProtectedRoute>} />
-      <Route path="/purchases/credit/:id" element={<ProtectedRoute><PageTransition><PurchaseFactureCreditView /></PageTransition></ProtectedRoute>} />
-      <Route path="/purchases/credit/:id/edit" element={<ProtectedRoute><PageTransition><PurchaseFactureCreditEdit /></PageTransition></ProtectedRoute>} />
+      
+      {/* Factures d'achat unifiées (nouvelle route) */}
+      <Route path="/purchases/facture" element={<ProtectedRoute><PageTransition><PurchaseFacture /></PageTransition></ProtectedRoute>} />
+      <Route path="/purchases/facture/new" element={<ProtectedRoute><PageTransition><PurchaseFactureNew /></PageTransition></ProtectedRoute>} />
+      <Route path="/purchases/facture/:id" element={<ProtectedRoute><PageTransition><PurchaseFactureView /></PageTransition></ProtectedRoute>} />
+      <Route path="/purchases/facture/:id/edit" element={<ProtectedRoute><PageTransition><PurchaseFactureEdit /></PageTransition></ProtectedRoute>} />
 
+      {/* Redirection legacy */}
+      <Route path="/purchases/credit" element={<Navigate to="/purchases/facture" replace />} />
+      <Route path="/purchases/credit/*" element={<Navigate to="/purchases/facture" replace />} />
+
+      {/* Avoirs achats */}
       <Route path="/purchases/avoir" element={<ProtectedRoute><PageTransition><PurchaseAvoir /></PageTransition></ProtectedRoute>} />
       <Route path="/purchases/avoir/new" element={<ProtectedRoute><PageTransition><PurchaseAvoirNew /></PageTransition></ProtectedRoute>} />
       <Route path="/purchases/avoir/:id" element={<ProtectedRoute><PageTransition><PurchaseAvoirView /></PageTransition></ProtectedRoute>} />

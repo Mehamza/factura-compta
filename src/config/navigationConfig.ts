@@ -14,7 +14,6 @@ import {
   ClipboardList,
   Package,
   Receipt,
-  FileCheck,
   Calculator,
   LucideIcon,
 } from 'lucide-react';
@@ -35,6 +34,7 @@ export interface NavigationModule {
 }
 
 // Main navigation configuration
+// MODÈLE TUNISIE: Facture unique (suppression facture_credit/facture_payee)
 export const navigationConfig: NavigationModule[] = [
   {
     id: 'dashboard',
@@ -78,16 +78,10 @@ export const navigationConfig: NavigationModule[] = [
         icon: Package,
       },
       {
-        id: 'facture-credit',
-        name: 'Facture à crédit',
-        href: '/invoices/credit',
+        id: 'facture',
+        name: 'Factures',  // Facture unique
+        href: '/invoices/facture',
         icon: Receipt,
-      },
-      {
-        id: 'facture-recu',
-        name: 'Facture payée / Reçu',
-        href: '/invoices/recu',
-        icon: FileCheck,
       },
       {
         id: 'facture-avoir',
@@ -115,9 +109,9 @@ export const navigationConfig: NavigationModule[] = [
         icon: Package,
       },
       {
-        id: 'facture-credit-achat',
-        name: "Facture d'achat",
-        href: '/purchases/credit',
+        id: 'facture-achat',
+        name: "Factures d'achat",  // Facture d'achat unique
+        href: '/purchases/facture',
         icon: Receipt,
       },
       {

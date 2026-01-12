@@ -826,14 +826,18 @@ export type Database = {
           created_at: string | null
           created_by_user_id: string | null
           currency: string | null
+          gross_amount: number | null
           id: string
           invoice_id: string | null
           method_id: string | null
+          net_amount: number | null
           notes: string | null
           paid_at: string
           reference: string | null
           updated_at: string | null
           user_id: string
+          withholding_amount: number | null
+          withholding_rate: number | null
         }
         Insert: {
           amount: number
@@ -842,14 +846,18 @@ export type Database = {
           created_at?: string | null
           created_by_user_id?: string | null
           currency?: string | null
+          gross_amount?: number | null
           id?: string
           invoice_id?: string | null
           method_id?: string | null
+          net_amount?: number | null
           notes?: string | null
           paid_at: string
           reference?: string | null
           updated_at?: string | null
           user_id: string
+          withholding_amount?: number | null
+          withholding_rate?: number | null
         }
         Update: {
           amount?: number
@@ -858,14 +866,18 @@ export type Database = {
           created_at?: string | null
           created_by_user_id?: string | null
           currency?: string | null
+          gross_amount?: number | null
           id?: string
           invoice_id?: string | null
           method_id?: string | null
+          net_amount?: number | null
           notes?: string | null
           paid_at?: string
           reference?: string | null
           updated_at?: string | null
           user_id?: string
+          withholding_amount?: number | null
+          withholding_rate?: number | null
         }
         Relationships: [
           {
@@ -1279,6 +1291,113 @@ export type Database = {
         }
         Relationships: []
       }
+      warehouse_products: {
+        Row: {
+          created_at: string | null
+          id: string
+          max_stock: number | null
+          min_stock: number | null
+          product_id: string
+          quantity: number | null
+          updated_at: string | null
+          warehouse_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          max_stock?: number | null
+          min_stock?: number | null
+          product_id: string
+          quantity?: number | null
+          updated_at?: string | null
+          warehouse_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          max_stock?: number | null
+          min_stock?: number | null
+          product_id?: string
+          quantity?: number | null
+          updated_at?: string | null
+          warehouse_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "warehouse_products_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "warehouse_products_warehouse_id_fkey"
+            columns: ["warehouse_id"]
+            isOneToOne: false
+            referencedRelation: "warehouses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      warehouses: {
+        Row: {
+          address: string | null
+          city: string | null
+          code: string
+          company_id: string
+          country: string | null
+          created_at: string | null
+          deleted_at: string | null
+          id: string
+          is_active: boolean | null
+          is_default: boolean | null
+          manager_name: string | null
+          manager_phone: string | null
+          name: string
+          updated_at: string | null
+        }
+        Insert: {
+          address?: string | null
+          city?: string | null
+          code: string
+          company_id: string
+          country?: string | null
+          created_at?: string | null
+          deleted_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          is_default?: boolean | null
+          manager_name?: string | null
+          manager_phone?: string | null
+          name: string
+          updated_at?: string | null
+        }
+        Update: {
+          address?: string | null
+          city?: string | null
+          code?: string
+          company_id?: string
+          country?: string | null
+          created_at?: string | null
+          deleted_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          is_default?: boolean | null
+          manager_name?: string | null
+          manager_phone?: string | null
+          name?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "warehouses_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
@@ -1355,6 +1474,10 @@ export type Database = {
       is_super_admin: { Args: { _user_id: string }; Returns: boolean }
       is_super_admin_direct: { Args: { _user_id: string }; Returns: boolean }
       recompute_invoice_totals: {
+        Args: { p_invoice_id: string }
+        Returns: undefined
+      }
+      update_invoice_payment_status: {
         Args: { p_invoice_id: string }
         Returns: undefined
       }
