@@ -20,7 +20,37 @@ drop trigger if exists "prevent_delete_default_warehouse_trg" on "public"."wareh
 
 drop trigger if exists "trg_invoices_recompute_on_change" on "public"."invoices";
 
-alter table "public"."invoices" drop constraint "invoices_payment_status_check";
+-- alter table "public"."invoices" drop constraint "invoices_payment_status_check";
+
+DO $$
+BEGIN
+   IF EXISTS (
+       SELECT 1 
+       FROM information_schema.table_constraints 
+       WHERE table_name = 'invoices' 
+         AND constraint_name = 'invoices_payment_status_check'
+   ) THEN
+       ALTER TABLE public.invoices DROP CONSTRAINT invoices_payment_status_check;
+   END IF;
+END
+$$;
+
+ALTER TABLE public.invoices ADD COLUMN IF NOT EXISTS payment_status TEXT;
+
+DO $$
+BEGIN
+   IF NOT EXISTS (
+      SELECT 1 FROM pg_constraint 
+      WHERE conname = 'invoices_payment_status_check'
+   ) THEN
+      ALTER TABLE public.invoices
+      ADD CONSTRAINT invoices_payment_status_check
+      CHECK (payment_status IN ('paid','unpaid','partial'));
+   END IF;
+END
+$$;
+
+
 
 alter table "public"."stock_movements" drop constraint "stock_movements_destination_warehouse_id_fkey";
 
@@ -207,7 +237,21 @@ END;
 $function$
 ;
 
-CREATE TRIGGER trg_invoice_status_after_payment AFTER INSERT OR DELETE OR UPDATE ON public.payments FOR EACH ROW EXECUTE FUNCTION public.refresh_invoice_status();
+DO $$
+BEGIN
+   IF NOT EXISTS (
+      SELECT 1 
+      FROM pg_trigger 
+      WHERE tgname = 'trg_invoice_status_after_payment'
+   ) THEN
+      CREATE TRIGGER trg_invoice_status_after_payment
+      AFTER INSERT OR DELETE OR UPDATE ON public.payments
+      FOR EACH ROW
+      EXECUTE FUNCTION public.refresh_invoice_status();
+   END IF;
+END
+$$;
+
 
 CREATE TRIGGER trg_invoices_recompute_on_change AFTER UPDATE OF tax_rate, stamp_included, stamp_amount ON public.invoices FOR EACH ROW EXECUTE FUNCTION public.trg_invoices_recompute_on_change();
 

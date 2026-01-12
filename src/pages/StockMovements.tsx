@@ -45,13 +45,20 @@ export default function StockMovements() {
     }
   };
 
-  useEffect(() => { if (user) load(); }, [user]);
+  useEffect(() => {
+    if (user && activeCompanyId) load();
+  }, [user, activeCompanyId]);
 
   const load = async () => {
     setLoading(true);
     const [prodRes, movRes] = await Promise.all([
-      supabase.from('products').select('*').order('name'),
-      supabase.from('stock_movements').select('*').order('created_at', { ascending: false }).limit(200),
+      supabase.from('products').select('*').eq('company_id', activeCompanyId).order('name'),
+      supabase
+        .from('stock_movements')
+        .select('*')
+        .eq('company_id', activeCompanyId)
+        .order('created_at', { ascending: false })
+        .limit(200),
     ]);
     setProducts(prodRes.data || []);
     setMovements(movRes.data || []);
@@ -60,6 +67,11 @@ export default function StockMovements() {
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (!activeCompanyId) {
+      toast({ variant: 'destructive', title: 'Erreur', description: 'Aucune société active.' });
+      return;
+    }
 
     if (!form.product_id) {
       toast({ variant: 'destructive', title: 'Erreur', description: 'Le produit est obligatoire.' });
