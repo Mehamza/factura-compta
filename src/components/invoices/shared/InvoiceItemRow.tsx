@@ -9,6 +9,7 @@ interface InvoiceItemRowProps {
   item: InvoiceItem;
   index: number;
   productId?: string;
+  maxQuantity?: number;
   priceType: 'sale' | 'purchase';
   defaultVatRate: number;
   onProductSelect: (index: number, product: Product) => void;
@@ -22,6 +23,7 @@ export function InvoiceItemRow({
   item,
   index,
   productId,
+  maxQuantity,
   priceType,
   defaultVatRate,
   onProductSelect,
@@ -60,7 +62,8 @@ export function InvoiceItemRow({
       <div className="col-span-4 md:col-span-1">
         <Input
           type="number"
-          min="1"
+          min={priceType === 'sale' ? 0 : 1}
+          max={typeof maxQuantity === 'number' ? maxQuantity : undefined}
           step="1"
           placeholder="Qté"
           value={item.quantity}

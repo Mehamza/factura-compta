@@ -91,15 +91,18 @@ export default function DocumentViewPage({ kind }: { kind: DocumentKind }) {
         invoice_number: invoice.invoice_number,
         issue_date: invoice.issue_date,
         due_date: invoice.due_date || invoice.issue_date,
-        subtotal: invoice.subtotal || totals.subtotal,
+        // Always use computed totals to keep PDF consistent with UI
+        subtotal: totals.subtotal,
         tax_rate: invoice.tax_rate || 19,
-        tax_amount: invoice.tax_amount || totals.taxAmount,
-        total: invoice.total || totals.total,
-        fodec_amount_total: invoice.fodec_amount || totals.totalFodec,
+        tax_amount: totals.taxAmount,
+        total: totals.total,
+        fodec_amount_total: totals.totalFodec,
         base_tva: totals.baseTVA,
         stamp_included: stampIncluded,
         stamp_amount: stampIncluded ? STAMP_AMOUNT : 0,
         discount_amount: totals.discountAmount,
+        discount_type: discount.type,
+        discount_value: discount.value,
         notes: invoice.notes,
         currency: invoice.currency || 'TND',
         template_type: invoice.template_type || 'classic',
@@ -202,7 +205,7 @@ export default function DocumentViewPage({ kind }: { kind: DocumentKind }) {
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-4 flex-wrap">
-        <Button variant="ghost" size="icon" onClick={() => navigate('..')}>
+        <Button variant="ghost" size="icon" onClick={() => navigate(-1)}>
           <ArrowLeft className="h-4 w-4" />
         </Button>
         <div className="flex-1 min-w-0">
@@ -255,7 +258,7 @@ export default function DocumentViewPage({ kind }: { kind: DocumentKind }) {
             <StatusBadge status={invoice.status} />
           </div>
           <div className="text-right">
-            <div className="text-2xl font-bold">{Number(invoice.total).toFixed(3)} TND</div>
+            <div className="text-2xl font-bold">{totals.total.toFixed(3)} {invoice.currency || 'TND'}</div>
           </div>
         </CardHeader>
         <CardContent className="space-y-4">

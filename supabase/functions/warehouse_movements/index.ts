@@ -7,7 +7,15 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-type CompanyRole = "company_admin" | "gerant" | "comptable" | "caissier";
+type CompanyRole =
+  | "admin"
+  | "manager"
+  | "accountant"
+  | "cashier"
+  | "company_admin"
+  | "gerant"
+  | "comptable"
+  | "caissier";
 
 function json(status: number, body: unknown) {
   return new Response(JSON.stringify(body), {

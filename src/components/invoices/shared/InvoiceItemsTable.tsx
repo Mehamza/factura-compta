@@ -6,6 +6,7 @@ import type { InvoiceItem, Product } from './types';
 interface InvoiceItemsTableProps {
   items: InvoiceItem[];
   itemProductMap: Record<number, string>;
+  maxQuantityMap?: Record<number, number>;
   priceType: 'sale' | 'purchase';
   defaultVatRate: number;
   onProductSelect: (index: number, product: Product) => void;
@@ -18,6 +19,7 @@ interface InvoiceItemsTableProps {
 export function InvoiceItemsTable({
   items,
   itemProductMap,
+  maxQuantityMap,
   priceType,
   defaultVatRate,
   onProductSelect,
@@ -56,6 +58,7 @@ export function InvoiceItemsTable({
             item={item}
             index={index}
             productId={itemProductMap[index]}
+            maxQuantity={maxQuantityMap?.[index]}
             priceType={priceType}
             defaultVatRate={defaultVatRate}
             onProductSelect={onProductSelect}

@@ -12,7 +12,6 @@ import {
   Shield,
   Settings,
   ChevronLeft,
-  ChevronRight,
   ChevronDown,
   UserCog,
   Lock,
@@ -371,10 +370,20 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
             <Button
               variant="ghost"
               size="icon"
-              className="absolute -right-3 top-16 h-6 w-6 rounded-full border bg-background shadow-sm hidden lg:flex"
+              className={cn(
+                'absolute -right-3 top-16 h-6 w-6 rounded-full border bg-background shadow-sm hidden lg:flex',
+                'text-foreground',
+                'transition-transform duration-300 ease-in-out will-change-transform',
+                'hover:scale-110 active:scale-95',
+              )}
               onClick={() => setCollapsed(!collapsed)}
             >
-              {collapsed ? <ChevronRight className="h-3 w-3" /> : <ChevronLeft className="h-3 w-3" />}
+              <ChevronLeft
+                className={cn(
+                  'h-3 w-3 transition-transform duration-300 ease-in-out',
+                  collapsed && 'rotate-180',
+                )}
+              />
             </Button>
           </div>
         </aside>

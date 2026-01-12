@@ -7,7 +7,15 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-type CompanyRole = "company_admin" | "gerant" | "comptable" | "caissier";
+type CompanyRole =
+  | "admin"
+  | "manager"
+  | "accountant"
+  | "cashier"
+  | "company_admin"
+  | "gerant"
+  | "comptable"
+  | "caissier";
 
 type MovementKind = "IN" | "OUT" | "TRANSFER";
 
@@ -44,7 +52,14 @@ async function getCallerAndRole(supabaseAdmin: any, req: Request, companyId: str
 }
 
 function canCreateMovement(role: CompanyRole) {
-  return role === "company_admin" || role === "gerant" || role === "comptable";
+  return (
+    role === "admin" ||
+    role === "manager" ||
+    role === "accountant" ||
+    role === "company_admin" ||
+    role === "gerant" ||
+    role === "comptable"
+  );
 }
 
 serve(async (req) => {

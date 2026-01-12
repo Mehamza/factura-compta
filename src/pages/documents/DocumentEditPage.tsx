@@ -69,11 +69,74 @@ export default function DocumentEditPage({ kind }: { kind: DocumentKind }) {
 
   const [items, setItems] = useState<InvoiceItem[]>([]);
   const [itemProductMap, setItemProductMap] = useState<Record<number, string>>({});
+  const [itemProductMeta, setItemProductMeta] = useState<Record<number, { purchasePrice: number; stock: number }>>({});
   const [manualLines, setManualLines] = useState<Record<number, boolean>>({});
 
   const priceType = config.module === 'achats' ? 'purchase' : 'sale';
 
   const totals = useMemo(() => calculateTotals(items, stampIncluded, discount), [items, stampIncluded, discount]);
+
+  const maxQuantityMap = useMemo(() => {
+    if (priceType !== 'sale') return undefined;
+    const m: Record<number, number> = {};
+    Object.keys(itemProductMeta).forEach((k) => {
+      const idx = Number(k);
+      const stock = Number(itemProductMeta[idx]?.stock ?? 0);
+      if (Number.isFinite(stock)) m[idx] = Math.max(0, stock);
+    });
+    return m;
+  }, [itemProductMeta, priceType]);
+
+  // Guardrail: for sales documents, cap discount so no line drops below purchase cost.
+  useEffect(() => {
+    if (priceType !== 'sale') return;
+
+    const subtotal = items.reduce((s, it) => s + Number(it.total || 0), 0);
+    if (!Number.isFinite(subtotal) || subtotal <= 0) return;
+
+    let requiredRatio = 0;
+    for (let i = 0; i < items.length; i++) {
+      const meta = itemProductMeta[i];
+      const purchasePrice = Number(meta?.purchasePrice ?? 0);
+      if (!Number.isFinite(purchasePrice) || purchasePrice <= 0) continue;
+
+      const qty = Number(items[i].quantity ?? 0);
+      const lineHT = Number(items[i].total ?? 0);
+      if (!Number.isFinite(qty) || qty <= 0) continue;
+      if (!Number.isFinite(lineHT) || lineHT <= 0) continue;
+
+      const lineCost = purchasePrice * qty;
+      const ratio = lineCost / lineHT;
+      if (Number.isFinite(ratio)) requiredRatio = Math.max(requiredRatio, ratio);
+    }
+
+    if (!Number.isFinite(requiredRatio) || requiredRatio <= 0) return;
+
+    const maxDiscountAmount = Math.max(0, subtotal * (1 - Math.min(requiredRatio, 1)));
+    if (discount.type === 'percent') {
+      const maxPercent = subtotal > 0 ? (maxDiscountAmount / subtotal) * 100 : 0;
+      const capped = Math.max(0, Math.min(Number(discount.value || 0), maxPercent));
+      if (Math.abs(capped - Number(discount.value || 0)) > 1e-6) {
+        setDiscount({ ...discount, value: capped });
+        toast({
+          variant: 'destructive',
+          title: 'Remise limitée',
+          description: `La remise est limitée pour éviter un prix sous le prix d'achat (max ${capped.toFixed(2)}%).`,
+        });
+      }
+    } else {
+      const capped = Math.max(0, Math.min(Number(discount.value || 0), maxDiscountAmount));
+      if (Math.abs(capped - Number(discount.value || 0)) > 1e-6) {
+        setDiscount({ ...discount, value: capped });
+        toast({
+          variant: 'destructive',
+          title: 'Remise limitée',
+          description: `La remise est limitée pour éviter un prix sous le prix d'achat (max ${capped.toFixed(3)} TND).`,
+        });
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [items, itemProductMeta, priceType, discount.type, discount.value]);
 
   useEffect(() => {
     if (!isCreditNote) return;
@@ -122,12 +185,12 @@ export default function DocumentEditPage({ kind }: { kind: DocumentKind }) {
     const { invoice, items: invoiceItems, error } = await getById(id);
     if (error) {
       toast({ variant: 'destructive', title: 'Erreur', description: error.message });
-      navigate('..');
+      navigate(-1);
       return;
     }
     if (!invoice) {
       toast({ variant: 'destructive', title: 'Erreur', description: 'Document non trouvé' });
-      navigate('..');
+      navigate(-1);
       return;
     }
 
@@ -150,6 +213,7 @@ export default function DocumentEditPage({ kind }: { kind: DocumentKind }) {
 
     const loadedItems: InvoiceItem[] = invoiceItems.map((item: any) => ({
       id: item.id,
+      product_id: item.product_id ?? null,
       reference: item.reference || '',
       description: item.description || '',
       quantity: item.quantity || 1,
@@ -178,12 +242,46 @@ export default function DocumentEditPage({ kind }: { kind: DocumentKind }) {
     }
 
     setItems(loadedItems);
-    // All loaded items are considered manual (editable)
+
+    // Restore selected product links where possible.
+    const prodMap: Record<number, string> = {};
     const manual: Record<number, boolean> = {};
-    loadedItems.forEach((_, i) => {
-      manual[i] = true;
+    loadedItems.forEach((it, i) => {
+      if (it.product_id) {
+        prodMap[i] = it.product_id;
+        manual[i] = false;
+      } else {
+        manual[i] = true;
+      }
     });
+    setItemProductMap(prodMap);
     setManualLines(manual);
+
+    // Preload purchase price + current stock for linked products.
+    try {
+      const ids = Object.values(prodMap);
+      if (ids.length > 0) {
+        const { data: products } = await supabase
+          .from('products')
+          .select('id, purchase_price, unit_price, quantity')
+          .in('id', ids);
+        const byId = new Map((products || []).map((p: any) => [String(p.id), p]));
+        const meta: Record<number, { purchasePrice: number; stock: number }> = {};
+        Object.entries(prodMap).forEach(([k, pid]) => {
+          const idx = Number(k);
+          const p = byId.get(String(pid));
+          if (!p) return;
+          meta[idx] = {
+            purchasePrice: Number(p.purchase_price ?? p.unit_price ?? 0),
+            stock: Number(p.quantity ?? 0),
+          };
+        });
+        setItemProductMeta(meta);
+      }
+    } catch {
+      // non-blocking
+    }
+
     setLoading(false);
   }, [id, getById, toast, navigate, config.defaultStatus, defaultVatRate]);
 
@@ -193,6 +291,13 @@ export default function DocumentEditPage({ kind }: { kind: DocumentKind }) {
 
   const handleProductSelect = (index: number, product: Product) => {
     setItemProductMap(prev => ({ ...prev, [index]: product.id }));
+    setItemProductMeta(prev => ({
+      ...prev,
+      [index]: {
+        purchasePrice: Number(product.purchase_price ?? product.unit_price ?? 0),
+        stock: Number(product.quantity ?? 0),
+      },
+    }));
     setManualLines(prev => ({ ...prev, [index]: false }));
 
     const price = priceType === 'purchase' 
@@ -210,6 +315,7 @@ export default function DocumentEditPage({ kind }: { kind: DocumentKind }) {
 
     newItems[index] = {
       ...newItems[index],
+      product_id: product.id,
       reference: product.sku || '',
       description: product.name + (product.description ? ` - ${product.description}` : ''),
       unit_price: price,
@@ -230,6 +336,11 @@ export default function DocumentEditPage({ kind }: { kind: DocumentKind }) {
       delete newMap[index];
       return newMap;
     });
+    setItemProductMeta(prev => {
+      const next = { ...prev };
+      delete next[index];
+      return next;
+    });
   };
 
   const handleReferenceChange = (index: number, text: string) => {
@@ -240,11 +351,37 @@ export default function DocumentEditPage({ kind }: { kind: DocumentKind }) {
       delete newMap[index];
       return newMap;
     });
+    setItemProductMeta(prev => {
+      const next = { ...prev };
+      delete next[index];
+      return next;
+    });
   };
 
   const handleUpdateItem = (index: number, field: keyof InvoiceItem, value: string | number | boolean) => {
     const newItems = [...items];
-    newItems[index] = { ...newItems[index], [field]: value };
+    let nextValue: any = value;
+
+    // Stock guardrail: for sales, clamp quantity to available stock (if product is selected).
+    if (field === 'quantity' && priceType === 'sale') {
+      const maxStock = itemProductMeta[index]?.stock;
+      if (typeof maxStock === 'number' && Number.isFinite(maxStock)) {
+        const desired = Number(value);
+        if (Number.isFinite(desired)) {
+          if (desired > maxStock) {
+            nextValue = Math.max(0, maxStock);
+            toast({
+              variant: 'destructive',
+              title: 'Stock insuffisant',
+              description: `Stock disponible: ${Math.max(0, maxStock)}.`,
+            });
+          }
+          if (desired < 0) nextValue = 0;
+        }
+      }
+    }
+
+    newItems[index] = { ...newItems[index], [field]: nextValue };
 
     if (['quantity', 'unit_price', 'vat_rate', 'fodec_applicable', 'fodec_rate'].includes(String(field))) {
       const ht = Number(newItems[index].quantity) * Number(newItems[index].unit_price);
@@ -293,6 +430,13 @@ export default function DocumentEditPage({ kind }: { kind: DocumentKind }) {
       else if (ki > index) newManualLines[ki - 1] = manualLines[ki];
     });
     setItemProductMap(newProductMap);
+    const newMeta: Record<number, { purchasePrice: number; stock: number }> = {};
+    Object.keys(itemProductMeta).forEach(k => {
+      const ki = Number(k);
+      if (ki < index) newMeta[ki] = itemProductMeta[ki];
+      else if (ki > index) newMeta[ki - 1] = itemProductMeta[ki];
+    });
+    setItemProductMeta(newMeta);
     setManualLines(newManualLines);
   };
 
@@ -317,9 +461,36 @@ export default function DocumentEditPage({ kind }: { kind: DocumentKind }) {
       return;
     }
 
+    // Stock validation (sales only): block submit if any line exceeds stock.
+    if (priceType === 'sale') {
+      for (let i = 0; i < items.length; i++) {
+        const pid = itemProductMap[i];
+        if (!pid) continue;
+        const stock = itemProductMeta[i]?.stock;
+        const qty = Number(items[i].quantity ?? 0);
+        if (typeof stock === 'number' && Number.isFinite(stock) && qty > stock) {
+          toast({
+            variant: 'destructive',
+            title: 'Stock insuffisant',
+            description: `La quantité de la ligne ${i + 1} dépasse le stock disponible (${Math.max(0, stock)}).`,
+          });
+          return;
+        }
+        if (typeof stock === 'number' && Number.isFinite(stock) && stock <= 0 && qty > 0) {
+          toast({
+            variant: 'destructive',
+            title: 'Produit en rupture',
+            description: `La ligne ${i + 1} contient un produit en rupture de stock.`,
+          });
+          return;
+        }
+      }
+    }
+
     setSubmitting(true);
     try {
-      const invoiceItems = items.map(item => ({
+      const invoiceItems = items.map((item, index) => ({
+        product_id: itemProductMap[index] || null,
         reference: item.reference || 'N/A',
         description: item.description || '',
         quantity: Number(item.quantity) || 1,
@@ -355,7 +526,7 @@ export default function DocumentEditPage({ kind }: { kind: DocumentKind }) {
       } as any, invoiceItems);
 
       toast({ title: 'Succès', description: `${config.label} mis à jour avec succès` });
-      navigate('..');
+      navigate(-1);
     } catch (err: any) {
       toast({ variant: 'destructive', title: 'Erreur', description: err?.message || 'Modification impossible' });
     } finally {
@@ -374,7 +545,7 @@ export default function DocumentEditPage({ kind }: { kind: DocumentKind }) {
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-4">
-        <Button variant="ghost" size="icon" onClick={() => navigate('..')}>
+        <Button variant="ghost" size="icon" onClick={() => navigate(-1)}>
           <ArrowLeft className="h-4 w-4" />
         </Button>
         <h1 className="text-xl font-semibold">Modifier — {config.label}</h1>
@@ -472,6 +643,7 @@ export default function DocumentEditPage({ kind }: { kind: DocumentKind }) {
             <InvoiceItemsTable
               items={items}
               itemProductMap={itemProductMap}
+              maxQuantityMap={maxQuantityMap}
               priceType={priceType}
               defaultVatRate={defaultVatRate}
               onProductSelect={handleProductSelect}
@@ -506,7 +678,7 @@ export default function DocumentEditPage({ kind }: { kind: DocumentKind }) {
 
             {/* Actions */}
             <div className="flex gap-3 justify-end">
-              <Button type="button" variant="outline" onClick={() => navigate('..')} disabled={submitting}>
+              <Button type="button" variant="outline" onClick={() => navigate(-1)} disabled={submitting}>
                 Annuler
               </Button>
               <Button type="submit" disabled={submitting}>

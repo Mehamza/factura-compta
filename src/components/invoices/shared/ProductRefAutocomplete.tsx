@@ -90,13 +90,16 @@ export function ProductRefAutocomplete({
               {filtered.map((product) => {
                 const isSelected = selectedProductId === product.id;
                 const price = getDisplayPrice(product);
+                const outOfStock = priceType === 'sale' && Number(product.quantity ?? 0) <= 0;
 
                 return (
                   <button
                     key={product.id}
                     type="button"
+                    disabled={outOfStock}
                     className={cn(
                       'w-full text-left rounded-md px-2 py-2 hover:bg-accent focus:bg-accent focus:outline-none',
+                      outOfStock && 'opacity-50 cursor-not-allowed hover:bg-transparent focus:bg-transparent',
                       isSelected && 'bg-accent'
                     )}
                     onMouseDown={(e) => {
@@ -104,6 +107,7 @@ export function ProductRefAutocomplete({
                       e.preventDefault();
                     }}
                     onClick={() => {
+                      if (outOfStock) return;
                       onSelectProduct(product);
                       setOpen(false);
                     }}
@@ -117,7 +121,9 @@ export function ProductRefAutocomplete({
                         </div>
                         <div className="flex justify-between gap-3 text-xs text-muted-foreground">
                           <span className="truncate">{product.sku || 'N/A'}</span>
-                          <span className="tabular-nums">Stock: {product.quantity}</span>
+                          <span className="tabular-nums">
+                            {outOfStock ? 'Rupture' : `Stock: ${product.quantity}`}
+                          </span>
                         </div>
                       </div>
                     </div>

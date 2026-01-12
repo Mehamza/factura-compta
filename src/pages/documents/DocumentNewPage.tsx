@@ -79,11 +79,74 @@ export default function DocumentNewPage({ kind }: { kind: DocumentKind }) {
     { reference: '', description: '', quantity: 1, unit_price: 0, vat_rate: defaultVatRate, vat_amount: 0, fodec_applicable: false, fodec_rate: 0.01, fodec_amount: 0, total: 0 }
   ]);
   const [itemProductMap, setItemProductMap] = useState<Record<number, string>>({});
+  const [itemProductMeta, setItemProductMeta] = useState<Record<number, { purchasePrice: number; stock: number }>>({});
   const [manualLines, setManualLines] = useState<Record<number, boolean>>({ 0: true });
 
   const priceType = config.module === 'achats' ? 'purchase' : 'sale';
 
   const totals = useMemo(() => calculateTotals(items, stampIncluded, discount), [items, stampIncluded, discount]);
+
+  const maxQuantityMap = useMemo(() => {
+    if (priceType !== 'sale') return undefined;
+    const m: Record<number, number> = {};
+    Object.keys(itemProductMeta).forEach((k) => {
+      const idx = Number(k);
+      const stock = Number(itemProductMeta[idx]?.stock ?? 0);
+      if (Number.isFinite(stock)) m[idx] = Math.max(0, stock);
+    });
+    return m;
+  }, [itemProductMeta, priceType]);
+
+  // Guardrail: for sales documents, cap discount so no line drops below purchase cost.
+  useEffect(() => {
+    if (priceType !== 'sale') return;
+
+    const subtotal = items.reduce((s, it) => s + Number(it.total || 0), 0);
+    if (!Number.isFinite(subtotal) || subtotal <= 0) return;
+
+    let requiredRatio = 0;
+    for (let i = 0; i < items.length; i++) {
+      const meta = itemProductMeta[i];
+      const purchasePrice = Number(meta?.purchasePrice ?? 0);
+      if (!Number.isFinite(purchasePrice) || purchasePrice <= 0) continue;
+
+      const qty = Number(items[i].quantity ?? 0);
+      const lineHT = Number(items[i].total ?? 0);
+      if (!Number.isFinite(qty) || qty <= 0) continue;
+      if (!Number.isFinite(lineHT) || lineHT <= 0) continue;
+
+      const lineCost = purchasePrice * qty;
+      const ratio = lineCost / lineHT;
+      if (Number.isFinite(ratio)) requiredRatio = Math.max(requiredRatio, ratio);
+    }
+
+    if (!Number.isFinite(requiredRatio) || requiredRatio <= 0) return;
+
+    const maxDiscountAmount = Math.max(0, subtotal * (1 - Math.min(requiredRatio, 1)));
+    if (discount.type === 'percent') {
+      const maxPercent = subtotal > 0 ? (maxDiscountAmount / subtotal) * 100 : 0;
+      const capped = Math.max(0, Math.min(Number(discount.value || 0), maxPercent));
+      if (Math.abs(capped - Number(discount.value || 0)) > 1e-6) {
+        setDiscount({ ...discount, value: capped });
+        toast({
+          variant: 'destructive',
+          title: 'Remise limitée',
+          description: `La remise est limitée pour éviter un prix sous le prix d'achat (max ${capped.toFixed(2)}%).`,
+        });
+      }
+    } else {
+      const capped = Math.max(0, Math.min(Number(discount.value || 0), maxDiscountAmount));
+      if (Math.abs(capped - Number(discount.value || 0)) > 1e-6) {
+        setDiscount({ ...discount, value: capped });
+        toast({
+          variant: 'destructive',
+          title: 'Remise limitée',
+          description: `La remise est limitée pour éviter un prix sous le prix d'achat (max ${capped.toFixed(3)} TND).`,
+        });
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [items, itemProductMeta, priceType, discount.type, discount.value]);
 
   useEffect(() => {
     if (!isCreditNote) return;
@@ -179,6 +242,13 @@ export default function DocumentNewPage({ kind }: { kind: DocumentKind }) {
 
   const handleProductSelect = (index: number, product: Product) => {
     setItemProductMap(prev => ({ ...prev, [index]: product.id }));
+    setItemProductMeta(prev => ({
+      ...prev,
+      [index]: {
+        purchasePrice: Number(product.purchase_price ?? product.unit_price ?? 0),
+        stock: Number(product.quantity ?? 0),
+      },
+    }));
     setManualLines(prev => ({ ...prev, [index]: false }));
 
     const price = priceType === 'purchase' 
@@ -196,6 +266,7 @@ export default function DocumentNewPage({ kind }: { kind: DocumentKind }) {
 
     newItems[index] = {
       ...newItems[index],
+      product_id: product.id,
       reference: product.sku || '',
       description: product.name + (product.description ? ` - ${product.description}` : ''),
       unit_price: price,
@@ -216,6 +287,11 @@ export default function DocumentNewPage({ kind }: { kind: DocumentKind }) {
       delete newMap[index];
       return newMap;
     });
+    setItemProductMeta(prev => {
+      const next = { ...prev };
+      delete next[index];
+      return next;
+    });
   };
 
   const handleReferenceChange = (index: number, text: string) => {
@@ -227,11 +303,37 @@ export default function DocumentNewPage({ kind }: { kind: DocumentKind }) {
       delete newMap[index];
       return newMap;
     });
+    setItemProductMeta(prev => {
+      const next = { ...prev };
+      delete next[index];
+      return next;
+    });
   };
 
   const handleUpdateItem = (index: number, field: keyof InvoiceItem, value: string | number | boolean) => {
     const newItems = [...items];
-    newItems[index] = { ...newItems[index], [field]: value };
+    let nextValue: any = value;
+
+    // Stock guardrail: for sales, clamp quantity to available stock (if product is selected).
+    if (field === 'quantity' && priceType === 'sale') {
+      const maxStock = itemProductMeta[index]?.stock;
+      if (typeof maxStock === 'number' && Number.isFinite(maxStock)) {
+        const desired = Number(value);
+        if (Number.isFinite(desired)) {
+          if (desired > maxStock) {
+            nextValue = Math.max(0, maxStock);
+            toast({
+              variant: 'destructive',
+              title: 'Stock insuffisant',
+              description: `Stock disponible: ${Math.max(0, maxStock)}.`,
+            });
+          }
+          if (desired < 0) nextValue = 0;
+        }
+      }
+    }
+
+    newItems[index] = { ...newItems[index], [field]: nextValue };
 
     if (['quantity', 'unit_price', 'vat_rate', 'fodec_applicable', 'fodec_rate'].includes(String(field))) {
       const ht = Number(newItems[index].quantity) * Number(newItems[index].unit_price);
@@ -281,6 +383,13 @@ export default function DocumentNewPage({ kind }: { kind: DocumentKind }) {
       else if (ki > index) newManualLines[ki - 1] = manualLines[ki];
     });
     setItemProductMap(newProductMap);
+    const newMeta: Record<number, { purchasePrice: number; stock: number }> = {};
+    Object.keys(itemProductMeta).forEach(k => {
+      const ki = Number(k);
+      if (ki < index) newMeta[ki] = itemProductMeta[ki];
+      else if (ki > index) newMeta[ki - 1] = itemProductMeta[ki];
+    });
+    setItemProductMeta(newMeta);
     setManualLines(newManualLines);
   };
 
@@ -306,9 +415,36 @@ export default function DocumentNewPage({ kind }: { kind: DocumentKind }) {
       return;
     }
 
+    // Stock validation (sales only): block submit if any line exceeds stock.
+    if (priceType === 'sale') {
+      for (let i = 0; i < items.length; i++) {
+        const pid = itemProductMap[i];
+        if (!pid) continue;
+        const stock = itemProductMeta[i]?.stock;
+        const qty = Number(items[i].quantity ?? 0);
+        if (typeof stock === 'number' && Number.isFinite(stock) && qty > stock) {
+          toast({
+            variant: 'destructive',
+            title: 'Stock insuffisant',
+            description: `La quantité de la ligne ${i + 1} dépasse le stock disponible (${Math.max(0, stock)}).`,
+          });
+          return;
+        }
+        if (typeof stock === 'number' && Number.isFinite(stock) && stock <= 0 && qty > 0) {
+          toast({
+            variant: 'destructive',
+            title: 'Produit en rupture',
+            description: `La ligne ${i + 1} contient un produit en rupture de stock.`,
+          });
+          return;
+        }
+      }
+    }
+
     setSubmitting(true);
     try {
-      const invoiceItems = items.map(item => ({
+      const invoiceItems = items.map((item, index) => ({
+        product_id: itemProductMap[index] || null,
         reference: item.reference || 'N/A',
         description: item.description || '',
         quantity: Number(item.quantity) || 1,
@@ -465,6 +601,7 @@ export default function DocumentNewPage({ kind }: { kind: DocumentKind }) {
             <InvoiceItemsTable
               items={items}
               itemProductMap={itemProductMap}
+              maxQuantityMap={maxQuantityMap}
               priceType={priceType}
               defaultVatRate={defaultVatRate}
               onProductSelect={handleProductSelect}

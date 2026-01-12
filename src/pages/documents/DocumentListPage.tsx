@@ -33,6 +33,8 @@ import { useInvoices, type InvoiceRow } from '@/hooks/useInvoices';
 import type { DocumentKind } from '@/config/documentTypes';
 import { documentTypeConfig } from '@/config/documentTypes';
 import { StatusBadge } from '@/components/invoices/shared';
+import { calculateTotals, type DiscountConfig, type InvoiceItem } from '@/components/invoices/shared/types';
+import { supabase } from '@/integrations/supabase/client';
 import { Eye, Pencil, Trash2, FileDown, ArrowRight, Plus, Search } from 'lucide-react';
 
 export default function DocumentListPage({ kind }: { kind: DocumentKind }) {
@@ -42,18 +44,71 @@ export default function DocumentListPage({ kind }: { kind: DocumentKind }) {
 
   const [rows, setRows] = useState<InvoiceRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const [computedTotals, setComputedTotals] = useState<Record<string, number>>({});
   const [search, setSearch] = useState('');
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [convertTarget, setConvertTarget] = useState<Record<string, DocumentKind>>({});
 
   const fetchData = async () => {
     setLoading(true);
+    setComputedTotals({});
     const { data, error } = await list();
     if (error) {
       toast({ variant: 'destructive', title: 'Erreur', description: error.message });
       setRows([]);
     } else {
       setRows(data);
+
+      // Compute accurate totals (incl. remise) from invoice items to avoid stale DB totals.
+      // This is done in a single batch query to avoid N+1.
+      try {
+        const ids = (data || []).map((r) => r.id).filter(Boolean);
+        if (ids.length > 0) {
+          const { data: itemsData, error: itemsError } = await supabase.from('invoice_items')
+            .select('invoice_id,total,fodec_amount,vat_rate')
+            .in('invoice_id', ids);
+          if (!itemsError && itemsData) {
+            const itemsByInvoice = new Map<string, any[]>();
+            for (const it of itemsData) {
+              const invoiceId = String((it as any).invoice_id);
+              if (!itemsByInvoice.has(invoiceId)) itemsByInvoice.set(invoiceId, []);
+              itemsByInvoice.get(invoiceId)!.push(it);
+            }
+
+            const totalsMap: Record<string, number> = {};
+            for (const r of data) {
+              const invoiceItems = itemsByInvoice.get(r.id) || [];
+              if (invoiceItems.length === 0) continue;
+
+              const discountValue = Number((r as any).discount_value ?? 0);
+              const discountType = ((r as any).discount_type ?? 'percent') as DiscountConfig['type'];
+              const discount: DiscountConfig | undefined =
+                discountValue > 0 ? { type: discountType, value: discountValue } : undefined;
+
+              // Minimal item shape: calculateTotals only uses total, fodec_amount, vat_rate.
+              const calcItems: InvoiceItem[] = invoiceItems.map((it) => ({
+                reference: '',
+                description: '',
+                quantity: 0,
+                unit_price: 0,
+                vat_rate: Number((it as any).vat_rate ?? 0),
+                vat_amount: 0,
+                fodec_applicable: false,
+                fodec_rate: 0,
+                fodec_amount: Number((it as any).fodec_amount ?? 0),
+                total: Number((it as any).total ?? 0),
+              }));
+
+              totalsMap[r.id] = calculateTotals(calcItems, Boolean(r.stamp_included), discount).total;
+            }
+
+            setComputedTotals(totalsMap);
+          }
+        }
+      } catch {
+        // Non-blocking: fall back to stored totals.
+      }
+
       // Initialize convert targets
       const targets: Record<string, DocumentKind> = {};
       data.forEach(r => {
@@ -177,7 +232,9 @@ export default function DocumentListPage({ kind }: { kind: DocumentKind }) {
                       <TableCell className="font-medium">{r.invoice_number}</TableCell>
                       <TableCell>{r.clients?.name || r.suppliers?.name || '—'}</TableCell>
                       <TableCell>{r.issue_date}</TableCell>
-                      <TableCell className="text-right font-medium">{formatCurrency(r.total)}</TableCell>
+                      <TableCell className="text-right font-medium">
+                        {formatCurrency(computedTotals[r.id] ?? r.total)}
+                      </TableCell>
                       <TableCell>
                         <StatusBadge status={r.status} />
                       </TableCell>

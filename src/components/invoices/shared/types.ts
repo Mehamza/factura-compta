@@ -2,6 +2,7 @@ import type { DocumentKind } from '@/config/documentTypes';
 
 export interface InvoiceItem {
   id?: string;
+  product_id?: string | null;
   reference: string;
   description: string;
   quantity: number;
