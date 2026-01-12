@@ -255,7 +255,11 @@ export default function DocumentViewPage({ kind }: { kind: DocumentKind }) {
         <CardHeader className="flex flex-row items-center justify-between">
           <div>
             <span className="font-medium">Statut: </span>
-            <StatusBadge status={invoice.status} />
+            <StatusBadge
+              status={invoice.status}
+              paymentStatus={(invoice as any).payment_status}
+              usePaymentStatus={invoice.document_kind === 'facture' || invoice.document_kind === 'facture_achat'}
+            />
           </div>
           <div className="text-right">
             <div className="text-2xl font-bold">{totals.total.toFixed(3)} {invoice.currency || 'TND'}</div>

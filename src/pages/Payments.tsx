@@ -274,7 +274,7 @@ export default function Payments() {
         </Card>
         <Card>
           <CardContent className="pt-6">
-            <div className="text-2xl font-bold">{invoices.filter(i => i.status !== InvoiceStatus.PAID).length}</div>
+            <div className="text-2xl font-bold">{invoices.filter((i: any) => i.payment_status !== 'paid').length}</div>
             <p className="text-sm text-muted-foreground">Factures en attente</p>
           </CardContent>
         </Card>

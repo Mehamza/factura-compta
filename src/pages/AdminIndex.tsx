@@ -43,19 +43,19 @@ export default function AdminIndex() {
         const allInvoices = invoices || [];
 
         // Total revenue (paid only)
-        const paidInvoices = allInvoices.filter((i: any) => i.status === 'paid');
+        const paidInvoices = allInvoices.filter((i: any) => i.payment_status === 'paid');
         const totalRevenue = paidInvoices.reduce((sum: number, inv: any) => sum + Number(inv.total || 0), 0);
         setRevenue(totalRevenue);
 
         // unpaid count (sent or overdue) - exclude purchase quotes
-        const unpaid = allInvoices.filter((i: any) => (i.status === 'sent' || i.status === 'overdue') );
+        const unpaid = allInvoices.filter((i: any) => (i.payment_status === 'unpaid' || i.payment_status === 'overdue'));
         setUnpaidCount(unpaid.length);
 
         // invoice status counts
         const statusCounts = {
-          paid: allInvoices.filter((i: any) => i.status === InvoiceStatus.PAID).length,
+          paid: allInvoices.filter((i: any) => i.payment_status === 'paid').length,
           sent: allInvoices.filter((i: any) => i.status === InvoiceStatus.SENT).length,
-          overdue: allInvoices.filter((i: any) => i.status === InvoiceStatus.OVERDUE).length,
+          overdue: allInvoices.filter((i: any) => i.payment_status === 'overdue').length,
           draft: allInvoices.filter((i: any) => i.status === InvoiceStatus.DRAFT || i.status === InvoiceStatus.PURCHASE_QUOTE).length,
         };
         setInvoiceStatusCounts(statusCounts);

@@ -74,11 +74,11 @@ export default function Dashboard() {
       const invoices = invoicesRes.data || [];
       const clients = clientsRes.data || [];
       
-      const paidInvoices = invoices.filter(i => i.status === InvoiceStatus.PAID);
+      const paidInvoices = invoices.filter((i: any) => i.payment_status === 'paid');
       const pendingInvoices = invoices.filter(i => (i.status === InvoiceStatus.SENT || i.status === InvoiceStatus.DRAFT) );
       // Note: purchase quotes are excluded from pending/revenue calculations
       const overdueInvoices = invoices.filter(i => {
-        if (i.status === 'paid' || i.status === 'cancelled') return false;
+        if (i.payment_status === 'paid' || i.status === 'cancelled') return false;
         return new Date(i.due_date) < today;
       });
       

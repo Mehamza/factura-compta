@@ -37,7 +37,11 @@ export type StockMovementType = 'entry' | 'exit';
  * - overdue: échue non payée
  * - cancelled: annulée
  */
-export type InvoiceStatusType = 'draft' | 'validated' | 'partial' | 'paid' | 'overdue' | 'cancelled';
+// Statut de cycle (document): ne contient PAS d'information de paiement.
+export type InvoiceStatusType = 'draft' | 'validated' | 'cancelled';
+
+// Statut financier (paiement): dérivé de la table payments.
+export type InvoicePaymentStatusType = 'unpaid' | 'partial' | 'paid' | 'overdue';
 
 export interface DocumentTypeConfig {
   kind: DocumentKind;
@@ -67,7 +71,7 @@ export const documentTypeConfig: Record<DocumentKind, DocumentTypeConfig> = {
     requiresClient: true,
     requiresSupplier: false,
     requiresDueDate: false,
-    canConvertTo: ['bon_commande', 'facture_credit', 'facture_payee'],
+    canConvertTo: ['bon_commande', 'facture'],
     defaultStatus: 'draft',
     statusOptions: ['draft', 'sent', 'accepted', 'rejected', 'expired', 'cancelled'],
     canHavePayments: false,
@@ -81,7 +85,7 @@ export const documentTypeConfig: Record<DocumentKind, DocumentTypeConfig> = {
     requiresClient: true,
     requiresSupplier: false,
     requiresDueDate: false,
-    canConvertTo: ['bon_livraison', 'facture_credit', 'facture_payee'],
+    canConvertTo: ['bon_livraison', 'facture'],
     defaultStatus: 'draft',
     statusOptions: ['draft', 'confirmed', 'cancelled'],
     canHavePayments: false,
@@ -113,8 +117,8 @@ export const documentTypeConfig: Record<DocumentKind, DocumentTypeConfig> = {
     requiresDueDate: true,
     canConvertTo: ['facture_avoir'],  // Seul l'avoir est possible
     defaultStatus: 'draft',
-    // Statuts conformes au modèle tunisien
-    statusOptions: ['draft', 'validated', 'partial', 'paid', 'overdue', 'cancelled'],
+    // Statut de cycle uniquement (le paiement est dans payment_status)
+    statusOptions: ['draft', 'validated', 'cancelled'],
     canHavePayments: true,
   },
   facture_avoir: {
@@ -143,7 +147,7 @@ export const documentTypeConfig: Record<DocumentKind, DocumentTypeConfig> = {
     requiresClient: false,
     requiresSupplier: true,
     requiresDueDate: false,
-    canConvertTo: ['bon_livraison_achat', 'facture_credit_achat'],
+    canConvertTo: ['bon_livraison_achat', 'facture_achat'],
     defaultStatus: 'draft',
     statusOptions: ['draft', 'confirmed', 'cancelled'],
     canHavePayments: false,
@@ -175,7 +179,8 @@ export const documentTypeConfig: Record<DocumentKind, DocumentTypeConfig> = {
     requiresDueDate: true,
     canConvertTo: ['avoir_achat'],
     defaultStatus: 'draft',
-    statusOptions: ['draft', 'validated', 'partial', 'paid', 'overdue', 'cancelled'],
+    // Statut de cycle uniquement (le paiement est dans payment_status)
+    statusOptions: ['draft', 'validated', 'cancelled'],
     canHavePayments: true,
   },
   avoir_achat: {

@@ -4,8 +4,7 @@
  * RÈGLES MÉTIER:
  * - Une facture commence en 'draft'
  * - Après validation, elle passe en 'validated'
- * - Les paiements la font passer en 'partial' puis 'paid'
- * - Si échue sans paiement, elle passe en 'overdue'
+ * - Le statut de paiement est séparé dans invoices.payment_status
  * - Seuls les brouillons peuvent être annulés → 'cancelled'
  */
 
@@ -20,17 +19,23 @@ export const InvoiceStatus = {
   DELIVERED: 'delivered',
   CANCELLED: 'cancelled',
   
-  // Statuts de paiement (factures uniquement)
-  VALIDATED: 'validated',   // Facture émise, en attente de paiement
-  PARTIAL: 'partial',       // Partiellement payée
-  PAID: 'paid',             // Totalement payée
-  OVERDUE: 'overdue',       // Échue non payée
+  // Statut de cycle pour facture
+  VALIDATED: 'validated',   // Facture émise
   
   // Statut legacy (à supprimer après migration complète)
   PURCHASE_QUOTE: 'purchase_quote',
 } as const;
 
 export type InvoiceStatus = typeof InvoiceStatus[keyof typeof InvoiceStatus];
+
+export const InvoicePaymentStatus = {
+  UNPAID: 'unpaid',
+  PARTIAL: 'partial',
+  PAID: 'paid',
+  OVERDUE: 'overdue',
+} as const;
+
+export type InvoicePaymentStatus = typeof InvoicePaymentStatus[keyof typeof InvoicePaymentStatus];
 
 /**
  * Statuts considérés comme "brouillon" (modifiables)
@@ -43,10 +48,7 @@ export const isDraftStatus = (s: string | undefined): boolean => {
  * Statuts considérés comme "payables" (peuvent recevoir des paiements)
  */
 export const isPayableStatus = (s: string | undefined): boolean => {
-  return s === InvoiceStatus.VALIDATED || 
-         s === InvoiceStatus.PARTIAL || 
-         s === InvoiceStatus.OVERDUE ||
-         s === InvoiceStatus.SENT;
+  return s === InvoiceStatus.VALIDATED || s === InvoiceStatus.SENT;
 };
 
 /**
@@ -59,8 +61,11 @@ export const isEditable = (s: string | undefined): boolean => {
 /**
  * Vérifie si le document est finalisé (ne peut plus être modifié)
  */
-export const isFinalized = (s: string | undefined): boolean => {
-  return s === InvoiceStatus.PAID || s === InvoiceStatus.CANCELLED;
+export const isFinalized = (
+  status: string | undefined,
+  paymentStatus?: string | null
+): boolean => {
+  return status === InvoiceStatus.CANCELLED || paymentStatus === InvoicePaymentStatus.PAID;
 };
 
 // Alias legacy pour rétro-compatibilité
@@ -78,6 +83,7 @@ export const statusLabels: Record<string, string> = {
   expired: 'Expiré',
   confirmed: 'Confirmé',
   delivered: 'Livrée',
+  unpaid: 'Non payée',
   partial: 'Paiement partiel',
   paid: 'Payée',
   overdue: 'Échue',
@@ -97,6 +103,7 @@ export const statusColors: Record<string, 'default' | 'secondary' | 'destructive
   expired: 'outline',
   confirmed: 'default',
   delivered: 'default',
+  unpaid: 'secondary',
   partial: 'secondary',
   paid: 'default',
   overdue: 'destructive',

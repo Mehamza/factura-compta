@@ -15,12 +15,13 @@ const statusConfig: Record<string, { label: string; className: string }> = {
   // Bon de livraison
   delivered: { label: 'Livré', className: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' },
   
-  // Facture
+  // Paiement (payment_status)
+  unpaid: { label: 'Non payée', className: 'bg-muted text-muted-foreground' },
+  partial: { label: 'Paiement partiel', className: 'bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200' },
   paid: { label: 'Payée', className: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' },
-  overdue: { label: 'En retard', className: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200' },
-  partial: { label: 'Partiel', className: 'bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200' },
+  overdue: { label: 'Échue', className: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200' },
 
-  // Avoir
+  // Cycle (documents)
   validated: { label: 'Validée', className: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' },
   
   // Annulé
@@ -32,11 +33,14 @@ const statusConfig: Record<string, { label: string; className: string }> = {
 
 interface StatusBadgeProps {
   status: string;
+  paymentStatus?: string | null;
+  usePaymentStatus?: boolean;
   className?: string;
 }
 
-export function StatusBadge({ status, className }: StatusBadgeProps) {
-  const config = statusConfig[status] || { label: status, className: 'bg-muted text-muted-foreground' };
+export function StatusBadge({ status, paymentStatus, usePaymentStatus, className }: StatusBadgeProps) {
+  const key = usePaymentStatus ? (paymentStatus || 'unpaid') : status;
+  const config = statusConfig[key] || { label: key, className: 'bg-muted text-muted-foreground' };
   
   return (
     <Badge variant="secondary" className={cn(config.className, className)}>

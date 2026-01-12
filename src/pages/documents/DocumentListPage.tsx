@@ -236,7 +236,11 @@ export default function DocumentListPage({ kind }: { kind: DocumentKind }) {
                         {formatCurrency(computedTotals[r.id] ?? r.total)}
                       </TableCell>
                       <TableCell>
-                        <StatusBadge status={r.status} />
+                        <StatusBadge
+                          status={r.status}
+                          paymentStatus={(r as any).payment_status}
+                          usePaymentStatus={r.document_kind === 'facture' || r.document_kind === 'facture_achat'}
+                        />
                       </TableCell>
                       <TableCell>
                         <div className="flex items-center justify-end gap-1">

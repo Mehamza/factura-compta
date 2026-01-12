@@ -17,6 +17,7 @@ export type InvoiceRow = {
   issue_date: string;
   due_date: string;
   status: string;
+  payment_status?: string;
   subtotal: number;
   tax_rate: number;
   tax_amount: number;
