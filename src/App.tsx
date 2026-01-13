@@ -67,9 +67,12 @@ import NotFound from "./pages/NotFound";
 import Payments from "./pages/Payments";
 import Journal from "./pages/Journal";
 import Accounts from "./pages/Accounts";
+import AccountsBalance from "./pages/AccountsBalance";
 import Reports from "./pages/Reports";
 import StockProducts from "./pages/StockProducts";
 import StockMovements from "./pages/StockMovements";
+import StockTransfer from "./pages/StockTransfer";
+import StockEntry from "./pages/StockEntry";
 import Warehouses from "./pages/Warehouses";
 import SuperAdminDashboard from './pages/SuperAdminDashboard';
 import AdminUsers from "./pages/AdminUsers";
@@ -175,10 +178,13 @@ const router = createBrowserRouter(
       <Route path="/stock/produits" element={<ProtectedRoute><PageTransition><StockProducts /></PageTransition></ProtectedRoute>} />
       <Route path="/stock/mouvements" element={<ProtectedRoute><PageTransition><StockMovements /></PageTransition></ProtectedRoute>} />
       <Route path="/stock/entrepots" element={<ProtectedRoute><PageTransition><Warehouses /></PageTransition></ProtectedRoute>} />
+      <Route path="/stock/bon-transfert" element={<ProtectedRoute><PageTransition><StockTransfer /></PageTransition></ProtectedRoute>} />
+      <Route path="/stock/bon-entree" element={<ProtectedRoute><PageTransition><StockEntry /></PageTransition></ProtectedRoute>} />
       
       {/* Protected routes - locked for cashier role */}
       <Route path="/journal" element={<ProtectedRoute><ModuleProtectedRoute><PageTransition><Journal /></PageTransition></ModuleProtectedRoute></ProtectedRoute>} />
       <Route path="/accounts" element={<ProtectedRoute><ModuleProtectedRoute><PageTransition><Accounts /></PageTransition></ModuleProtectedRoute></ProtectedRoute>} />
+      <Route path="/accounts/balance" element={<ProtectedRoute><ModuleProtectedRoute><PageTransition><AccountsBalance /></PageTransition></ModuleProtectedRoute></ProtectedRoute>} />
       <Route path="/reports" element={<ProtectedRoute><ModuleProtectedRoute><PageTransition><Reports /></PageTransition></ModuleProtectedRoute></ProtectedRoute>} />
       <Route path="/settings/utilisateurs" element={<ProtectedRoute><ModuleProtectedRoute><PageTransition><SettingsUsers /></PageTransition></ModuleProtectedRoute></ProtectedRoute>} />
       

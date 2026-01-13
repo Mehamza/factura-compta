@@ -178,6 +178,18 @@ export const navigationConfig: NavigationModule[] = [
         icon: Boxes,
       },
       {
+        id: 'bon-entree',
+        name: "Bon d'entrée",
+        href: '/stock/bon-entree',
+        icon: Package,
+      },
+      {
+        id: 'bon-transfert',
+        name: 'Bon de transfert',
+        href: '/stock/bon-transfert',
+        icon: MoveUpRight,
+      },
+      {
         id: 'mouvements',
         name: 'Mouvements',
         href: '/stock/mouvements',

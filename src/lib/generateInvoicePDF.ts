@@ -47,12 +47,16 @@ export function generateInvoicePDF(invoice: Invoice, items: InvoiceItem[]): void
   
   let y = 15;
   
-  // Date at top right
-  doc.setFontSize(10);
+  // Title (top right) then date under title
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(16);
+  doc.text('FACTURE', pageWidth - 20, y, { align: 'right' });
+
   doc.setFont('helvetica', 'normal');
+  doc.setFontSize(10);
   const currentDate = new Date().toLocaleDateString('fr-FR');
-  doc.text(`Le ${currentDate}`, pageWidth - 20, y, { align: 'right' });
-  
+  doc.text(`Le ${currentDate}`, pageWidth - 20, y + 7, { align: 'right' });
+
   y = 20;
   
   // Company info on left
@@ -90,11 +94,6 @@ export function generateInvoicePDF(invoice: Invoice, items: InvoiceItem[]): void
       y += 5;
     }
   }
-  
-  // Title on right
-  doc.setFontSize(16);
-  doc.setFont('helvetica', 'bold');
-  doc.text('FACTURE', pageWidth - 20, 30, { align: 'right' });
   
   y = Math.max(y + 10, 55);
   

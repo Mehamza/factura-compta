@@ -68,80 +68,12 @@ export default function StockMovements() {
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!activeCompanyId) {
-      toast({ variant: 'destructive', title: 'Erreur', description: 'Aucune société active.' });
-      return;
-    }
-
-    if (!form.product_id) {
-      toast({ variant: 'destructive', title: 'Erreur', description: 'Le produit est obligatoire.' });
-      return;
-    }
-
-    const qty = Number(form.quantity);
-    if (isNaN(qty) || qty <= 0) {
-      toast({ variant: 'destructive', title: 'Erreur', description: 'La quantité doit être supérieure à 0.' });
-      return;
-    }
-
-    if (form.movement_type !== 'entry' && form.movement_type !== 'exit') {
-      toast({ variant: 'destructive', title: 'Erreur', description: 'Type de mouvement invalide.' });
-      return;
-    }
-
-    // 1) Load current stock
-    const { data: product, error: pErr } = await supabase
-      .from('products')
-      .select('id, quantity')
-      .eq('id', form.product_id)
-      .single();
-
-    if (pErr) {
-      toast({ variant: 'destructive', title: 'Erreur', description: pErr.message });
-      return;
-    }
-
-    const oldStock = Number(product?.quantity ?? 0);
-
-    // 2) Compute new stock
-    const newStock = form.movement_type === 'entry' ? oldStock + qty : oldStock - qty;
-
-    if (newStock < 0) {
-      toast({ variant: 'destructive', title: 'Erreur', description: 'Stock insuffisant pour une sortie.' });
-      return;
-    }
-
-    // 3) Update product stock
-    const { error: uErr } = await supabase
-      .from('products')
-      .update({ quantity: newStock })
-      .eq('id', form.product_id);
-
-    if (uErr) {
-      toast({ variant: 'destructive', title: 'Erreur', description: uErr.message });
-      return;
-    }
-
-    // 4) Insert movement
-    const { error: mErr } = await supabase.from('stock_movements').insert({
-      user_id: user?.id!,
-      company_id: activeCompanyId,
-      product_id: form.product_id,
-      movement_type: form.movement_type,
-      quantity: qty,
-      note: form.note || null,
+    toast({
+      variant: 'destructive',
+      title: 'Action désactivée',
+      description: 'Le stock est géré par dépôt via les documents de stock (Bon d’entrée / Bon de transfert).',
     });
-
-    if (mErr) {
-      // Optional: rollback stock here (update back to oldStock) if you want
-      toast({ variant: 'destructive', title: 'Erreur', description: mErr.message });
-      return;
-    }
-
-    toast({ title: 'Succès', description: 'Mouvement enregistré' });
-    setDialogOpen(false);
-    setForm({ product_id: '', movement_type: 'entry', quantity: '', note: '' });
-    load();
+    return;
   };
 
 
@@ -154,7 +86,9 @@ export default function StockMovements() {
 
   const productLabel = (id: string) => products.find(p => p.id === id)?.name || '—';
 
-  const canManage = role === 'admin' || role === 'manager';
+  // Stock changes must be traceable via documents (Bon d’entrée / Bon de transfert) or sales flows.
+  // Keep this page as a read-only history/export.
+  const canManage = false;
 
   if (loading) {
     return (<div className="flex items-center justify-center h-64"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div></div>);
@@ -230,48 +164,7 @@ export default function StockMovements() {
         </CardContent>
       </Card>
 
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="max-w-xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Nouveau mouvement</DialogTitle>
-          </DialogHeader>
-          <form onSubmit={submit} className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="md:col-span-2">
-              <Label>Produit</Label>
-              <Select value={form.product_id} onValueChange={(v) => setForm({ ...form, product_id: v })}>
-                <SelectTrigger><SelectValue placeholder="Sélectionner" /></SelectTrigger>
-                <SelectContent>
-                  {products.map(p => (<SelectItem key={p.id} value={p.id}>{p.name} ({p.sku})</SelectItem>))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label>Type</Label>
-              <Select value={form.movement_type} onValueChange={(v) => setForm({ ...form, movement_type: v })}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="entry">Entrée</SelectItem>
-                  <SelectItem value="exit">Sortie</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label>Quantité</Label>
-              <Input type="number" step="0.01" value={form.quantity} onChange={(e) => setForm({ ...form, quantity: e.target.value })} />
-            </div>
-            <div className="md:col-span-2">
-              <Label>Note</Label>
-              <Input value={form.note} onChange={(e) => setForm({ ...form, note: e.target.value })} />
-            </div>
-            <div className="md:col-span-2">
-              <Button type="submit" disabled={loading}>
-                {loading && <span className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />}
-                Enregistrer
-              </Button>
-            </div>
-          </form>
-        </DialogContent>
-      </Dialog>
+      {/* Manual creation disabled: stock changes must be traceable via documents. */}
     </div>
   );
 }

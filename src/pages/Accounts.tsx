@@ -3,136 +3,204 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
-import { Plus, Download, Edit, Trash2 } from 'lucide-react';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
+import { Download, Edit, Plus, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { logger } from '@/lib/logger';
-import AccountDialog from '@/components/accounts/AccountDialog';
-import { ensureAdjustmentAccount, createBalanceAdjustmentEntry, computeAccountCurrentBalance } from '@/lib/accountAdjustments';
-import type { Tables } from '@/integrations/supabase/types';
+import CompteDialog, { type CompteEditModel, type CompteFormData } from '@/components/accounts/CompteDialog';
+import ExpenseDialog, { type ExpenseFormData } from '@/components/accounts/ExpenseDialog';
 
-type Account = Tables<'accounts'>;
+type CompteRow = {
+  id: string;
+  code: string;
+  name: string;
+  account_kind: string | null;
+  currency: string | null;
+  bank: string | null;
+  agency: string | null;
+  iban: string | null;
+};
 
-interface Line { account_id: string; debit: number; credit: number; entry_date: string }
+type ExpenseRow = {
+  id: string;
+  amount: number;
+  expense_date: string;
+  category: string | null;
+  description: string | null;
+  payment_method: string | null;
+  reference: string | null;
+  account_id: string;
+  attachment_document_id: string | null;
+  account?: { name: string } | null;
+  attachment?: { id: string; file_name: string; file_path: string } | null;
+};
+
+type Line = { account_id: string; debit: number; credit: number; entry_id: string };
 
 export default function Accounts() {
   const { user, activeCompanyId } = useAuth();
-  const [accounts, setAccounts] = useState<Account[]>([]);
-  const [lines, setLines] = useState<Line[]>([]);
   const [loading, setLoading] = useState(true);
-  const [period, setPeriod] = useState({ start: '', end: '' });
-  
-  // Dialog state
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [editingAccount, setEditingAccount] = useState<Account | null>(null);
+  const [comptes, setComptes] = useState<CompteRow[]>([]);
+  const [lines, setLines] = useState<Line[]>([]);
+  const [expenses, setExpenses] = useState<ExpenseRow[]>([]);
+
+  const [compteDialogOpen, setCompteDialogOpen] = useState(false);
+  const [editingCompte, setEditingCompte] = useState<CompteEditModel | null>(null);
+  const [expenseDialogOpen, setExpenseDialogOpen] = useState(false);
   const [saving, setSaving] = useState(false);
 
-  useEffect(() => { if (user) load(); }, [user]);
+  useEffect(() => {
+    if (user && activeCompanyId) {
+      void load();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, activeCompanyId]);
 
   const load = async () => {
+    if (!activeCompanyId) return;
     setLoading(true);
-    const accRes = await supabase.from('accounts').select('*').order('code');
-    setAccounts(accRes.data || []);
-    
-    // Get journal lines with entry date for period filtering
-    const { data: entries } = await supabase
-      .from('journal_entries')
-      .select('id, entry_date');
-    
-    const entryMap = new Map(entries?.map(e => [e.id, e.entry_date]) || []);
-    
-    const lr = await supabase.from('journal_lines').select('account_id, debit, credit, entry_id');
-    const linesWithDate = (lr.data || []).map(l => ({
-      account_id: l.account_id,
-      debit: Number(l.debit),
-      credit: Number(l.credit),
-      entry_date: entryMap.get(l.entry_id) || ''
-    }));
-    setLines(linesWithDate);
-    setLoading(false);
-  };
+    try {
+      const comptesRes = await supabase
+        .from('accounts')
+        .select('id, code, name, account_kind, currency, bank, agency, iban')
+        .eq('company_id', activeCompanyId)
+        .in('account_kind', ['caisse', 'bank'])
+        .order('name');
 
-  const filteredLines = useMemo(() => {
-    if (!period.start && !period.end) return lines;
-    return lines.filter(l => {
-      if (period.start && l.entry_date < period.start) return false;
-      if (period.end && l.entry_date > period.end) return false;
-      return true;
-    });
-  }, [lines, period]);
+      const comptesData = (comptesRes.data || []) as CompteRow[];
+      setComptes(comptesData);
+
+      const compteIds = comptesData.map((c) => c.id);
+      if (compteIds.length === 0) {
+        setLines([]);
+      } else {
+        const { data: entries, error: entriesError } = await supabase
+          .from('journal_entries')
+          .select('id, entry_date')
+          .eq('company_id', activeCompanyId);
+        if (entriesError) throw entriesError;
+
+        const entryIds = (entries || []).map((e) => e.id);
+        if (entryIds.length === 0) {
+          setLines([]);
+        } else {
+          const { data: journalLines, error: linesError } = await supabase
+            .from('journal_lines')
+            .select('account_id, debit, credit, entry_id')
+            .in('account_id', compteIds)
+            .in('entry_id', entryIds);
+          if (linesError) throw linesError;
+
+          setLines(
+            (journalLines || []).map((l) => ({
+              account_id: l.account_id,
+              debit: Number(l.debit),
+              credit: Number(l.credit),
+              entry_id: l.entry_id,
+            }))
+          );
+        }
+      }
+
+      const { data: expensesData, error: expensesError } = await supabase
+        .from('expenses')
+        .select(
+          `
+          id,
+          amount,
+          expense_date,
+          category,
+          description,
+          payment_method,
+          reference,
+          account_id,
+          attachment_document_id,
+          account:account_id(name),
+          attachment:attachment_document_id(id, file_name, file_path)
+        `.trim()
+        )
+        .eq('company_id', activeCompanyId)
+        .order('expense_date', { ascending: false })
+        .limit(50);
+
+      if (expensesError) throw expensesError;
+      setExpenses((expensesData || []) as ExpenseRow[]);
+    } catch (error) {
+      logger.error('Erreur chargement comptes/dépenses:', error);
+      toast.error('Erreur lors du chargement');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const balances = useMemo(() => {
     const map = new Map<string, { debit: number; credit: number }>();
-    for (const l of filteredLines) {
+    for (const l of lines) {
       const cur = map.get(l.account_id) || { debit: 0, credit: 0 };
       cur.debit += l.debit;
       cur.credit += l.credit;
       map.set(l.account_id, cur);
     }
     return map;
-  }, [filteredLines]);
+  }, [lines]);
 
-  const handleSaveAccount = async (data: { code: string; name: string; type: string; balance?: number; counterparty_account_id?: string | null }) => {
-    if (!user) return;
+  const formatAmount = (value: number) => value.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+  const generateCompteCode = (kind: string) => {
+    const suffix = String(Date.now()).slice(-6);
+    const prefix = kind === 'caisse' ? 'CA' : 'BK';
+    return `${prefix}-${suffix}`;
+  };
+
+  const handleSaveCompte = async (data: CompteFormData) => {
+    if (!user || !activeCompanyId) return;
     setSaving(true);
     try {
-      if (editingAccount) {
-        // Only update account columns (avoid passing balance/counterparty)
-        const payload = { code: data.code, name: data.name, type: data.type };
+      if (editingCompte) {
         const { error } = await supabase
           .from('accounts')
-          .update(payload)
-          .eq('id', editingAccount.id);
+          .update({
+            name: data.name,
+            account_kind: data.kind,
+            currency: data.currency,
+            bank: data.bank || null,
+            agency: data.agency || null,
+            iban: data.iban || null,
+          })
+          .eq('id', editingCompte.id);
         if (error) throw error;
         toast.success('Compte modifié');
-        // If balance provided, create adjustment entry to reach desired balance
-        if (data.balance !== undefined) {
-          try {
-            const current = (balances.get(editingAccount.id) || { debit: 0, credit: 0 });
-            const currentBalance = current.debit - current.credit;
-            const desired = Number(Number(data.balance).toFixed(2));
-            const delta = Math.round((desired - currentBalance) * 100) / 100;
-            if (Math.abs(delta) >= 0.01) {
-              const counterpart = data.counterparty_account_id || await ensureAdjustmentAccount(user.id);
-              await createBalanceAdjustmentEntry({ userId: user.id, accountId: editingAccount.id, delta, counterpartAccountId: counterpart });
-              toast.success('Ajustement de solde appliqué');
-            }
-          } catch (err) {
-            logger.error('Erreur création écriture ajustement:', err);
-            toast.error('Erreur lors de la création de l\'écriture d\'ajustement');
-          }
-        }
       } else {
-        // create account and get inserted row
-        const { data: inserted, error: insertError } = await supabase
-          .from('accounts')
-          .insert({ code: data.code, name: data.name, type: data.type, user_id: user.id, company_id: activeCompanyId })
-          .select()
-          .single();
-        if (insertError) throw insertError;
+        const code = generateCompteCode(data.kind);
+        const { error } = await supabase.from('accounts').insert({
+          user_id: user.id,
+          company_id: activeCompanyId,
+          code,
+          name: data.name,
+          type: 'actif',
+          account_kind: data.kind,
+          currency: data.currency,
+          bank: data.bank || null,
+          agency: data.agency || null,
+          iban: data.iban || null,
+        });
+        if (error) throw error;
         toast.success('Compte créé');
-
-        // If initial balance provided, create adjustment entry
-        if (data.balance !== undefined && inserted && inserted.id) {
-          try {
-            const desired = Number(Number(data.balance).toFixed(2));
-            const delta = Math.round(desired * 100) / 100; // current is 0
-            if (Math.abs(delta) >= 0.01) {
-              const counterpart = data.counterparty_account_id || await ensureAdjustmentAccount(user.id);
-              await createBalanceAdjustmentEntry({ userId: user.id, accountId: inserted.id, delta, counterpartAccountId: counterpart });
-              toast.success('Ajustement initial appliqué');
-            }
-          } catch (err) {
-            logger.error('Erreur création écriture ajustement initial:', err);
-            toast.error('Erreur lors de la création de l\'écriture d\'ajustement initial');
-          }
-        }
       }
-      setDialogOpen(false);
-      setEditingAccount(null);
+
+      setCompteDialogOpen(false);
+      setEditingCompte(null);
       await load();
     } catch (error) {
       logger.error('Erreur sauvegarde compte:', error);
@@ -142,12 +210,9 @@ export default function Accounts() {
     }
   };
 
-  const handleDeleteAccount = async (account: Account) => {
+  const handleDeleteCompte = async (compte: CompteRow) => {
     try {
-      const { error } = await supabase
-        .from('accounts')
-        .delete()
-        .eq('id', account.id);
+      const { error } = await supabase.from('accounts').delete().eq('id', compte.id);
       if (error) throw error;
       toast.success('Compte supprimé');
       await load();
@@ -157,29 +222,103 @@ export default function Accounts() {
     }
   };
 
-  const exportCSV = () => {
-    const rows = accounts.map(a => {
-      const b = balances.get(a.id) || { debit: 0, credit: 0 };
-      return {
-        code: a.code,
-        nom: a.name,
-        type: a.type,
-        debit: b.debit,
-        credit: b.credit,
-        solde: b.debit - b.credit
-      };
-    });
-    const csv = [
-      'code,nom,type,debit,credit,solde',
-      ...rows.map(r => `${r.code},"${r.nom}",${r.type},${r.debit},${r.credit},${r.solde}`)
-    ].join('\n');
-    const blob = new Blob([csv], { type: 'text/csv' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `balance-comptes-${new Date().toISOString().slice(0,10)}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
+  const handleDownload = async (fileName: string, filePath: string) => {
+    try {
+      const { data, error } = await supabase.storage.from('documents').download(filePath);
+      if (error) throw error;
+
+      const url = URL.createObjectURL(data);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = fileName;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      logger.error('Erreur téléchargement pièce jointe:', error);
+      toast.error('Erreur lors du téléchargement');
+    }
+  };
+
+  const uploadExpenseAttachment = async (file: File) => {
+    if (!user || !activeCompanyId) return null;
+    const fileExt = file.name.split('.').pop();
+    const fileName = `${Date.now()}.${fileExt}`;
+    const filePath = `${user.id}/${fileName}`;
+
+    const { error: uploadError } = await supabase.storage.from('documents').upload(filePath, file);
+    if (uploadError) throw uploadError;
+
+    const { data: doc, error: dbError } = await supabase
+      .from('documents')
+      .insert({
+        user_id: user.id,
+        company_id: activeCompanyId,
+        file_name: file.name,
+        file_path: filePath,
+        file_size: file.size,
+        file_type: file.type,
+        category: 'recu',
+        description: 'Pièce jointe dépense',
+      })
+      .select('id, file_path')
+      .single();
+
+    if (dbError) throw dbError;
+    if (!doc?.id) return null;
+    return { id: doc.id as string, filePath: (doc.file_path as string) || filePath };
+  };
+
+  const cleanupUploadedDocument = async (docId: string, filePath?: string | null) => {
+    try {
+      if (filePath) {
+        await supabase.storage.from('documents').remove([decodeURIComponent(filePath)]);
+      }
+      await supabase.from('documents').delete().eq('id', docId);
+    } catch (error) {
+      logger.warn('Cleanup document failed:', error);
+    }
+  };
+
+  const handleSaveExpense = async (data: ExpenseFormData) => {
+    if (!activeCompanyId) return;
+    setSaving(true);
+    let attachmentDocumentId: string | null = null;
+    let attachmentPath: string | null = null;
+    try {
+      if (data.file) {
+        const uploaded = await uploadExpenseAttachment(data.file);
+        attachmentDocumentId = uploaded?.id || null;
+        attachmentPath = uploaded?.filePath || null;
+      }
+
+      const { error } = await supabase.rpc('create_expense_operation', {
+        p_company_id: activeCompanyId,
+        p_account_id: data.account_id,
+        p_amount: data.amount,
+        p_expense_date: data.expense_date,
+        p_category: data.category,
+        p_description: data.description,
+        p_payment_method: data.payment_method,
+        p_reference: data.reference || null,
+        p_currency: 'TND',
+        p_attachment_document_id: attachmentDocumentId,
+      });
+      if (error) throw error;
+
+      toast.success('Dépense enregistrée');
+      setExpenseDialogOpen(false);
+      await load();
+    } catch (error) {
+      logger.error('Erreur création dépense:', error);
+      toast.error('Erreur lors de la création de la dépense');
+      if (attachmentDocumentId) {
+        await cleanupUploadedDocument(attachmentDocumentId, attachmentPath);
+      }
+    } finally {
+      setSaving(false);
+    }
   };
 
   if (loading) {
@@ -194,77 +333,87 @@ export default function Accounts() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold">Balance des comptes</h1>
-          <p className="text-muted-foreground">Gérez vos comptes et visualisez les soldes.</p>
+          <h1 className="text-3xl font-bold">Comptes</h1>
+          <p className="text-muted-foreground">Caisse et comptes bancaires, soldes et dépenses.</p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" onClick={exportCSV}>
-            <Download className="h-4 w-4 mr-2" />
-            Exporter CSV
-          </Button>
-          <Button onClick={() => { setEditingAccount(null); setDialogOpen(true); }}>
+          <Button
+            variant="outline"
+            onClick={() => {
+              setEditingCompte(null);
+              setCompteDialogOpen(true);
+            }}
+          >
             <Plus className="h-4 w-4 mr-2" />
             Nouveau compte
+          </Button>
+          <Button
+            onClick={() => setExpenseDialogOpen(true)}
+            disabled={comptes.length === 0}
+          >
+            <Plus className="h-4 w-4 mr-2" />
+            Nouvelle dépense
           </Button>
         </div>
       </div>
 
       <Card>
-        <CardHeader><CardTitle>Période</CardTitle></CardHeader>
-        <CardContent className="grid md:grid-cols-2 gap-4">
-          <div>
-            <Label>Début</Label>
-            <Input type="date" value={period.start} onChange={(e) => setPeriod({ ...period, start: e.target.value })} />
-          </div>
-          <div>
-            <Label>Fin</Label>
-            <Input type="date" value={period.end} onChange={(e) => setPeriod({ ...period, end: e.target.value })} />
-          </div>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader><CardTitle>Comptes ({accounts.length})</CardTitle></CardHeader>
+        <CardHeader>
+          <CardTitle>Comptes ({comptes.length})</CardTitle>
+        </CardHeader>
         <CardContent>
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Code</TableHead>
-                <TableHead>Nom</TableHead>
                 <TableHead>Type</TableHead>
-                <TableHead className="text-right">Débit</TableHead>
-                <TableHead className="text-right">Crédit</TableHead>
+                <TableHead>Nom</TableHead>
+                <TableHead>Devise</TableHead>
+                <TableHead>Détails</TableHead>
                 <TableHead className="text-right">Solde</TableHead>
                 <TableHead className="w-24"></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {accounts.length === 0 ? (
+              {comptes.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={7} className="text-center text-muted-foreground">
-                    Aucun compte. Créez votre premier compte comptable.
+                  <TableCell colSpan={6} className="text-center text-muted-foreground">
+                    Aucun compte. Créez une caisse ou un compte bancaire.
                   </TableCell>
                 </TableRow>
               ) : (
-                accounts.map(a => {
-                  const b = balances.get(a.id) || { debit: 0, credit: 0 };
+                comptes.map((c) => {
+                  const b = balances.get(c.id) || { debit: 0, credit: 0 };
                   const balance = b.debit - b.credit;
+                  const details = c.account_kind === 'bank'
+                    ? [c.bank, c.agency, c.iban].filter(Boolean).join(' • ')
+                    : '';
+
                   return (
-                    <TableRow key={a.id}>
-                      <TableCell className="font-mono">{a.code}</TableCell>
-                      <TableCell>{a.name}</TableCell>
-                      <TableCell className="capitalize">{a.type}</TableCell>
-                      <TableCell className="text-right">{b.debit.toLocaleString('fr-FR')}</TableCell>
-                      <TableCell className="text-right">{b.credit.toLocaleString('fr-FR')}</TableCell>
+                    <TableRow key={c.id}>
+                      <TableCell>{c.account_kind === 'bank' ? 'Banque' : 'Caisse'}</TableCell>
+                      <TableCell className="font-medium">{c.name}</TableCell>
+                      <TableCell>{c.currency || 'TND'}</TableCell>
+                      <TableCell className="text-muted-foreground">{details}</TableCell>
                       <TableCell className={`text-right font-medium ${balance >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                        {balance.toLocaleString('fr-FR')}
+                        {formatAmount(balance)}
                       </TableCell>
                       <TableCell>
                         <div className="flex gap-1">
                           <Button
                             variant="ghost"
                             size="icon"
-                            onClick={() => { setEditingAccount(a); setDialogOpen(true); }}
+                            onClick={() => {
+                              setEditingCompte({
+                                id: c.id,
+                                name: c.name,
+                                account_kind: c.account_kind,
+                                currency: c.currency,
+                                bank: c.bank,
+                                agency: c.agency,
+                                iban: c.iban,
+                              });
+                              setCompteDialogOpen(true);
+                            }}
                           >
                             <Edit className="h-4 w-4" />
                           </Button>
@@ -278,12 +427,15 @@ export default function Accounts() {
                               <AlertDialogHeader>
                                 <AlertDialogTitle>Supprimer le compte ?</AlertDialogTitle>
                                 <AlertDialogDescription>
-                                  Cette action est irréversible. Le compte "{a.code} - {a.name}" sera supprimé.
+                                  Cette action est irréversible. Le compte "{c.name}" sera supprimé.
                                 </AlertDialogDescription>
                               </AlertDialogHeader>
                               <AlertDialogFooter>
                                 <AlertDialogCancel>Annuler</AlertDialogCancel>
-                                <AlertDialogAction onClick={() => handleDeleteAccount(a)} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                                <AlertDialogAction
+                                  onClick={() => void handleDeleteCompte(c)}
+                                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                >
                                   Supprimer
                                 </AlertDialogAction>
                               </AlertDialogFooter>
@@ -300,13 +452,76 @@ export default function Accounts() {
         </CardContent>
       </Card>
 
-      <AccountDialog
-        open={dialogOpen}
-        onOpenChange={setDialogOpen}
-        account={editingAccount}
-        accountBalance={editingAccount ? ((balances.get(editingAccount.id) || { debit: 0, credit: 0 }).debit - (balances.get(editingAccount.id) || { debit: 0, credit: 0 }).credit) : undefined}
-        defaultCounterpartyAccountId={null}
-        onSave={handleSaveAccount}
+      <Card>
+        <CardHeader>
+          <CardTitle>Dépenses récentes</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Date</TableHead>
+                <TableHead>Compte</TableHead>
+                <TableHead>Catégorie</TableHead>
+                <TableHead>Description</TableHead>
+                <TableHead>Mode</TableHead>
+                <TableHead>Référence</TableHead>
+                <TableHead className="text-right">Montant</TableHead>
+                <TableHead className="w-24">Pièce</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {expenses.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={8} className="text-center text-muted-foreground">
+                    Aucune dépense.
+                  </TableCell>
+                </TableRow>
+              ) : (
+                expenses.map((e) => (
+                  <TableRow key={e.id}>
+                    <TableCell className="whitespace-nowrap">{e.expense_date}</TableCell>
+                    <TableCell>{e.account?.name || '-'}</TableCell>
+                    <TableCell>{e.category || '-'}</TableCell>
+                    <TableCell className="max-w-[300px] truncate">{e.description || '-'}</TableCell>
+                    <TableCell>{e.payment_method || '-'}</TableCell>
+                    <TableCell className="max-w-[180px] truncate">{e.reference || '-'}</TableCell>
+                    <TableCell className="text-right">{formatAmount(Number(e.amount))}</TableCell>
+                    <TableCell>
+                      {e.attachment ? (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => void handleDownload(e.attachment!.file_name, e.attachment!.file_path)}
+                          title={e.attachment.file_name}
+                        >
+                          <Download className="h-4 w-4" />
+                        </Button>
+                      ) : (
+                        <span className="text-muted-foreground">-</span>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
+
+      <CompteDialog
+        open={compteDialogOpen}
+        onOpenChange={setCompteDialogOpen}
+        compte={editingCompte}
+        onSave={handleSaveCompte}
+        loading={saving}
+      />
+
+      <ExpenseDialog
+        open={expenseDialogOpen}
+        onOpenChange={setExpenseDialogOpen}
+        comptes={comptes}
+        onSave={handleSaveExpense}
         loading={saving}
       />
     </div>

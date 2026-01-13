@@ -106,6 +106,38 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
     return children.some(child => child.href && location.pathname === child.href);
   };
 
+  // Auto-open dropdowns that contain the active route.
+  // Do not auto-close them; closing is a user action.
+  // If the user explicitly closed a dropdown, keep it closed even if a child is active.
+  useEffect(() => {
+    if (isSuperAdmin) return;
+
+    const idsToOpen: string[] = [];
+    const visit = (modules: NavigationModule[]) => {
+      for (const m of modules) {
+        if (m.children && isChildActive(m.children)) {
+          idsToOpen.push(m.id);
+        }
+        if (m.children) visit(m.children);
+      }
+    };
+
+    visit(navigationConfig);
+    if (idsToOpen.length === 0) return;
+
+    setOpenDropdowns((prev) => {
+      let changed = false;
+      const next = { ...prev };
+      for (const id of idsToOpen) {
+        if (prev[id] === undefined) {
+          next[id] = true;
+          changed = true;
+        }
+      }
+      return changed ? next : prev;
+    });
+  }, [isSuperAdmin, location.pathname]);
+
   // Regular nav item (no children)
   const NavItem = ({ item, onClick, indent = false }: { 
     item: { name: string; href: string; icon: React.ElementType }; 
@@ -189,8 +221,8 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
     onClick?: () => void;
   }) => {
     const Icon = item.icon;
-    const isOpen = openDropdowns[item.id] || false;
     const hasActiveChild = isChildActive(item.children);
+    const isOpen = openDropdowns[item.id] ?? hasActiveChild;
 
     // In collapsed mode, show only icon with tooltip listing children
     if (collapsed) {
@@ -229,7 +261,10 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
     }
 
     return (
-      <Collapsible open={isOpen} onOpenChange={() => toggleDropdown(item.id)}>
+      <Collapsible
+        open={isOpen}
+        onOpenChange={(open) => setOpenDropdowns((prev) => ({ ...prev, [item.id]: open }))}
+      >
         <CollapsibleTrigger asChild>
           <button
             className={cn(

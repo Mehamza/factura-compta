@@ -6,6 +6,27 @@ drop trigger if exists "trg_invoices_sales_constraints" on "public"."invoices";
 
 drop trigger if exists "trg_invoices_recompute_on_change" on "public"."invoices";
 
+do $$
+begin
+  if to_regclass('public.product_pricing_history') is not null then
+    execute 'drop policy if exists "product_pricing_history_insert_privileged" on "public"."product_pricing_history"';
+  end if;
+end $$;
+
+do $$
+begin
+  if to_regclass('public.stock_document_items') is not null then
+    execute 'drop policy if exists "stock_document_items_insert_privileged" on "public"."stock_document_items"';
+  end if;
+end $$;
+
+do $$
+begin
+  if to_regclass('public.stock_documents') is not null then
+    execute 'drop policy if exists "stock_documents_insert_privileged" on "public"."stock_documents"';
+  end if;
+end $$;
+
 alter table "public"."invoices" drop constraint if exists "invoices_payment_status_check";
 
 drop function if exists "public"."_invoice_discount_ratio"(p_invoice_id uuid);
@@ -110,6 +131,91 @@ BEGIN
 END;
 $function$
 ;
+
+
+do $$
+begin
+  if to_regclass('public.product_pricing_history') is not null then
+    execute $policy$
+      create policy "product_pricing_history_insert_privileged"
+      on "public"."product_pricing_history"
+      as permissive
+      for insert
+      to public
+      with check ((EXISTS (
+        select 1
+        from public.company_users cu
+        where (
+          cu.company_id = product_pricing_history.company_id
+          and cu.user_id = auth.uid()
+          and cu.role = any (array[
+            'caissier'::public.company_role,
+            'company_admin'::public.company_role,
+            'gerant'::public.company_role,
+            'comptable'::public.company_role
+          ])
+        )
+      )));
+    $policy$;
+  end if;
+end $$;
+
+do $$
+begin
+  if to_regclass('public.stock_document_items') is not null then
+    execute $policy$
+      create policy "stock_document_items_insert_privileged"
+      on "public"."stock_document_items"
+      as permissive
+      for insert
+      to public
+      with check ((exists (
+        select 1
+        from (
+          public.stock_documents d
+          join public.company_users cu on (
+            cu.company_id = d.company_id
+            and cu.user_id = auth.uid()
+            and cu.role = any (array[
+              'caissier'::public.company_role,
+              'company_admin'::public.company_role,
+              'gerant'::public.company_role,
+              'comptable'::public.company_role
+            ])
+          )
+        )
+        where d.id = stock_document_items.document_id
+      )));
+    $policy$;
+  end if;
+end $$;
+
+do $$
+begin
+  if to_regclass('public.stock_documents') is not null then
+    execute $policy$
+      create policy "stock_documents_insert_privileged"
+      on "public"."stock_documents"
+      as permissive
+      for insert
+      to public
+      with check ((exists (
+        select 1
+        from public.company_users cu
+        where (
+          cu.company_id = stock_documents.company_id
+          and cu.user_id = auth.uid()
+          and cu.role = any (array[
+            'caissier'::public.company_role,
+            'company_admin'::public.company_role,
+            'gerant'::public.company_role,
+            'comptable'::public.company_role
+          ])
+        )
+      )));
+    $policy$;
+  end if;
+end $$;
 
 do $$
 begin

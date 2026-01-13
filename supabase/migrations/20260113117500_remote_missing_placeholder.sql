@@ -1,0 +1,6 @@
+-- Placeholder migration.
+-- This version exists in the linked remote project's migration history
+-- but the original SQL file is not present in this local repository.
+--
+-- Intentionally left blank to allow Supabase CLI to reconcile migration versions
+-- without modifying the remote migration history.

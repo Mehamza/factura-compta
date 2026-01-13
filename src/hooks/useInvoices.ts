@@ -391,89 +391,13 @@ export const useInvoices = (kind: DocumentKind) => {
 
   const handleStockMovement = useCallback(
     async (invoiceId: string, movementType: 'entry' | 'exit') => {
-      if (!user?.id || !activeCompanyId) throw new Error('Not authenticated');
+      void invoiceId;
+      void movementType;
 
-      const { invoice, items } = await getById(invoiceId);
-      if (!invoice || items.length === 0) return;
-
-      // Vérifier si des mouvements ont déjà été créés pour ce document (idempotence)
-      const { data: existingMovements } = await supabase
-        .from('stock_movements')
-        .select('id')
-        .eq('reference_type', invoice.document_kind)
-        .eq('reference_id', invoiceId)
-        .limit(1);
-
-      if (existingMovements && existingMovements.length > 0) {
-        console.log('Stock movements already exist for this document, skipping');
-        return;
-      }
-
-      // Get products by reference (sku) ou product_id si disponible
-      const refs = items.map(i => i.reference).filter(Boolean);
-      const productIds = items.map(i => (i as any).product_id).filter(Boolean);
-      
-      if (refs.length === 0 && productIds.length === 0) return;
-
-      // Charger les produits par SKU ou ID
-      let products: any[] = [];
-      if (productIds.length > 0) {
-        const { data } = await supabase
-          .from('products')
-          .select('id, sku, quantity')
-          .eq('company_id', activeCompanyId)
-          .in('id', productIds);
-        products = data || [];
-      } else if (refs.length > 0) {
-        const { data } = await supabase
-          .from('products')
-          .select('id, sku, quantity')
-          .eq('company_id', activeCompanyId)
-          .in('sku', refs);
-        products = data || [];
-      }
-
-      if (products.length === 0) return;
-
-      const productMapById = new Map(products.map(p => [p.id, p]));
-      const productMapBySku = new Map(products.map(p => [p.sku, p]));
-
-      for (const item of items) {
-        // Chercher le produit par ID d'abord, puis par SKU
-        let product = productMapById.get((item as any).product_id);
-        if (!product) product = productMapBySku.get(item.reference);
-        if (!product) continue;
-
-        const currentQty = Number(product.quantity ?? 0);
-        const itemQty = Math.abs(Number(item.quantity ?? 0)); // Abs car les avoirs ont des qtés négatives
-        const newQty = movementType === 'entry' 
-          ? currentQty + itemQty 
-          : currentQty - itemQty;
-
-        // Validation stock pour les sorties (sauf pour les avoirs qui restaurent le stock)
-        if (movementType === 'exit' && newQty < 0) {
-          console.warn(`Stock insuffisant pour ${product.sku}: ${currentQty} disponible, ${itemQty} demandé`);
-          // On continue quand même mais on met 0 comme minimum
-        }
-
-        // Update product quantity
-        await supabase
-          .from('products')
-          .update({ quantity: Math.max(0, newQty) })
-          .eq('id', product.id);
-
-        // Insert stock movement avec traçabilité
-        await supabase.from('stock_movements').insert({
-          user_id: user.id,
-          company_id: activeCompanyId,
-          product_id: product.id,
-          movement_type: movementType,
-          quantity: itemQty,
-          note: `Document ${invoice.invoice_number}`,
-          reference_type: invoice.document_kind,
-          reference_id: invoiceId,
-        });
-      }
+      // Stock is now managed strictly per-warehouse via stock documents (Bon d’entrée / Bon de transfert).
+      // Commercial documents (factures/BL/avoirs) do not carry a warehouse context in the current UX,
+      // so we must not mutate stock implicitly here.
+      return;
     },
     [activeCompanyId, getById, user?.id],
   );

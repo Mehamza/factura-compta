@@ -89,13 +89,14 @@ export default function StockProducts() {
   };
 
   useEffect(() => {
-    if (user) load();
-  }, [user]);
+    if (user && activeCompanyId) load();
+  }, [user, activeCompanyId]);
 
   const load = async () => {
+    if (!activeCompanyId) return;
     setLoading(true);
     const [prodRes, suppRes] = await Promise.all([
-      supabase.from('products').select('*').order('name'),
+      supabase.from('products').select('*').eq('company_id', activeCompanyId).order('name'),
       supabase.from('suppliers').select('id, name').order('name')
     ]);
     
@@ -177,8 +178,8 @@ export default function StockProducts() {
       return;
     }
 
-    const initial_qty = form.initial_qty ? Number(form.initial_qty) : null;
-    const quantity = editing ? Number(form.quantity || 0) : (initial_qty ?? 0);
+    const initial_qty = form.initial_qty ? Number(form.initial_qty) : 0;
+    const quantity = editing ? Number(editing.quantity || 0) : 0;
     const min_stock = Number(form.min_stock || 0);
     const unit_price = Number(form.unit_price || form.sale_price || 0);
     const purchase_price = form.purchase_price ? Number(form.purchase_price) : null;
@@ -187,7 +188,7 @@ export default function StockProducts() {
     const fodec_applicable = Boolean(form.fodec_applicable);
     const fodec_rate = form.fodec_rate_percent ? Number(form.fodec_rate_percent) / 100 : (fodec_applicable ? 0.01 : 0);
 
-    if (quantity < 0 || min_stock < 0 || unit_price < 0) {
+    if (initial_qty < 0 || quantity < 0 || min_stock < 0 || unit_price < 0) {
       toast({ variant: 'destructive', title: 'Valeurs invalides', description: 'Les valeurs numériques doivent être positives.' });
       return;
     }
@@ -227,9 +228,12 @@ export default function StockProducts() {
       payload.fodec_rate = fodec_rate;
     }
 
-    // For new products, set initial_qty
-    if (!editing) {
-      payload.initial_qty = initial_qty;
+    // For new products, store initial_qty but DO NOT apply stock silently.
+    if (!editing) payload.initial_qty = initial_qty;
+    // Never allow editing stock totals from this screen.
+    if (editing) {
+      delete payload.quantity;
+      delete payload.initial_qty;
     }
 
     if (editing) {
@@ -242,14 +246,36 @@ export default function StockProducts() {
         await load();
       }
     } else {
-      const { error } = await supabase.from('products').insert(payload);
+      const { data: created, error } = await supabase.from('products').insert(payload).select('id').single();
       if (error) {
         toast({ variant: 'destructive', title: 'Erreur', description: error.message });
-      } else {
-        toast({ title: 'Succès', description: 'Produit ajouté' });
-        setDialogOpen(false);
-        await load();
+        return;
       }
+
+      // If an initial quantity is provided, create it via a Bon d’entrée (document + movements).
+      if (activeCompanyId && created?.id && initial_qty > 0) {
+        const { data: whId, error: whErr } = await supabase.rpc('ensure_default_warehouse_id', { p_company_id: activeCompanyId });
+        if (whErr) {
+          toast({ variant: 'destructive', title: 'Erreur', description: whErr.message });
+          return;
+        }
+
+        const { error: docErr } = await supabase.rpc('create_stock_entry_document', {
+          p_company_id: activeCompanyId,
+          p_warehouse_id: whId,
+          p_items: [{ product_id: created.id, quantity: initial_qty, apply_pricing_updates: false }],
+          p_note: 'initial_stock_product_create',
+        });
+
+        if (docErr) {
+          toast({ variant: 'destructive', title: 'Erreur', description: docErr.message });
+          return;
+        }
+      }
+
+      toast({ title: 'Succès', description: 'Produit ajouté' });
+      setDialogOpen(false);
+      await load();
     }
   };
 
@@ -567,9 +593,11 @@ export default function StockProducts() {
                       type="number"
                       min="0"
                       value={form.quantity}
-                      onChange={e => setForm({ ...form, quantity: e.target.value })}
+                      readOnly
+                      disabled
                       placeholder="0"
                     />
+                    <p className="text-xs text-muted-foreground">Le stock est géré par entrepôt via les bons (entrée/transfert). </p>
                   </div>
                 )}
                 <div className="space-y-2">
