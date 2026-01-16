@@ -33,7 +33,7 @@ interface MonthlyRevenue {
 }
 
 export default function Dashboard() {
-  const { user } = useAuth();
+  const { user, activeCompanyId } = useAuth();
   const [stats, setStats] = useState<DashboardStats>({
     totalClients: 0,
     totalSuppliers: 0,
@@ -51,13 +51,14 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (user) {
+    if (user && activeCompanyId) {
       fetchStats();
     }
-  }, [user]);
+  }, [user, activeCompanyId]);
 
   const fetchStats = async () => {
     try {
+      if (!activeCompanyId) return;
       const today = new Date();
       const todayStr = format(today, 'yyyy-MM-dd');
       const monthStart = format(startOfMonth(today), 'yyyy-MM-dd');
@@ -66,9 +67,9 @@ export default function Dashboard() {
       const yearEnd = format(endOfYear(today), 'yyyy-MM-dd');
 
       const [clientsRes, suppliersRes, invoicesRes] = await Promise.all([
-        supabase.from('clients').select('id, name', { count: 'exact' }),
-        supabase.from('suppliers').select('id', { count: 'exact', head: true }),
-        supabase.from('invoices').select('*, clients(name)'),
+        supabase.from('clients').select('id, name', { count: 'exact' }).eq('company_id', activeCompanyId),
+        supabase.from('suppliers').select('id', { count: 'exact', head: true }).eq('company_id', activeCompanyId),
+        supabase.from('invoices').select('*, clients(name)').eq('company_id', activeCompanyId),
       ]);
 
       const invoices = invoicesRes.data || [];

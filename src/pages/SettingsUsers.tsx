@@ -38,6 +38,7 @@ export default function SettingsUsers() {
   const [form, setForm] = useState({ full_name: '', email: '', role: 'cashier' as Exclude<AppRole, null | undefined>, password: '' });
   const [allow, setAllow] = useState<string[]>(() => ['dashboard', ...allModuleIds]);
   const [editAllow, setEditAllow] = useState<string[]>(() => ['dashboard', ...allModuleIds]);
+  const [editRole, setEditRole] = useState<Exclude<AppRole, null | undefined>>('cashier');
   const [emailTaken, setEmailTaken] = useState(false);
 
   const allowed = canAccess('administration', 'utilisateurs');
@@ -59,6 +60,7 @@ export default function SettingsUsers() {
 
   useEffect(() => {
     if (!openEdit || !editing) return;
+    setEditRole(editing.role);
     const stored = editing.permissions?.allow;
     if (!stored || stored.includes('*')) {
       setEditAllow(['dashboard', ...allModuleIds]);
@@ -210,12 +212,20 @@ export default function SettingsUsers() {
       if (!editing?.id) return;
 
       const permissions = computePermissionsPayload(editAllow);
+
+      // Update company-scoped permissions
       const { error } = await supabase
         .from('company_users')
         .update({ permissions } as any)
         .eq('company_id', activeCompanyId)
         .eq('user_id', editing.id);
       if (error) throw error;
+
+      // Update legacy role label (still stored in user_roles)
+      const { error: roleErr } = await supabase
+        .from('user_roles')
+        .upsert({ user_id: editing.id, role: editRole }, { onConflict: 'user_id' } as any);
+      if (roleErr) throw roleErr;
 
       toast({ title: 'Succès', description: "Accès mis à jour" });
       setOpenEdit(false);
@@ -320,16 +330,8 @@ export default function SettingsUsers() {
               ) : sorted.map(u => (
                 <TableRow key={u.id}>
                   <TableCell className="font-medium">{u.full_name || 'Sans nom'}{u.id === user?.id && <Badge variant="outline" className="ml-2">Vous</Badge>}</TableCell>
-                  <TableCell>
-                    <Select value={u.role} onValueChange={(val) => updateRole(u.id, val as Exclude<AppRole, null | undefined>)} disabled={u.id === user?.id}>
-                      <SelectTrigger className="w-44"><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="admin">{ROLE_LABELS.admin}</SelectItem>
-                        <SelectItem value="manager">{ROLE_LABELS.manager}</SelectItem>
-                        <SelectItem value="accountant">{ROLE_LABELS.accountant}</SelectItem>
-                        <SelectItem value="cashier">{ROLE_LABELS.cashier}</SelectItem>
-                      </SelectContent>
-                    </Select>
+                  <TableCell> {u.role}
+                    
                   </TableCell>
                   <TableCell>{new Date(u.created_at).toLocaleDateString('fr-FR')}</TableCell>
                   <TableCell className="text-right">
@@ -414,6 +416,19 @@ export default function SettingsUsers() {
           <form onSubmit={submitEditPermissions} className="grid gap-4">
             <div className="text-sm text-muted-foreground">
               {editing?.full_name || editing?.email || 'Utilisateur'}
+            </div>
+
+            <div>
+              <Label>Rôle</Label>
+              <Select value={editRole} onValueChange={(val) => setEditRole(val as Exclude<AppRole, null | undefined>)}>
+                <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="admin">{ROLE_LABELS.admin}</SelectItem>
+                  <SelectItem value="manager">{ROLE_LABELS.manager}</SelectItem>
+                  <SelectItem value="accountant">{ROLE_LABELS.accountant}</SelectItem>
+                  <SelectItem value="cashier">{ROLE_LABELS.cashier}</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
 
             <div className="space-y-2">

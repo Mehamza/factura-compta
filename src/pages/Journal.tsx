@@ -33,20 +33,21 @@ export default function Journal() {
   const [editingEntry, setEditingEntry] = useState<EntryWithLines | null>(null);
   const [saving, setSaving] = useState(false);
 
-  useEffect(() => { if (user) load(); }, [user]);
+  useEffect(() => { if (user && activeCompanyId) load(); }, [user, activeCompanyId]);
 
   const load = async () => {
+    if (!activeCompanyId) return;
     setLoading(true);
-    const accRes = await supabase.from('accounts').select('*').order('code');
+    const accRes = await supabase.from('accounts').select('*').eq('company_id', activeCompanyId).order('code');
     setAccounts(accRes.data || []);
 
-    const entRes = await supabase.from('journal_entries').select('*').order('entry_date', { ascending: false });
+    const entRes = await supabase.from('journal_entries').select('*').eq('company_id', activeCompanyId).order('entry_date', { ascending: false });
     const entriesData = entRes.data || [];
 
     // Load lines per entry
     const entriesWithLines: EntryWithLines[] = [];
     for (const e of entriesData) {
-      const lr = await supabase.from('journal_lines').select('*').eq('entry_id', e.id);
+      const lr = await supabase.from('journal_lines').select('*').eq('company_id', activeCompanyId).eq('entry_id', e.id);
       entriesWithLines.push({ ...e, lines: lr.data || [] });
     }
     setEntries(entriesWithLines);
@@ -60,7 +61,7 @@ export default function Journal() {
   });
 
   const handleSaveEntry = async (data: { date: string; reference: string; description: string; lines: { account_id: string; debit: number; credit: number }[] }) => {
-    if (!user) return;
+    if (!user || !activeCompanyId) return;
     setSaving(true);
     try {
       if (editingEntry) {
@@ -72,13 +73,15 @@ export default function Journal() {
             reference: data.reference,
             description: data.description || null
           })
+          .eq('company_id', activeCompanyId)
           .eq('id', editingEntry.id);
         if (entryError) throw entryError;
 
         // Delete old lines and insert new ones
-        await supabase.from('journal_lines').delete().eq('entry_id', editingEntry.id);
+        await supabase.from('journal_lines').delete().eq('company_id', activeCompanyId).eq('entry_id', editingEntry.id);
         const linesToInsert = data.lines.map(l => ({
           entry_id: editingEntry.id,
+          company_id: activeCompanyId,
           account_id: l.account_id,
           debit: l.debit,
           credit: l.credit
@@ -106,6 +109,7 @@ export default function Journal() {
         // Insert lines
         const linesToInsert = data.lines.map(l => ({
           entry_id: newEntry.id,
+          company_id: activeCompanyId,
           account_id: l.account_id,
           debit: l.debit,
           credit: l.credit
@@ -129,8 +133,8 @@ export default function Journal() {
   const handleDeleteEntry = async (entry: EntryWithLines) => {
     try {
       // Lines will be deleted by cascade or we delete manually
-      await supabase.from('journal_lines').delete().eq('entry_id', entry.id);
-      const { error } = await supabase.from('journal_entries').delete().eq('id', entry.id);
+      await supabase.from('journal_lines').delete().eq('company_id', activeCompanyId).eq('entry_id', entry.id);
+      const { error } = await supabase.from('journal_entries').delete().eq('company_id', activeCompanyId).eq('id', entry.id);
       if (error) throw error;
       toast.success('Écriture supprimée');
       await load();

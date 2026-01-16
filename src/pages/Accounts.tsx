@@ -100,6 +100,7 @@ export default function Accounts() {
           const { data: journalLines, error: linesError } = await supabase
             .from('journal_lines')
             .select('account_id, debit, credit, entry_id')
+            .eq('company_id', activeCompanyId)
             .in('account_id', compteIds)
             .in('entry_id', entryIds);
           if (linesError) throw linesError;
@@ -215,7 +216,7 @@ export default function Accounts() {
 
   const handleDeleteCompte = async (compte: CompteRow) => {
     try {
-      const { error } = await supabase.from('accounts').delete().eq('id', compte.id);
+      const { error } = await supabase.from('accounts').delete().eq('company_id', activeCompanyId).eq('id', compte.id);
       if (error) throw error;
       toast.success('Compte supprimé');
       await load();

@@ -134,16 +134,17 @@ export default function Documents() {
   });
 
   useEffect(() => {
-    if (user) {
+    if (user && activeCompanyId) {
       fetchDocuments();
       fetchClients();
       fetchSuppliers();
       fetchInvoices();
     }
-  }, [user]);
+  }, [user, activeCompanyId]);
 
   const fetchDocuments = async () => {
     try {
+      if (!activeCompanyId) return;
       const { data, error } = await supabase
         .from('documents')
         .select(`
@@ -152,7 +153,7 @@ export default function Documents() {
           clients:client_id(name),
           suppliers:supplier_id(name)
         `)
-        .eq('user_id', user?.id)
+        .eq('company_id', activeCompanyId)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
@@ -166,28 +167,31 @@ export default function Documents() {
   };
 
   const fetchClients = async () => {
+    if (!activeCompanyId) return;
     const { data } = await supabase
       .from('clients')
       .select('id, name')
-      .eq('user_id', user?.id)
+      .eq('company_id', activeCompanyId)
       .order('name');
     setClients(data || []);
   };
 
   const fetchSuppliers = async () => {
+    if (!activeCompanyId) return;
     const { data } = await supabase
       .from('suppliers')
       .select('id, name')
-      .eq('user_id', user?.id)
+      .eq('company_id', activeCompanyId)
       .order('name');
     setSuppliers(data || []);
   };
 
   const fetchInvoices = async () => {
+    if (!activeCompanyId) return;
     const { data } = await supabase
       .from('invoices')
       .select('id, invoice_number')
-      .eq('user_id', user?.id)
+      .eq('company_id', activeCompanyId)
       .order('invoice_number', { ascending: false });
     setInvoices(data || []);
   };
@@ -283,6 +287,7 @@ export default function Documents() {
       const { error: dbError } = await supabase
         .from('documents')
         .delete()
+        .eq('company_id', activeCompanyId)
         .eq('id', doc.id);
 
       if (dbError) throw dbError;

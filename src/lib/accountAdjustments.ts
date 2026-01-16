@@ -22,12 +22,12 @@ export async function computeAccountCurrentBalance(accountId: string) {
   return debit - credit;
 }
 
-export async function ensureAdjustmentAccount(userId: string) {
-  // Try to find an existing adjustment account for this user
+export async function ensureAdjustmentAccount(companyId: string, userId: string) {
+  // Try to find an existing adjustment account for this company
   const { data } = await supabase
     .from('accounts')
     .select('*')
-    .eq('user_id', userId)
+    .eq('company_id', companyId)
     .eq('code', ADJUSTMENT_CODE)
     .limit(1)
     .maybeSingle();
@@ -37,7 +37,7 @@ export async function ensureAdjustmentAccount(userId: string) {
   // Create one
   const { data: inserted, error } = await supabase
     .from('accounts')
-    .insert({ code: ADJUSTMENT_CODE, name: ADJUSTMENT_NAME, type: 'passif', user_id: userId })
+    .insert({ code: ADJUSTMENT_CODE, name: ADJUSTMENT_NAME, type: 'passif', user_id: userId, company_id: companyId })
     .select()
     .single();
 
@@ -47,6 +47,7 @@ export async function ensureAdjustmentAccount(userId: string) {
 
 export async function createBalanceAdjustmentEntry({
   userId,
+  companyId,
   accountId,
   delta,
   counterpartAccountId,
@@ -54,6 +55,7 @@ export async function createBalanceAdjustmentEntry({
   reference = 'Ajustement solde via édition compte',
 }: {
   userId: string;
+  companyId: string;
   accountId: string;
   delta: number; // desired - current
   counterpartAccountId: string;
@@ -74,15 +76,15 @@ export async function createBalanceAdjustmentEntry({
   // Create journal entry
   const { data: entry, error: entryError } = await supabase
     .from('journal_entries')
-    .insert({ user_id: userId, entry_date: date, reference, description: reference, created_by_user_id: userId })
+    .insert({ user_id: userId, company_id: companyId, entry_date: date, reference, description: reference, created_by_user_id: userId })
     .select()
     .single();
 
   if (entryError) throw entryError;
 
   const lines = [
-    { entry_id: entry.id, account_id: accountId, debit: targetDebit, credit: targetCredit },
-    { entry_id: entry.id, account_id: counterpartAccountId, debit: counterpartDebit, credit: counterpartCredit },
+    { entry_id: entry.id, company_id: companyId, account_id: accountId, debit: targetDebit, credit: targetCredit },
+    { entry_id: entry.id, company_id: companyId, account_id: counterpartAccountId, debit: counterpartDebit, credit: counterpartCredit },
   ];
 
   const { error: linesError } = await supabase.from('journal_lines').insert(lines);

@@ -42,16 +42,16 @@ export interface ClientInvoiceStatement {
  */
 export async function getClientInvoiceStatement(
   client_id: string,
-  user_id: string,
+  company_id: string,
   start_date?: string,
   end_date?: string
 ): Promise<ClientInvoiceStatement> {
-  // Build filters - use user_id since invoices table uses user_id, not company_id
+  // Build filters - scope by company_id
   let query = supabase
     .from('invoices')
     .select('id, invoice_number, issue_date, due_date, subtotal, tax_amount, total, status')
     .eq('client_id', client_id)
-    .eq('user_id', user_id)
+    .eq('company_id', company_id)
     .in('status', ['unpaid', 'partial', 'overdue', 'paid']) // Exclude drafts/cancelled
     .order('issue_date', { ascending: false });
 
@@ -72,10 +72,12 @@ export async function getClientInvoiceStatement(
       supabase
         .from('payments')
         .select('invoice_id, amount')
+        .eq('company_id', company_id)
         .in('invoice_id', invoiceIds),
       supabase
         .from('invoice_items')
         .select('invoice_id, description, quantity, unit_price, total')
+        .eq('company_id', company_id)
         .in('invoice_id', invoiceIds)
     ]);
     

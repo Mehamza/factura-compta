@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/hooks/useAuth';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -24,6 +25,7 @@ interface Payment {
 const COLORS = ['hsl(var(--primary))', 'hsl(var(--chart-2))', 'hsl(var(--chart-3))', 'hsl(var(--chart-4))'];
 
 export default function Reports() {
+  const { activeCompanyId } = useAuth();
   const [month, setMonth] = useState(() => new Date().toISOString().slice(0, 7));
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [allInvoices, setAllInvoices] = useState<Invoice[]>([]);
@@ -31,18 +33,27 @@ export default function Reports() {
   const [payments, setPayments] = useState<Payment[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => { load(); }, [month]);
+  useEffect(() => { load(); }, [month, activeCompanyId]);
 
   const load = async () => {
+    if (!activeCompanyId) {
+      setInvoices([]);
+      setAllInvoices([]);
+      setClients([]);
+      setPayments([]);
+      setLoading(false);
+      return;
+    }
+
     setLoading(true);
     const start = `${month}-01`;
     const end = `${month}-31`;
 
     const [invRes, allInvRes, cliRes, payRes] = await Promise.all([
-      supabase.from('invoices').select('*').gte('issue_date', start).lte('issue_date', end),
-      supabase.from('invoices').select('*'),
-      supabase.from('clients').select('*'),
-      supabase.from('payments').select('id, amount, payment_date, invoice_id').gte('payment_date', start).lte('payment_date', end),
+      supabase.from('invoices').select('*').eq('company_id', activeCompanyId).gte('issue_date', start).lte('issue_date', end),
+      supabase.from('invoices').select('*').eq('company_id', activeCompanyId),
+      supabase.from('clients').select('*').eq('company_id', activeCompanyId),
+      supabase.from('payments').select('id, amount, payment_date, invoice_id').eq('company_id', activeCompanyId).gte('payment_date', start).lte('payment_date', end),
     ]);
 
     setInvoices(invRes.data || []);

@@ -88,12 +88,12 @@ export default function Clients() {
 
   // Show statement for selected client
   const openStatement = async () => {
-    if (!selectedClient || !user) return;
+    if (!selectedClient || !user || !activeCompanyId) return;
     setStatementOpen(true);
     setStatementLoading(true);
     setStatementError(null);
     try {
-      const data = await getClientInvoiceStatement(selectedClient.id, user.id, statementStart, statementEnd);
+      const data = await getClientInvoiceStatement(selectedClient.id, activeCompanyId, statementStart, statementEnd);
       setStatement(data);
     } catch (e: any) {
       setStatementError(e.message || 'Erreur lors du chargement du relevé');
@@ -104,21 +104,21 @@ export default function Clients() {
 
   // Auto-load statement when detail dialog opens
   useEffect(() => {
-    if (detailDialogOpen && selectedClient && user) {
+    if (detailDialogOpen && selectedClient && user && activeCompanyId) {
       openStatement();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [detailDialogOpen, selectedClient, user, statementStart, statementEnd]);
+  }, [detailDialogOpen, selectedClient, user, activeCompanyId, statementStart, statementEnd]);
 
   // Date range change handler
   const handleStatementDateChange = async (start?: string, end?: string) => {
     setStatementStart(start);
     setStatementEnd(end);
-    if (statementOpen && selectedClient && user) {
+    if (statementOpen && selectedClient && user && activeCompanyId) {
       setStatementLoading(true);
       setStatementError(null);
       try {
-        const data = await getClientInvoiceStatement(selectedClient.id, user.id, start, end);
+        const data = await getClientInvoiceStatement(selectedClient.id, activeCompanyId, start, end);
         setStatement(data);
       } catch (e: any) {
         setStatementError(e.message || 'Erreur lors du chargement du relevé');
@@ -140,13 +140,15 @@ export default function Clients() {
   });
 
   useEffect(() => {
-    if (user) fetchClients();
-  }, [user]);
+    if (user && activeCompanyId) fetchClients();
+  }, [user, activeCompanyId]);
 
   const fetchClients = async () => {
+    if (!activeCompanyId) return;
     const { data, error } = await supabase
       .from('clients')
       .select('*')
+      .eq('company_id', activeCompanyId)
       .order('name');
     
     if (error) {
@@ -158,10 +160,12 @@ export default function Clients() {
   };
 
   const fetchClientInvoices = async (clientId: string) => {
+    if (!activeCompanyId) return;
     const { data, error } = await supabase
       .from('invoices')
       .select('id, invoice_number, issue_date, total, status')
       .eq('client_id', clientId)
+      .eq('company_id', activeCompanyId)
       .order('issue_date', { ascending: false });
     
     if (!error) {
@@ -176,6 +180,7 @@ export default function Clients() {
       const { error } = await supabase
         .from('clients')
         .update(formData)
+        .eq('company_id', activeCompanyId)
         .eq('id', editingClient.id);
       
       if (error) {
@@ -203,7 +208,7 @@ export default function Clients() {
   const handleDelete = async (id: string) => {
     if (!confirm('Supprimer ce client ?')) return;
     
-    const { error } = await supabase.from('clients').delete().eq('id', id);
+    const { error } = await supabase.from('clients').delete().eq('company_id', activeCompanyId).eq('id', id);
     
     if (error) {
       toast({ variant: 'destructive', title: 'Erreur', description: error.message });

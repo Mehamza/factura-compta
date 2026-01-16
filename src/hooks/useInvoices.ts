@@ -98,9 +98,11 @@ export const useInvoices = (kind: DocumentKind) => {
   }, [activeCompanyId, kind]);
 
   const getById = useCallback(async (id: string) => {
+    if (!activeCompanyId) return { invoice: null, items: [], error: new Error('No active company') };
     const { data: invoice, error: invoiceError } = await supabase
       .from('invoices')
       .select('*, clients(*), suppliers(*)')
+      .eq('company_id', activeCompanyId)
       .eq('id', id)
       .maybeSingle();
 
@@ -109,6 +111,7 @@ export const useInvoices = (kind: DocumentKind) => {
     const { data: items, error: itemsError } = await supabase
       .from('invoice_items')
       .select('*')
+      .eq('company_id', activeCompanyId)
       .eq('invoice_id', id);
 
     return { 
@@ -116,7 +119,7 @@ export const useInvoices = (kind: DocumentKind) => {
       items: (items || []) as InvoiceItemRow[], 
       error: itemsError 
     };
-  }, []);
+  }, [activeCompanyId]);
 
   const create = useCallback(
     async (payload: Partial<InvoiceRow>, items?: Omit<InvoiceItemRow, 'id' | 'invoice_id' | 'company_id'>[]) => {
@@ -262,10 +265,12 @@ export const useInvoices = (kind: DocumentKind) => {
   );
 
   const remove = useCallback(async (id: string) => {
+    if (!activeCompanyId) throw new Error('No active company');
+
     // Items are deleted via cascade
-    const { error } = await supabase.from('invoices').delete().eq('id', id);
+    const { error } = await supabase.from('invoices').delete().eq('company_id', activeCompanyId).eq('id', id);
     if (error) throw error;
-  }, []);
+  }, [activeCompanyId]);
 
   const convert = useCallback(
     async (sourceInvoiceId: string, targetKind: DocumentKind) => {

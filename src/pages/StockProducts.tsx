@@ -97,7 +97,7 @@ export default function StockProducts() {
     setLoading(true);
     const [prodRes, suppRes] = await Promise.all([
       supabase.from('products').select('*').eq('company_id', activeCompanyId).order('name'),
-      supabase.from('suppliers').select('id, name').order('name')
+      supabase.from('suppliers').select('id, name').eq('company_id', activeCompanyId).order('name')
     ]);
     
     if (prodRes.error) {
@@ -237,7 +237,7 @@ export default function StockProducts() {
     }
 
     if (editing) {
-      const { error } = await supabase.from('products').update(payload).eq('id', editing.id);
+      const { error } = await supabase.from('products').update(payload).eq('company_id', activeCompanyId).eq('id', editing.id);
       if (error) {
         toast({ variant: 'destructive', title: 'Erreur', description: error.message });
       } else {
@@ -285,7 +285,7 @@ export default function StockProducts() {
       return;
     }
     if (!confirm('Supprimer ce produit ?')) return;
-    const { error } = await supabase.from('products').delete().eq('id', id);
+    const { error } = await supabase.from('products').delete().eq('company_id', activeCompanyId).eq('id', id);
     if (error) {
       toast({ variant: 'destructive', title: 'Erreur', description: error.message });
     } else {

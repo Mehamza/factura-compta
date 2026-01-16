@@ -35,12 +35,14 @@ import { documentTypeConfig } from '@/config/documentTypes';
 import { StatusBadge } from '@/components/invoices/shared';
 import { calculateTotals, type DiscountConfig, type InvoiceItem } from '@/components/invoices/shared/types';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/hooks/useAuth';
 import { Eye, Pencil, Trash2, FileDown, ArrowRight, Plus, Search } from 'lucide-react';
 
 export default function DocumentListPage({ kind }: { kind: DocumentKind }) {
   const { toast } = useToast();
   const navigate = useNavigate();
   const { config, list, remove, convert } = useInvoices(kind);
+  const { activeCompanyId } = useAuth();
 
   const [rows, setRows] = useState<InvoiceRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -63,9 +65,10 @@ export default function DocumentListPage({ kind }: { kind: DocumentKind }) {
       // This is done in a single batch query to avoid N+1.
       try {
         const ids = (data || []).map((r) => r.id).filter(Boolean);
-        if (ids.length > 0) {
+        if (ids.length > 0 && activeCompanyId) {
           const { data: itemsData, error: itemsError } = await supabase.from('invoice_items')
             .select('invoice_id,total,fodec_amount,vat_rate')
+            .eq('company_id', activeCompanyId)
             .in('invoice_id', ids);
           if (!itemsError && itemsData) {
             const itemsByInvoice = new Map<string, any[]>();
@@ -123,7 +126,7 @@ export default function DocumentListPage({ kind }: { kind: DocumentKind }) {
 
   useEffect(() => {
     fetchData();
-  }, [kind]);
+  }, [kind, activeCompanyId]);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();

@@ -51,7 +51,7 @@ const handler = async (req: Request): Promise<Response> => {
     // Send email to admin
     const emailResponse = await resend.emails.send({
       from: "SmartFin <onboarding@resend.dev>",
-      to: ["hamzaallagui510@gmail.com"],
+      to: ["contact@smartfin.tn"],
       subject: `[SmartFin Contact] ${subject}`,
       html: `
         <h1>Nouveau message de contact</h1>

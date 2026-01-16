@@ -41,6 +41,7 @@ interface Supplier {
   siret: string | null;
   vat_number: string | null;
   user_id?: string;
+  company_id?: string | null;
 }
 
 type SortField = 'name' | 'email' | 'city';
@@ -72,13 +73,15 @@ export default function Suppliers() {
   });
 
   useEffect(() => {
-    if (user) fetchSuppliers();
-  }, [user]);
+    if (user && activeCompanyId) fetchSuppliers();
+  }, [user, activeCompanyId]);
 
   const fetchSuppliers = async () => {
+    if (!activeCompanyId) return;
     const { data, error } = await supabase
       .from('suppliers')
       .select('*')
+      .eq('company_id', activeCompanyId)
       .order('name');
     
     if (error) {
@@ -96,6 +99,7 @@ export default function Suppliers() {
       const { error } = await supabase
         .from('suppliers')
         .update(formData)
+        .eq('company_id', activeCompanyId)
         .eq('id', editingSupplier.id);
       
       if (error) {
@@ -123,7 +127,7 @@ export default function Suppliers() {
   const handleDelete = async (id: string) => {
     if (!confirm('Supprimer ce fournisseur ?')) return;
     
-    const { error } = await supabase.from('suppliers').delete().eq('id', id);
+    const { error } = await supabase.from('suppliers').delete().eq('company_id', activeCompanyId).eq('id', id);
     
     if (error) {
       toast({ variant: 'destructive', title: 'Erreur', description: error.message });
@@ -170,6 +174,7 @@ export default function Suppliers() {
             siret: supplier.siret || null,
             vat_number: supplier.vat_number || null,
             user_id: user?.id || '',
+            company_id: activeCompanyId,
           });
         }
       }
@@ -177,7 +182,7 @@ export default function Suppliers() {
       if (suppliersToImport.length > 0) {
         const { error } = await supabase
           .from('suppliers')
-          .insert(suppliersToImport as { name: string; email: string | null; phone: string | null; address: string | null; city: string | null; postal_code: string | null; siret: string | null; vat_number: string | null; user_id: string }[]);
+          .insert(suppliersToImport as { name: string; email: string | null; phone: string | null; address: string | null; city: string | null; postal_code: string | null; siret: string | null; vat_number: string | null; user_id: string; company_id: string | null }[]);
         
         if (error) {
           toast({ variant: 'destructive', title: 'Erreur', description: error.message });

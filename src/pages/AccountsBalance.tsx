@@ -45,19 +45,20 @@ export default function AccountsBalance() {
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    if (user) load();
+    if (user && activeCompanyId) load();
   }, [user, activeCompanyId]);
 
   const load = async () => {
+    if (!activeCompanyId) return;
     setLoading(true);
 
-    const accRes = await supabase.from('accounts').select('*').order('code');
+    const accRes = await supabase.from('accounts').select('*').eq('company_id', activeCompanyId).order('code');
     setAccounts(accRes.data || []);
 
-    const { data: entries } = await supabase.from('journal_entries').select('id, entry_date');
+    const { data: entries } = await supabase.from('journal_entries').select('id, entry_date').eq('company_id', activeCompanyId);
     const entryMap = new Map(entries?.map((e) => [e.id, e.entry_date]) || []);
 
-    const lr = await supabase.from('journal_lines').select('account_id, debit, credit, entry_id');
+    const lr = await supabase.from('journal_lines').select('account_id, debit, credit, entry_id').eq('company_id', activeCompanyId);
     const linesWithDate = (lr.data || []).map((l) => ({
       account_id: l.account_id,
       debit: Number(l.debit),
@@ -96,12 +97,12 @@ export default function AccountsBalance() {
     balance?: number;
     counterparty_account_id?: string | null;
   }) => {
-    if (!user) return;
+    if (!user || !activeCompanyId) return;
     setSaving(true);
     try {
       if (editingAccount) {
         const payload = { code: data.code, name: data.name, type: data.type };
-        const { error } = await supabase.from('accounts').update(payload).eq('id', editingAccount.id);
+        const { error } = await supabase.from('accounts').update(payload).eq('company_id', activeCompanyId).eq('id', editingAccount.id);
         if (error) throw error;
         toast.success('Compte modifié');
 
@@ -112,9 +113,10 @@ export default function AccountsBalance() {
             const desired = Number(Number(data.balance).toFixed(2));
             const delta = Math.round((desired - currentBalance) * 100) / 100;
             if (Math.abs(delta) >= 0.01) {
-              const counterpart = data.counterparty_account_id || (await ensureAdjustmentAccount(user.id));
+              const counterpart = data.counterparty_account_id || (await ensureAdjustmentAccount(activeCompanyId, user.id));
               await createBalanceAdjustmentEntry({
                 userId: user.id,
+                companyId: activeCompanyId,
                 accountId: editingAccount.id,
                 delta,
                 counterpartAccountId: counterpart,
@@ -140,9 +142,10 @@ export default function AccountsBalance() {
             const desired = Number(Number(data.balance).toFixed(2));
             const delta = Math.round(desired * 100) / 100;
             if (Math.abs(delta) >= 0.01) {
-              const counterpart = data.counterparty_account_id || (await ensureAdjustmentAccount(user.id));
+              const counterpart = data.counterparty_account_id || (await ensureAdjustmentAccount(activeCompanyId, user.id));
               await createBalanceAdjustmentEntry({
                 userId: user.id,
+                companyId: activeCompanyId,
                 accountId: inserted.id,
                 delta,
                 counterpartAccountId: counterpart,
@@ -169,7 +172,7 @@ export default function AccountsBalance() {
 
   const handleDeleteAccount = async (account: Account) => {
     try {
-      const { error } = await supabase.from('accounts').delete().eq('id', account.id);
+      const { error } = await supabase.from('accounts').delete().eq('company_id', activeCompanyId).eq('id', account.id);
       if (error) throw error;
       toast.success('Compte supprimé');
       await load();
