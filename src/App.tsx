@@ -242,20 +242,23 @@ const router = createBrowserRouter(
 );
 
 const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <AuthProvider>
-      <TooltipProvider>
-        <Toaster />
-        <Sonner />
-        <SpeedInsights/>
-        <MotionConfig reducedMotion="user">
-          <AnimatePresence mode="wait">
-            <RouterProvider router={router} />
-          </AnimatePresence>
-        </MotionConfig>
-      </TooltipProvider>
-    </AuthProvider>
-  </QueryClientProvider>
+  <>
+    <SpeedInsights/>
+    <QueryClientProvider client={queryClient}>
+      <AuthProvider>
+        <TooltipProvider>
+          <Toaster />
+          <Sonner />
+          
+          <MotionConfig reducedMotion="user">
+            <AnimatePresence mode="wait">
+              <RouterProvider router={router} />
+            </AnimatePresence>
+          </MotionConfig>
+        </TooltipProvider>
+      </AuthProvider>
+    </QueryClientProvider>
+  </>
 );
 
 export default App;
