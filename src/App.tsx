@@ -8,6 +8,7 @@ import { AuthProvider } from "@/hooks/useAuth";
 import { ProtectedRoute } from "@/components/layout/ProtectedRoute";
 import { SuperAdminRoute } from "@/components/layout/ProtectedRoute";
 import { ModuleProtectedRoute } from "@/components/layout/ModuleProtectedRoute";
+import { SpeedInsights } from "@vercel/speed-insights/react";
 import Index from "./pages/Index";
 import LandingPage from "./pages/LandingPage";
 import Auth from "./pages/Auth";
@@ -82,6 +83,8 @@ import Contact from "./pages/Contact";
 import PublicLayout from "@/components/layout/PublicLayout";
 
 const queryClient = new QueryClient();
+
+
 
 // Animation wrapper for page transitions
 const PageTransition = ({ children }: { children: React.ReactNode }) => (
@@ -244,6 +247,7 @@ const App = () => (
       <TooltipProvider>
         <Toaster />
         <Sonner />
+        <SpeedInsights/>
         <MotionConfig reducedMotion="user">
           <AnimatePresence mode="wait">
             <RouterProvider router={router} />
