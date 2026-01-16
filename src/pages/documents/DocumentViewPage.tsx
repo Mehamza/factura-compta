@@ -11,6 +11,7 @@ import { StatusBadge } from '@/components/invoices/shared';
 import { calculateTotals, type InvoiceItem, STAMP_AMOUNT } from '@/components/invoices/shared/types';
 import { generateInvoiceWithTemplate, type InvoiceTemplateData, type InvoiceItem as PDFInvoiceItem } from '@/lib/invoiceTemplates';
 import { ArrowLeft, Pencil, Printer, Download, ArrowRight } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
 
 export default function DocumentViewPage({ kind }: { kind: DocumentKind }) {
   const { id } = useParams<{ id: string }>();
@@ -65,6 +66,13 @@ export default function DocumentViewPage({ kind }: { kind: DocumentKind }) {
 
     setGenerating(true);
     try {
+      const createdByUserId = (invoice as any).created_by_user_id || invoice.user_id;
+      const { data: createdByProfile } = await supabase
+        .from('profiles')
+        .select('full_name')
+        .eq('user_id', createdByUserId)
+        .maybeSingle();
+
       const invoiceItems: InvoiceItem[] = items.map(item => ({
         id: item.id,
         reference: item.reference || '',
@@ -107,6 +115,11 @@ export default function DocumentViewPage({ kind }: { kind: DocumentKind }) {
         currency: invoice.currency || 'TND',
         template_type: invoice.template_type || 'classic',
         document_title: docConfig.label.toUpperCase(),
+        party_type: invoice.suppliers ? 'fournisseur' : 'client',
+        created_by: {
+          name: createdByProfile?.full_name || undefined,
+          created_at: invoice.created_at || undefined,
+        },
         client: invoice.clients ? {
           id: invoice.clients.id,
           name: invoice.clients.name,
@@ -257,9 +270,17 @@ export default function DocumentViewPage({ kind }: { kind: DocumentKind }) {
             <span className="font-medium">Statut: </span>
             <StatusBadge
               status={invoice.status}
-              paymentStatus={(invoice as any).payment_status}
-              usePaymentStatus={invoice.document_kind === 'facture' || invoice.document_kind === 'facture_achat'}
             />
+            {(kind === 'facture' || kind === 'facture_achat') ? (() => {
+              const paid = Number((invoice as any).total_paid ?? 0);
+              const remaining = Math.max(Number(totals.total ?? 0) - paid, 0);
+              return (
+                <div className="mt-2 text-sm text-muted-foreground">
+                  <div>Payé: {paid.toFixed(3)} {invoice.currency || 'TND'}</div>
+                  <div>Reste à payer: {remaining.toFixed(3)} {invoice.currency || 'TND'}</div>
+                </div>
+              );
+            })() : null}
           </div>
           <div className="text-right">
             <div className="text-2xl font-bold">{totals.total.toFixed(3)} {invoice.currency || 'TND'}</div>

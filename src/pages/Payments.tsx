@@ -26,7 +26,7 @@ import PaymentDialog from '@/components/payments/PaymentDialog';
 import { InvoicePaymentStatus, isPayableStatus } from '@/lib/documentStatus';
 import type { Tables } from '@/integrations/supabase/types';
 
-type Invoice = Tables<'invoices'> & { document_kind?: string | null; payment_status?: string | null; remaining_amount?: number | null };
+type Invoice = Tables<'invoices'> & { document_kind?: string | null; remaining_amount?: number | null; total_paid?: number | null };
 type Client = Tables<'clients'>;
 type Supplier = Tables<'suppliers'>;
 type Account = Tables<'accounts'>;
@@ -119,7 +119,7 @@ export default function Payments() {
           .order('payment_date', { ascending: false }),
         supabase
           .from('invoices')
-          .select('id, invoice_number, total, currency, status, payment_status, remaining_amount, client_id, supplier_id, document_kind')
+          .select('id, invoice_number, total, currency, status, remaining_amount, total_paid, client_id, supplier_id, document_kind')
           .eq('company_id', activeCompanyId)
           .order('invoice_number', { ascending: false }),
         supabase.from('clients').select('id, name').eq('company_id', activeCompanyId).order('name'),
@@ -164,7 +164,7 @@ export default function Payments() {
     return invoices.filter((i) => {
       if (!isPayableStatus(i.status)) return false;
       if (i.document_kind !== 'facture' && i.document_kind !== 'facture_achat') return false;
-      return i.payment_status !== InvoicePaymentStatus.PAID;
+      return i.status !== InvoicePaymentStatus.PAID;
     }).length;
   }, [invoices]);
 
@@ -202,6 +202,40 @@ export default function Payments() {
     return { id: doc.id as string, filePath: (doc.file_path as string) || filePath };
   };
 
+  const uploadPaymentAttachmentWithTier = async (file: File, opts: { invoiceId: string | null; clientId: string | null; supplierId: string | null }) => {
+    if (!user || !activeCompanyId) return null;
+
+    const invoice = opts.invoiceId ? invoices.find((i) => i.id === opts.invoiceId) : null;
+    const fileExt = file.name.split('.').pop();
+    const fileName = `${Date.now()}.${fileExt}`;
+    const filePath = `${user.id}/${fileName}`;
+
+    const { error: uploadError } = await supabase.storage.from('documents').upload(filePath, file);
+    if (uploadError) throw uploadError;
+
+    const { data: doc, error: dbError } = await supabase
+      .from('documents')
+      .insert({
+        user_id: user.id,
+        company_id: activeCompanyId,
+        file_name: file.name,
+        file_path: filePath,
+        file_size: file.size,
+        file_type: file.type,
+        category: 'recu',
+        description: 'Pièce jointe paiement',
+        invoice_id: opts.invoiceId,
+        client_id: invoice?.client_id || opts.clientId || null,
+        supplier_id: invoice?.supplier_id || opts.supplierId || null,
+      })
+      .select('id, file_path')
+      .single();
+
+    if (dbError) throw dbError;
+    if (!doc?.id) return null;
+    return { id: doc.id as string, filePath: (doc.file_path as string) || filePath };
+  };
+
   const cleanupUploadedDocument = async (docId: string, filePath?: string | null) => {
     try {
       if (filePath) {
@@ -216,6 +250,8 @@ export default function Payments() {
   const handleSavePayment = async (data: {
     payment_type: PaymentType;
     invoice_id: string | null;
+    client_id: string | null;
+    supplier_id: string | null;
     amount: number;
     payment_date: string;
     payment_method: string;
@@ -231,7 +267,11 @@ export default function Payments() {
     let attachmentPath: string | null = null;
     try {
       if (data.file) {
-        const uploaded = await uploadPaymentAttachment(data.file, data.invoice_id);
+        const uploaded = await uploadPaymentAttachmentWithTier(data.file, {
+          invoiceId: data.invoice_id,
+          clientId: data.client_id,
+          supplierId: data.supplier_id,
+        });
         attachmentDocumentId = uploaded?.id || null;
         attachmentPath = uploaded?.filePath || null;
       }
@@ -241,6 +281,8 @@ export default function Payments() {
           p_payment_id: editingPayment.id,
           p_payment_type: data.payment_type,
           p_invoice_id: data.invoice_id,
+          p_client_id: data.client_id,
+          p_supplier_id: data.supplier_id,
           p_amount: data.amount,
           p_payment_date: data.payment_date,
           p_payment_method: data.payment_method,
@@ -257,6 +299,8 @@ export default function Payments() {
           p_company_id: activeCompanyId,
           p_payment_type: data.payment_type,
           p_invoice_id: data.invoice_id,
+          p_client_id: data.client_id,
+          p_supplier_id: data.supplier_id,
           p_amount: data.amount,
           p_payment_date: data.payment_date,
           p_payment_method: data.payment_method,
@@ -475,7 +519,7 @@ export default function Payments() {
                 <TableHead>Tiers</TableHead>
                 <TableHead>Compte</TableHead>
                 <TableHead>Pièce</TableHead>
-                <TableHead className="w-24"></TableHead>
+                <TableHead className="w-24">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -575,6 +619,8 @@ export default function Payments() {
                 id: editingPayment.id,
                 payment_type: editingPayment.payment_type,
                 invoice_id: editingPayment.invoice_id,
+                client_id: editingPayment.client?.id || null,
+                supplier_id: editingPayment.supplier?.id || null,
                 amount: Number(editingPayment.amount),
                 payment_date: editingPayment.payment_date,
                 payment_method: editingPayment.payment_method,

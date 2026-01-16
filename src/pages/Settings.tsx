@@ -258,8 +258,7 @@ export default function Settings() {
           invoice_format: data.invoice_format || '{prefix}-{year}-{number}',
           invoice_number_padding: data.invoice_number_padding || 4,
           signature_url: data.signature_url || '',
-          stamp_url: data.stamp_url || '',
-          bank_accounts: ((data as any).bank_accounts || [])
+          stamp_url: data.stamp_url || ''
         });
 
         // Initialize activity select state.
@@ -505,22 +504,6 @@ export default function Settings() {
     setSettings(prev => prev ? { ...prev, stamp_url: '' } : null);
   };
 
-  // Banks list (common tunisian banks)
-  const TUNISIAN_BANKS = [
-    'Banque Centrale Populaire',
-    'Banque Zitouna',
-    'Banque Internationale Arabe de Tunisie',
-    'Banque de Tunisie',
-    'Attijari Bank',
-    'Amen Bank',
-    'Arab Tunisian Bank',
-    'Banque Nationale Agricole',
-    'Banque de l\'Habitat',
-    'Société Tunisienne de Banque',
-    'Union Internationale de Banques',
-    'Other'
-  ];
-
   const saveSettings = async (companyIdOverride?: string) => {
     const companyId = companyIdOverride ?? activeCompanyId;
     if (!settings || !companyId) return;
@@ -552,11 +535,6 @@ export default function Settings() {
         stamp_url: settings.stamp_url,
         type: settings.type as 'personne_physique' | 'personne_morale',
       };
-
-      // Include bank_accounts only if the remote schema supports it
-      if (supportsBankAccounts) {
-        settingsToSave.bank_accounts = JSON.parse(JSON.stringify(settings.bank_accounts || []));
-      }
 
       // Include is_configured only if supported by remote schema
       if (supportsIsConfigured) {
@@ -616,11 +594,15 @@ export default function Settings() {
 
   const getInvoicePreview = () => {
     if (!settings) return '';
-    const year = new Date().getFullYear();
-    const number = String(settings.invoice_next_number).padStart(settings.invoice_number_padding, '0');
-    return settings.invoice_format
-      .replace('{prefix}', settings.invoice_prefix)
-      .replace('{year}', String(year))
+    const now = new Date();
+    const year = String(now.getFullYear());
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const number = String(1).padStart(settings.invoice_number_padding, '0');
+    const examplePrefix = 'FAC';
+    return String(settings.invoice_format)
+      .replace('{prefix}', examplePrefix)
+      .replace('{year}', year)
+      .replace('{month}', month)
       .replace('{number}', number);
   };
 
@@ -832,24 +814,40 @@ export default function Settings() {
             {/* Invoice format fields for wizard */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="wizard_prefix">Préfixe facture</Label>
-                <Input
-                  id="wizard_prefix"
-                  value={settings.invoice_prefix}
-                  onChange={(e) => setSettings({ ...settings, invoice_prefix: e.target.value.toUpperCase() })}
-                  placeholder="FAC"
-                  maxLength={10}
-                />
+                <Label htmlFor="wizard_padding">Nombre de chiffres</Label>
+                <Select
+                  value={String(settings.invoice_number_padding)}
+                  onValueChange={(value) => setSettings({ ...settings, invoice_number_padding: Number(value) })}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="3">3 (001)</SelectItem>
+                    <SelectItem value="4">4 (0001)</SelectItem>
+                    <SelectItem value="5">5 (00001)</SelectItem>
+                    <SelectItem value="6">6 (000001)</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="wizard_next_number">Prochain numéro</Label>
-                <Input
-                  id="wizard_next_number"
-                  type="number"
-                  min="1"
-                  value={settings.invoice_next_number}
-                  onChange={(e) => setSettings({ ...settings, invoice_next_number: Number(e.target.value) })}
-                />
+                <Label htmlFor="wizard_format">Modèle</Label>
+                <Select
+                  value={settings.invoice_format}
+                  onValueChange={(value) => setSettings({ ...settings, invoice_format: value })}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                      <SelectItem value="{prefix}-{year}-{number}">type_doc-année-numéro</SelectItem>
+                      <SelectItem value="{year}-{month}-{number}">année-mois-numéro</SelectItem>
+                      <SelectItem value="{year}-{number}">année-numéro</SelectItem>
+                      <SelectItem value="{number}">numéro</SelectItem>
+                      <SelectItem value="{year} {number}">année numéro</SelectItem>
+                      <SelectItem value="{prefix}-{number}">type_doc-numéro</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
             </div>
             <div className="space-y-2">
@@ -1091,53 +1089,6 @@ export default function Settings() {
                       ))}
                     </SelectContent>
                   </Select>
-                </div>
-              </div>
-
-              {/* Bank accounts */}
-              <div className="space-y-3 pt-4 border-t">
-                <Label className="text-base font-semibold">Comptes bancaires</Label>
-                <p className="text-sm text-muted-foreground">Ajoutez un ou plusieurs comptes bancaires (RIB). Le premier sera affiché sur la facture.</p>
-
-                <div className="space-y-2">
-                  {(settings.bank_accounts || []).map((ba, idx) => (
-                    <div key={idx} className="flex gap-2 items-center">
-                      <Select value={ba.bank} onValueChange={(val) => {
-                        const copy = Array.from(settings.bank_accounts || []);
-                        copy[idx] = { ...copy[idx], bank: val };
-                        setSettings({ ...settings, bank_accounts: copy });
-                      }}>
-                        <SelectTrigger className="w-64">
-                          <SelectValue placeholder="Sélectionner une banque" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {TUNISIAN_BANKS.map(b => <SelectItem key={b} value={b}>{b}</SelectItem>)}
-                        </SelectContent>
-                      </Select>
-
-                      <Input placeholder="Numéro RIB" value={ba.rib} onChange={(e) => {
-                        const copy = Array.from(settings.bank_accounts || []);
-                        copy[idx] = { ...copy[idx], rib: e.target.value };
-                        setSettings({ ...settings, bank_accounts: copy });
-                      }} />
-
-                      <Button variant="destructive" size="icon" onClick={() => {
-                        const copy = Array.from(settings.bank_accounts || []);
-                        copy.splice(idx, 1);
-                        setSettings({ ...settings, bank_accounts: copy });
-                      }}>
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  ))}
-
-                  <Button variant="outline" size="sm" onClick={() => {
-                    const copy = Array.from(settings.bank_accounts || []);
-                    copy.push({ bank: TUNISIAN_BANKS[0], rib: '' });
-                    setSettings({ ...settings, bank_accounts: copy });
-                  }}>
-                    <Plus className="h-4 w-4 mr-2" />Ajouter un compte
-                  </Button>
                 </div>
               </div>
 
@@ -1418,57 +1369,17 @@ export default function Settings() {
           </Card>
         </TabsContent>
 
-        {/* Numérotation Factures */}
+        {/* Numérotation Documents */}
         <TabsContent value="invoicing">
           <Card>
             <CardHeader>
-              <CardTitle>Numérotation des factures</CardTitle>
+              <CardTitle>Numérotation des documents</CardTitle>
               <CardDescription>
-                Personnalisez le format de numérotation de vos factures
+                Choisissez le modèle et le nombre de chiffres du numéro
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="invoice_prefix">Préfixe</Label>
-                  <Input
-                    id="invoice_prefix"
-                    value={settings.invoice_prefix}
-                    onChange={(e) => setSettings({ ...settings, invoice_prefix: e.target.value.toUpperCase() })}
-                    placeholder="FAC"
-                    maxLength={10}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="invoice_next_number">Prochain numéro</Label>
-                  <Input
-                    id="invoice_next_number"
-                    type="number"
-                    min="1"
-                    value={settings.invoice_next_number}
-                    onChange={(e) => setSettings({ ...settings, invoice_next_number: Number(e.target.value) })}
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="invoice_format">Format</Label>
-                  <Select
-                    value={settings.invoice_format}
-                    onValueChange={(value) => setSettings({ ...settings, invoice_format: value })}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="{prefix}-{year}-{number}">{settings.invoice_prefix}-2025-0001</SelectItem>
-                      <SelectItem value="{prefix}{year}{number}">{settings.invoice_prefix}20250001</SelectItem>
-                      <SelectItem value="{prefix}-{number}">{settings.invoice_prefix}-0001</SelectItem>
-                      <SelectItem value="{year}/{prefix}/{number}">2025/{settings.invoice_prefix}/0001</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
                 <div className="space-y-2">
                   <Label htmlFor="invoice_number_padding">Nombre de chiffres</Label>
                   <Select
@@ -1486,6 +1397,25 @@ export default function Settings() {
                     </SelectContent>
                   </Select>
                 </div>
+                <div className="space-y-2">
+                  <Label htmlFor="invoice_format">Modèle</Label>
+                  <Select
+                    value={settings.invoice_format}
+                    onValueChange={(value) => setSettings({ ...settings, invoice_format: value })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="{prefix}-{year}-{number}">type_doc-année-numéro</SelectItem>
+                      <SelectItem value="{year}-{month}-{number}">année-mois-numéro</SelectItem>
+                      <SelectItem value="{year}-{number}">année-numéro</SelectItem>
+                      <SelectItem value="{number}">numéro</SelectItem>
+                      <SelectItem value="{year} {number}">année numéro</SelectItem>
+                      <SelectItem value="{prefix}-{number}">type_doc-numéro</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
 
               <div className="p-4 bg-primary/10 rounded-lg">
@@ -1496,9 +1426,10 @@ export default function Settings() {
               <div className="p-4 bg-accent/50 rounded-lg">
                 <h4 className="font-medium mb-2">Variables disponibles</h4>
                 <ul className="text-sm text-muted-foreground space-y-1">
-                  <li><code className="bg-background px-1 rounded">{'{prefix}'}</code> - Préfixe de la facture</li>
-                  <li><code className="bg-background px-1 rounded">{'{year}'}</code> - Année en cours</li>
-                  <li><code className="bg-background px-1 rounded">{'{number}'}</code> - Numéro séquentiel</li>
+                  <li><code className="bg-background px-1 rounded">{'{type_doc}'}</code> - type de la facture</li>
+                  <li><code className="bg-background px-1 rounded">{'{année}'}</code> - Année en cours</li>
+                  <li><code className="bg-background px-1 rounded">{'{mois}'}</code> - Mois en cours</li>
+                  <li><code className="bg-background px-1 rounded">{'{numéro}'}</code> - Numéro séquentiel</li>
                 </ul>
               </div>
             </CardContent>

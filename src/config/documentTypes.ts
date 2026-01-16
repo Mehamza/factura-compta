@@ -29,19 +29,24 @@ export type LegacyDocumentKind = 'facture_credit' | 'facture_payee' | 'facture_c
 export type StockMovementType = 'entry' | 'exit';
 
 /**
- * Statuts de facture conformes au modèle tunisien
- * - draft: brouillon (modifiable)
- * - validated: validée (document fiscal émis)
- * - partial: partiellement payée
- * - paid: totalement payée
- * - overdue: échue non payée
+ * Statuts conformes au modèle tunisien
+ *
+ * Pour les factures (facture / facture_achat): le `status` est piloté par les paiements
+ * - draft: brouillon
+ * - unpaid|partial|overdue|paid: statut de paiement
  * - cancelled: annulée
+ *
+ * Pour les autres documents: le `status` est le cycle de vie
+ * - draft|validated|cancelled
  */
-// Statut de cycle (document): ne contient PAS d'information de paiement.
-export type InvoiceStatusType = 'draft' | 'validated' | 'cancelled';
-
-// Statut financier (paiement): dérivé de la table payments.
-export type InvoicePaymentStatusType = 'unpaid' | 'partial' | 'paid' | 'overdue';
+export type InvoiceStatusType =
+  | 'draft'
+  | 'validated'
+  | 'cancelled'
+  | 'unpaid'
+  | 'partial'
+  | 'overdue'
+  | 'paid';
 
 export interface DocumentTypeConfig {
   kind: DocumentKind;
@@ -72,8 +77,8 @@ export const documentTypeConfig: Record<DocumentKind, DocumentTypeConfig> = {
     requiresSupplier: false,
     requiresDueDate: false,
     canConvertTo: ['bon_commande', 'facture'],
-    defaultStatus: 'draft',
-    statusOptions: ['draft', 'sent', 'accepted', 'rejected', 'expired', 'cancelled'],
+    defaultStatus: 'validated',
+    statusOptions: ['draft', 'validated', 'cancelled'],
     canHavePayments: false,
   },
   bon_commande: {
@@ -87,7 +92,7 @@ export const documentTypeConfig: Record<DocumentKind, DocumentTypeConfig> = {
     requiresDueDate: false,
     canConvertTo: ['bon_livraison', 'facture'],
     defaultStatus: 'draft',
-    statusOptions: ['draft', 'confirmed', 'cancelled'],
+    statusOptions: ['draft', 'validated', 'cancelled'],
     canHavePayments: false,
   },
   bon_livraison: {
@@ -102,7 +107,7 @@ export const documentTypeConfig: Record<DocumentKind, DocumentTypeConfig> = {
     requiresDueDate: false,
     canConvertTo: ['facture'],  // BL → Facture unique
     defaultStatus: 'draft',
-    statusOptions: ['draft', 'delivered', 'cancelled'],
+    statusOptions: ['draft', 'validated', 'cancelled'],
     canHavePayments: false,
   },
   // Facture unique (remplace facture_credit + facture_payee)
@@ -117,8 +122,8 @@ export const documentTypeConfig: Record<DocumentKind, DocumentTypeConfig> = {
     requiresDueDate: true,
     canConvertTo: ['facture_avoir'],  // Seul l'avoir est possible
     defaultStatus: 'draft',
-    // Statut de cycle uniquement (le paiement est dans payment_status)
-    statusOptions: ['draft', 'validated', 'cancelled'],
+    // La facture validée devient "unpaid" (le paiement fait évoluer le status).
+    statusOptions: ['draft', 'unpaid', 'cancelled'],
     canHavePayments: true,
   },
   facture_avoir: {
@@ -133,7 +138,7 @@ export const documentTypeConfig: Record<DocumentKind, DocumentTypeConfig> = {
     requiresDueDate: false,
     canConvertTo: [],
     defaultStatus: 'draft',
-    statusOptions: ['draft', 'validated'],
+    statusOptions: ['draft', 'validated', 'cancelled'],
     canHavePayments: false,  // L'avoir génère un crédit, pas un paiement
   },
 
@@ -149,7 +154,7 @@ export const documentTypeConfig: Record<DocumentKind, DocumentTypeConfig> = {
     requiresDueDate: false,
     canConvertTo: ['bon_livraison_achat', 'facture_achat'],
     defaultStatus: 'draft',
-    statusOptions: ['draft', 'confirmed', 'cancelled'],
+    statusOptions: ['draft', 'validated', 'cancelled'],
     canHavePayments: false,
   },
   bon_livraison_achat: {
@@ -164,7 +169,7 @@ export const documentTypeConfig: Record<DocumentKind, DocumentTypeConfig> = {
     requiresDueDate: false,
     canConvertTo: ['facture_achat'],  // Réception → Facture achat
     defaultStatus: 'draft',
-    statusOptions: ['draft', 'delivered', 'cancelled'],
+    statusOptions: ['draft', 'validated', 'cancelled'],
     canHavePayments: false,
   },
   // Facture d'achat (ex facture_credit_achat)
@@ -179,8 +184,7 @@ export const documentTypeConfig: Record<DocumentKind, DocumentTypeConfig> = {
     requiresDueDate: true,
     canConvertTo: ['avoir_achat'],
     defaultStatus: 'draft',
-    // Statut de cycle uniquement (le paiement est dans payment_status)
-    statusOptions: ['draft', 'validated', 'cancelled'],
+    statusOptions: ['draft', 'unpaid', 'cancelled'],
     canHavePayments: true,
   },
   avoir_achat: {
@@ -195,7 +199,7 @@ export const documentTypeConfig: Record<DocumentKind, DocumentTypeConfig> = {
     requiresDueDate: false,
     canConvertTo: [],
     defaultStatus: 'draft',
-    statusOptions: ['draft', 'validated'],
+    statusOptions: ['draft', 'validated', 'cancelled'],
     canHavePayments: false,
   },
 };

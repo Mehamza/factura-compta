@@ -52,7 +52,7 @@ export async function getClientInvoiceStatement(
     .select('id, invoice_number, issue_date, due_date, subtotal, tax_amount, total, status')
     .eq('client_id', client_id)
     .eq('user_id', user_id)
-    .in('status', ['sent', 'paid', 'overdue']) // Exclude drafts/cancelled
+    .in('status', ['unpaid', 'partial', 'overdue', 'paid']) // Exclude drafts/cancelled
     .order('issue_date', { ascending: false });
 
   if (start_date) query = query.gte('issue_date', start_date);

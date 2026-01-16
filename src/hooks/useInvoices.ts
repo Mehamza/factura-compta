@@ -17,12 +17,13 @@ export type InvoiceRow = {
   issue_date: string;
   due_date: string;
   status: string;
-  payment_status?: string;
   subtotal: number;
   tax_rate: number;
   tax_amount: number;
   fodec_amount: number;
   total: number;
+  total_paid?: number | null;
+  remaining_amount?: number | null;
   notes: string | null;
   currency: string | null;
   template_type: string | null;
@@ -62,18 +63,25 @@ export const useInvoices = (kind: DocumentKind) => {
   const { companySettings } = useCompanySettings();
   const cfg = useMemo(() => getDocumentTypeConfig(kind), [kind]);
 
-  const generateNumber = useCallback(() => {
-    const now = new Date();
-    const year = String(now.getFullYear());
-    const next = (companySettings as any)?.invoice_next_number ?? 1;
+  const generateNumber = useCallback(async (issueDate?: string) => {
+    if (!activeCompanyId) throw new Error('No active company');
+
     const pad = (companySettings as any)?.invoice_number_padding ?? 4;
     const fmt = (companySettings as any)?.invoice_format ?? '{prefix}-{year}-{number}';
-    const numStr = String(next).padStart(pad, '0');
-    return String(fmt)
-      .replace('{prefix}', cfg.prefix)
-      .replace('{year}', year)
-      .replace('{number}', numStr);
-  }, [cfg.prefix, companySettings]);
+    const safeIssueDate = issueDate || new Date().toISOString().slice(0, 10);
+
+    const { data, error } = await supabase.rpc('next_document_number', {
+      p_company_id: activeCompanyId,
+      p_kind: kind,
+      p_prefix: cfg.prefix,
+      p_format: fmt,
+      p_padding: pad,
+      p_issue_date: safeIssueDate,
+    });
+
+    if (error) throw error;
+    return data as unknown as string;
+  }, [activeCompanyId, cfg.prefix, companySettings, kind]);
 
   const list = useCallback(async () => {
     if (!activeCompanyId) return { data: [] as InvoiceRow[], error: null as any };
@@ -114,14 +122,18 @@ export const useInvoices = (kind: DocumentKind) => {
     async (payload: Partial<InvoiceRow>, items?: Omit<InvoiceItemRow, 'id' | 'invoice_id' | 'company_id'>[]) => {
       if (!user?.id || !activeCompanyId) throw new Error('Not authenticated or no active company');
 
-      const invoice_number = payload.invoice_number || generateNumber();
+      const issueDate = payload.issue_date || new Date().toISOString().slice(0, 10);
+      const invoice_number = payload.invoice_number || (await generateNumber(issueDate));
+      const rawStatus = payload.status ?? cfg.defaultStatus;
+      const normalizedStatus = (kind === 'facture' || kind === 'facture_achat') && rawStatus === 'validated' ? 'unpaid' : rawStatus;
+
       const insertPayload: any = {
         user_id: user.id,
         company_id: activeCompanyId,
         invoice_number,
-        issue_date: payload.issue_date || new Date().toISOString().slice(0, 10),
+        issue_date: issueDate,
         due_date: payload.due_date || new Date().toISOString().slice(0, 10),
-        status: payload.status ?? cfg.defaultStatus,
+        status: normalizedStatus,
         subtotal: payload.subtotal ?? 0,
         tax_rate: payload.tax_rate ?? 0,
         tax_amount: payload.tax_amount ?? 0,
@@ -167,25 +179,25 @@ export const useInvoices = (kind: DocumentKind) => {
         if (itemsError) throw itemsError;
       }
 
-      // Increment company invoice_next_number
+      // Ensure payment fields are consistent on creation.
+      // For invoices, this sets status = 'unpaid' and remaining_amount = total.
       try {
-        const currentNext = (companySettings as any)?.invoice_next_number ?? 1;
-        await supabase
-          .from('companies')
-          .update({ invoice_next_number: Number(currentNext) + 1 })
-          .eq('id', activeCompanyId);
+        await supabase.rpc('recompute_invoice_payment_fields', { p_invoice_id: invoice.id });
       } catch {
         // non-blocking
       }
 
       return invoice as InvoiceRow;
     },
-    [activeCompanyId, cfg.defaultStatus, companySettings, generateNumber, kind, user?.id],
+    [activeCompanyId, cfg.defaultStatus, generateNumber, kind, user?.id],
   );
 
   const update = useCallback(
     async (id: string, payload: Partial<InvoiceRow>, items?: Omit<InvoiceItemRow, 'id' | 'invoice_id' | 'company_id'>[]) => {
       if (!activeCompanyId) throw new Error('No active company');
+
+      const rawStatus = payload.status;
+      const normalizedStatus = (kind === 'facture' || kind === 'facture_achat') && rawStatus === 'validated' ? 'unpaid' : rawStatus;
 
       const { data: invoice, error } = await supabase
         .from('invoices')
@@ -194,7 +206,7 @@ export const useInvoices = (kind: DocumentKind) => {
           supplier_id: payload.supplier_id,
           issue_date: payload.issue_date,
           due_date: payload.due_date,
-          status: payload.status,
+          status: normalizedStatus,
           subtotal: payload.subtotal,
           tax_rate: payload.tax_rate,
           tax_amount: payload.tax_amount,
@@ -235,6 +247,13 @@ export const useInvoices = (kind: DocumentKind) => {
           
           if (itemsError) throw itemsError;
         }
+      }
+
+      // Keep payment fields consistent with totals/status changes.
+      try {
+        await supabase.rpc('recompute_invoice_payment_fields', { p_invoice_id: id });
+      } catch {
+        // non-blocking
       }
 
       return invoice as InvoiceRow;
@@ -296,16 +315,20 @@ export const useInvoices = (kind: DocumentKind) => {
         };
       }
 
-      const now = new Date();
-      const year = String(now.getFullYear());
-      const next = (companySettings as any)?.invoice_next_number ?? 1;
       const pad = (companySettings as any)?.invoice_number_padding ?? 4;
       const fmt = (companySettings as any)?.invoice_format ?? '{prefix}-{year}-{number}';
-      const numStr = String(next).padStart(pad, '0');
-      const newNumber = String(fmt)
-        .replace('{prefix}', targetCfg.prefix)
-        .replace('{year}', year)
-        .replace('{number}', numStr);
+      const issueDate = new Date().toISOString().slice(0, 10);
+
+      const { data: newNumber, error: newNumberError } = await supabase.rpc('next_document_number', {
+        p_company_id: activeCompanyId,
+        p_kind: targetKind,
+        p_prefix: targetCfg.prefix,
+        p_format: fmt,
+        p_padding: pad,
+        p_issue_date: issueDate,
+      });
+
+      if (newNumberError) throw newNumberError;
 
       const insertPayload: any = {
         user_id: user.id,
@@ -372,16 +395,6 @@ export const useInvoices = (kind: DocumentKind) => {
         }));
         
         await supabase.from('invoice_items').insert(itemsToInsert);
-      }
-
-      // Increment next number
-      try {
-        await supabase
-          .from('companies')
-          .update({ invoice_next_number: Number(next) + 1 })
-          .eq('id', activeCompanyId);
-      } catch {
-        // non-blocking
       }
 
       return created as InvoiceRow;

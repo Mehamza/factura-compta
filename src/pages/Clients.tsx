@@ -60,16 +60,7 @@ interface ClientInvoice {
 type SortField = 'name' | 'email' | 'city';
 type SortOrder = 'asc' | 'desc';
 
-import { InvoiceStatus } from '@/lib/documentStatus';
-
-const statusLabels: Record<string, string> = {
-  [InvoiceStatus.DRAFT]: 'Facture à crédit',
-  [InvoiceStatus.PURCHASE_QUOTE]: 'Devis d\'achat',
-  sent: 'Envoyée',
-  paid: 'Payée',
-  cancelled: 'Annulée',
-  overdue: 'En retard',
-};
+import { statusLabels } from '@/lib/documentStatus';
 
 export default function Clients() {
   const { user, activeCompanyId, companyRoles } = useAuth();
@@ -452,7 +443,7 @@ export default function Clients() {
                           <TableCell>{new Date(inv.issue_date).toLocaleDateString('fr-FR')}</TableCell>
                           <TableCell>{Number(inv.total).toLocaleString('fr-FR')} DT</TableCell>
                           <TableCell>
-                            <Badge variant="outline">{statusLabels[(inv as any).payment_status || inv.status] || ((inv as any).payment_status || inv.status)}</Badge>
+                            <Badge variant="outline">{statusLabels[inv.status] || inv.status}</Badge>
                           </TableCell>
                         </TableRow>
                       ))}
@@ -536,7 +527,7 @@ export default function Clients() {
                               <TableCell>{inv.total_ttc.toLocaleString('fr-FR')} DT</TableCell>
                               <TableCell>{inv.paid.toLocaleString('fr-FR')} DT</TableCell>
                               <TableCell>{inv.balance.toLocaleString('fr-FR')} DT</TableCell>
-                              <TableCell><Badge variant="outline">{statusLabels[(inv as any).payment_status || inv.status] || ((inv as any).payment_status || inv.status)}</Badge></TableCell>
+                              <TableCell><Badge variant="outline">{statusLabels[inv.status] || inv.status}</Badge></TableCell>
                             </TableRow>
                           ))
                         )}

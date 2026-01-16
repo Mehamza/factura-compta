@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -39,26 +39,28 @@ export default function AdminIndex() {
         setLowStockCount(low.length);
 
         // Fetch all invoices (limited to 2000)
-        const { data: invoices } = await supabase.from('invoices').select('id, total, status, issue_date, clients(name), client_id');
+        const { data: invoices } = await supabase
+          .from('invoices')
+          .select('id, total, status, issue_date, clients(name), client_id, document_kind');
         const allInvoices = invoices || [];
 
         // Total revenue (paid only)
-        const paidInvoices = allInvoices.filter((i: any) => i.payment_status === 'paid');
-        const totalRevenue = paidInvoices.reduce((sum: number, inv: any) => sum + Number(inv.total || 0), 0);
-        setRevenue(totalRevenue);
+        const paidInvoices = allInvoices.filter((i: any) => i.status === 'paid');
+        setRevenue(paidInvoices.reduce((sum: number, inv: any) => sum + Number(inv.total || 0), 0));
 
-        // unpaid count (sent or overdue) - exclude purchase quotes
-        const unpaid = allInvoices.filter((i: any) => (i.payment_status === 'unpaid' || i.payment_status === 'overdue'));
-        setUnpaidCount(unpaid.length);
+        // Unpaid count (unpaid/partial/overdue)
+        const unpaidInvoices = allInvoices.filter(
+          (i: any) => i.status === 'unpaid' || i.status === 'partial' || i.status === 'overdue',
+        );
+        setUnpaidCount(unpaidInvoices.length);
 
-        // invoice status counts
-        const statusCounts = {
-          paid: allInvoices.filter((i: any) => i.payment_status === 'paid').length,
-          sent: allInvoices.filter((i: any) => i.status === InvoiceStatus.SENT).length,
-          overdue: allInvoices.filter((i: any) => i.payment_status === 'overdue').length,
-          draft: allInvoices.filter((i: any) => i.status === InvoiceStatus.DRAFT || i.status === InvoiceStatus.PURCHASE_QUOTE).length,
-        };
-        setInvoiceStatusCounts(statusCounts);
+        // Invoice status counts
+        setInvoiceStatusCounts({
+          paid: paidInvoices.length,
+          sent: allInvoices.filter((i: any) => i.status === 'unpaid' || i.status === 'partial').length,
+          overdue: allInvoices.filter((i: any) => i.status === 'overdue').length,
+          draft: allInvoices.filter((i: any) => i.status === InvoiceStatus.DRAFT).length,
+        });
 
         // Monthly revenue last 6 months
         const months: Array<{ month: string; revenue: number }> = [];
@@ -185,9 +187,9 @@ export default function AdminIndex() {
             ) : (
               <div className="space-y-2">
                 <div className="flex justify-between text-sm"><span>Payées</span><span>{invoiceStatusCounts.paid}</span></div>
-                <div className="flex justify-between text-sm"><span>Envoyées</span><span>{invoiceStatusCounts.sent}</span></div>
+                <div className="flex justify-between text-sm"><span>En attente</span><span>{invoiceStatusCounts.sent}</span></div>
                 <div className="flex justify-between text-sm"><span>En retard</span><span>{invoiceStatusCounts.overdue}</span></div>
-                <div className="flex justify-between text-sm"><span>Deviss</span><span>{invoiceStatusCounts.draft}</span></div>
+                <div className="flex justify-between text-sm"><span>Devis</span><span>{invoiceStatusCounts.draft}</span></div>
               </div>
             )}
           </CardContent>

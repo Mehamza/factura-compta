@@ -8,6 +8,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import type { Tables } from '@/integrations/supabase/types';
 import { InvoicePaymentStatus, InvoiceStatus, isPayableStatus } from '@/lib/documentStatus';
+import { ClientSupplierSelector } from '@/components/invoices/shared';
 
 type Invoice = Tables<'invoices'>;
 type Client = Tables<'clients'>;
@@ -26,6 +27,8 @@ interface PaymentDialogProps {
   onSave: (data: {
     payment_type: PaymentType;
     invoice_id: string | null;
+    client_id: string | null;
+    supplier_id: string | null;
     amount: number;
     payment_date: string;
     payment_method: string;
@@ -39,6 +42,8 @@ interface PaymentDialogProps {
     id: string;
     payment_type?: string | null;
     invoice_id: string | null;
+    client_id?: string | null;
+    supplier_id?: string | null;
     amount: number;
     payment_date: string;
     payment_method: string;
@@ -61,8 +66,11 @@ const paymentMethods = [
 export default function PaymentDialog({ open, onOpenChange, invoices, clients, suppliers, accounts, onSave, loading, editPayment }: PaymentDialogProps) {
   const [paymentType, setPaymentType] = useState<PaymentType>('vente');
   const [invoiceId, setInvoiceId] = useState<string | null>(null);
+  const [clientId, setClientId] = useState<string>('');
+  const [supplierId, setSupplierId] = useState<string>('');
   const [accountId, setAccountId] = useState<string>('');
   const [amount, setAmount] = useState('');
+  const [amountError, setAmountError] = useState<string>('');
   const [paymentDate, setPaymentDate] = useState(new Date().toISOString().slice(0, 10));
   const [paymentMethod, setPaymentMethod] = useState('espèces');
   const [reference, setReference] = useState('');
@@ -73,6 +81,8 @@ export default function PaymentDialog({ open, onOpenChange, invoices, clients, s
     if (editPayment) {
       setPaymentType((editPayment.payment_type === 'achat' ? 'achat' : 'vente') as PaymentType);
       setInvoiceId(editPayment.invoice_id);
+      setClientId(editPayment.client_id || '');
+      setSupplierId(editPayment.supplier_id || '');
       setAccountId(editPayment.account_id || '');
       setAmount(String(editPayment.amount));
       setPaymentDate(editPayment.payment_date);
@@ -84,6 +94,8 @@ export default function PaymentDialog({ open, onOpenChange, invoices, clients, s
       const accountList = accounts ?? [];
       setPaymentType('vente');
       setInvoiceId(null);
+      setClientId('');
+      setSupplierId('');
       setAccountId(accountList.length ? accountList[0].id : '');
       setAmount('');
       setPaymentDate(new Date().toISOString().slice(0, 10));
@@ -96,7 +108,20 @@ export default function PaymentDialog({ open, onOpenChange, invoices, clients, s
 
   const handleInvoiceSelect = (value: string) => {
     const inv = invoices.find((i) => i.id === value);
+    if (!value) {
+      setInvoiceId(null);
+      return;
+    }
+
     setInvoiceId(value);
+
+    // When an invoice is linked, the tier is forced by the invoice.
+    if (inv) {
+      const invClientId = (inv as unknown as { client_id?: string | null }).client_id;
+      const invSupplierId = (inv as unknown as { supplier_id?: string | null }).supplier_id;
+      setClientId(invClientId || '');
+      setSupplierId(invSupplierId || '');
+    }
 
     if (inv && !amount) {
       const invWithPayment = inv as Invoice & { remaining_amount?: number | null };
@@ -105,12 +130,48 @@ export default function PaymentDialog({ open, onOpenChange, invoices, clients, s
     }
   };
 
+  const selectedInvoice = useMemo(() => {
+    if (!invoiceId) return null;
+    return invoices.find((i) => i.id === invoiceId) || null;
+  }, [invoiceId, invoices]);
+
+  const selectedInvoiceAmounts = useMemo(() => {
+    if (!selectedInvoice) return null;
+
+    const total = Number((selectedInvoice as any).total ?? 0);
+    const remainingFromDb = (selectedInvoice as any).remaining_amount;
+    const totalPaid = Number((selectedInvoice as any).total_paid ?? 0);
+    const remaining = Number(remainingFromDb ?? Math.max(total - totalPaid, 0));
+
+    // For edit: allow up to (remaining + current payment amount) so the user can keep the same value.
+    const editAllowance = editPayment && editPayment.invoice_id === invoiceId ? Number(editPayment.amount ?? 0) : 0;
+    const maxAllowed = Math.max(remaining + editAllowance, 0);
+
+    return { total, remaining, totalPaid, maxAllowed };
+  }, [editPayment, invoiceId, selectedInvoice]);
+
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
     if (!accountId) return;
+
+    if (invoiceId && selectedInvoiceAmounts) {
+      const v = Number(amount);
+      if (!Number.isFinite(v) || v <= 0) return;
+      if (v > selectedInvoiceAmounts.maxAllowed + 1e-9) {
+        setAmountError(`Le montant ne peut pas dépasser ${(selectedInvoiceAmounts.maxAllowed || 0).toFixed(3)}.`);
+        return;
+      }
+    }
+
+    if (!invoiceId) {
+      if (paymentType === 'vente' && !clientId) return;
+      if (paymentType === 'achat' && !supplierId) return;
+    }
     onSave({
       payment_type: paymentType,
       invoice_id: invoiceId,
+      client_id: clientId ? clientId : null,
+      supplier_id: supplierId ? supplierId : null,
       amount: Number(amount),
       payment_date: paymentDate,
       payment_method: paymentMethod,
@@ -132,7 +193,7 @@ export default function PaymentDialog({ open, onOpenChange, invoices, clients, s
   };
 
   const invoiceOptions = useMemo(() => {
-    const invs = invoices as Array<Invoice & { document_kind?: string | null; payment_status?: string | null }>;
+    const invs = invoices as Array<Invoice & { document_kind?: string | null }>;
 
     const filteredByKind = invs.filter((i) => {
       const kind = i.document_kind;
@@ -142,17 +203,28 @@ export default function PaymentDialog({ open, onOpenChange, invoices, clients, s
 
     if (editPayment) return filteredByKind;
 
-    return filteredByKind.filter((i) => {
-      if (i.status === InvoiceStatus.PURCHASE_QUOTE) return false;
-      if (!isPayableStatus(i.status)) return false;
-      const payStatus = i.payment_status;
-      return payStatus !== InvoicePaymentStatus.PAID;
+    const tierFiltered = filteredByKind.filter((i) => {
+      // Load invoices only for the selected tier (client/supplier).
+      if (paymentType === 'vente') {
+        if (!clientId) return false;
+        return (i.client_id || '') === clientId;
+      }
+      if (!supplierId) return false;
+      return (i.supplier_id || '') === supplierId;
     });
-  }, [editPayment, invoices, paymentType]);
+
+    return tierFiltered.filter((i) => {
+      if (!isPayableStatus(i.status)) return false;
+      return i.status !== InvoicePaymentStatus.PAID;
+    });
+  }, [clientId, editPayment, invoices, paymentType, supplierId]);
+
+  const invoiceLinked = Boolean(invoiceId);
+  const tierDisabled = invoiceLinked;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg flex flex-col max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-2xl flex flex-col max-h-[90vh] overflow-y-auto">
         <DialogHeader className="flex-shrink-0">
           <DialogTitle>{editPayment ? 'Modifier le paiement' : 'Enregistrer un paiement'}</DialogTitle>
           <DialogDescription>
@@ -174,9 +246,31 @@ export default function PaymentDialog({ open, onOpenChange, invoices, clients, s
               </Select>
             </div>
 
+            {paymentType === 'vente' ? (
+              <div className="space-y-2">
+                <Label>Client {invoiceLinked ? '' : '*'}</Label>
+                <ClientSupplierSelector type="client" value={clientId} onChange={setClientId} disabled={tierDisabled} />
+                {!invoiceLinked && !clientId ? (
+                  <p className="text-sm text-muted-foreground">Sélectionnez un client pour charger ses factures impayées/partiellement payées.</p>
+                ) : null}
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <Label>Fournisseur {invoiceLinked ? '' : '*'}</Label>
+                <ClientSupplierSelector type="supplier" value={supplierId} onChange={setSupplierId} disabled={tierDisabled} />
+                {!invoiceLinked && !supplierId ? (
+                  <p className="text-sm text-muted-foreground">Sélectionnez un fournisseur pour charger ses factures impayées/partiellement payées.</p>
+                ) : null}
+              </div>
+            )}
+
             <div className="space-y-2">
               <Label htmlFor="invoice">Facture (optionnel)</Label>
-              <Select value={invoiceId || 'none'} onValueChange={(v) => handleInvoiceSelect(v === 'none' ? '' : v)}>
+              <Select
+                value={invoiceId || 'none'}
+                onValueChange={(v) => handleInvoiceSelect(v === 'none' ? '' : v)}
+                disabled={!invoiceLinked && ((paymentType === 'vente' && !clientId) || (paymentType === 'achat' && !supplierId))}
+              >
                 <SelectTrigger>
                   <SelectValue placeholder="Sélectionner une facture" />
                 </SelectTrigger>
@@ -190,6 +284,12 @@ export default function PaymentDialog({ open, onOpenChange, invoices, clients, s
                   ))}
                 </SelectContent>
               </Select>
+              {!invoiceLinked && ((paymentType === 'vente' && !clientId) || (paymentType === 'achat' && !supplierId)) ? (
+                <p className="text-sm text-muted-foreground">Sélectionnez d'abord un tiers.</p>
+              ) : null}
+              {!invoiceLinked && ((paymentType === 'vente' && clientId) || (paymentType === 'achat' && supplierId)) && invoiceOptions.length === 0 ? (
+                <p className="text-sm text-muted-foreground">Aucune facture payable trouvée pour ce tiers.</p>
+              ) : null}
             </div>
 
             <div className="space-y-2">
@@ -214,13 +314,49 @@ export default function PaymentDialog({ open, onOpenChange, invoices, clients, s
                 <Input
                   id="amount"
                   type="number"
-                  step="0.01"
+                  step="0.001"
                   min="0"
+                  max={selectedInvoiceAmounts ? String(selectedInvoiceAmounts.maxAllowed) : undefined}
                   value={amount}
-                  onChange={(e) => setAmount(e.target.value)}
+                  onChange={(e) => {
+                    const next = e.target.value;
+                    setAmount(next);
+
+                    if (!invoiceId || !selectedInvoiceAmounts) {
+                      setAmountError('');
+                      return;
+                    }
+
+                    const v = Number(next);
+                    if (!next) {
+                      setAmountError('');
+                      return;
+                    }
+
+                    if (!Number.isFinite(v)) {
+                      setAmountError('Montant invalide.');
+                      return;
+                    }
+
+                    if (v > selectedInvoiceAmounts.maxAllowed + 1e-9) {
+                      setAmountError(`Le montant ne peut pas dépasser ${(selectedInvoiceAmounts.maxAllowed || 0).toFixed(3)}.`);
+                      return;
+                    }
+
+                    setAmountError('');
+                  }}
                   placeholder="0.00"
                   required
                 />
+                {amountError ? <div className="text-sm text-destructive">{amountError}</div> : null}
+                {selectedInvoice ? (
+                  <div className="text-sm text-muted-foreground">
+                    <div>Total facture: {Number(selectedInvoice.total).toLocaleString('fr-FR')} {selectedInvoice.currency}</div>
+                    {'remaining_amount' in (selectedInvoice as any) ? (
+                      <div>Reste à payer: {Number((selectedInvoice as any).remaining_amount ?? 0).toLocaleString('fr-FR')} {selectedInvoice.currency}</div>
+                    ) : null}
+                  </div>
+                ) : null}
               </div>
               <div className="space-y-2">
                 <Label htmlFor="payment_date">Date du paiement *</Label>
@@ -281,7 +417,18 @@ export default function PaymentDialog({ open, onOpenChange, invoices, clients, s
           <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
             Annuler
           </Button>
-          <Button type="submit" form="payment-form" disabled={loading || !amount || !accountId}>
+          <Button
+            type="submit"
+            form="payment-form"
+            disabled={
+              loading ||
+              !amount ||
+              !accountId ||
+              Boolean(amountError) ||
+              (!invoiceId && paymentType === 'vente' && !clientId) ||
+              (!invoiceId && paymentType === 'achat' && !supplierId)
+            }
+          >
             {loading ? 'Enregistrement...' : 'Enregistrer'}
           </Button>
         </DialogFooter>

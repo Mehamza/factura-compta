@@ -145,7 +145,11 @@ export default function Journal() {
     for (const e of filteredEntries) {
       for (const l of e.lines) {
         const acc = accounts.find(a => a.id === l.account_id);
-        rows.push(`${e.entry_date},"${e.reference}","${e.description || ''}","${acc?.code || ''} ${acc?.name || ''}",${l.debit},${l.credit}`);
+        const isInternalCounterpart = Boolean(
+          acc?.code?.startsWith('999-') && (acc?.name || '').toLowerCase().includes('contrepartie')
+        );
+        const label = isInternalCounterpart ? 'Contrepartie' : `${acc?.code || ''} ${acc?.name || ''}`.trim();
+        rows.push(`${e.entry_date},"${e.reference}","${e.description || ''}","${label}",${l.debit},${l.credit}`);
       }
     }
     const blob = new Blob([rows.join('\n')], { type: 'text/csv' });
@@ -159,7 +163,11 @@ export default function Journal() {
 
   const getAccountLabel = (accountId: string) => {
     const account = accounts.find(a => a.id === accountId);
-    return account ? `${account.code} ${account.name}` : '-';
+    if (!account) return '-';
+    const isInternalCounterpart = Boolean(
+      account.code?.startsWith('999-') && (account.name || '').toLowerCase().includes('contrepartie')
+    );
+    return isInternalCounterpart ? 'Contrepartie' : `${account.code} ${account.name}`;
   };
 
   if (loading) {

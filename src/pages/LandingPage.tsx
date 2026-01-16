@@ -194,11 +194,11 @@ export default function LandingPage() {
                             <span className="font-mono">{inv.num}</span>
                             <span className="text-muted-foreground">{inv.client}</span>
                             <span className={`px-1.5 py-0.5 rounded text-[10px] ${
-                              (inv as any).payment_status === 'paid' 
+                              (inv as any).status === 'paid' 
                                 ? 'bg-green-100 text-green-700' 
                                 : 'bg-orange-100 text-orange-700'
                             }`}>
-                              {(inv as any).payment_status === 'paid' ? 'Payée' : 'En attente'}
+                              {(inv as any).status === 'paid' ? 'Payée' : 'En attente'}
                             </span>
                           </div>
                         ))}

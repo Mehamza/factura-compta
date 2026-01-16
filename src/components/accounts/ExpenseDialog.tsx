@@ -107,7 +107,7 @@ export default function ExpenseDialog({ open, onOpenChange, comptes, onSave, loa
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg flex flex-col max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-2xl flex flex-col max-h-[90vh] overflow-y-auto">
         <DialogHeader className="flex-shrink-0">
           <DialogTitle>Nouvelle dépense</DialogTitle>
           <DialogDescription>Enregistrez une dépense (charge) sur un compte.</DialogDescription>

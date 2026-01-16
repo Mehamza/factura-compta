@@ -45,7 +45,7 @@ export function generateInvoicePDF(invoice: Invoice, items: InvoiceItem[]): void
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
   
-  let y = 15;
+  let y = 20;
   
   // Title (top right) then date under title
   doc.setFont('helvetica', 'bold');
@@ -56,8 +56,6 @@ export function generateInvoicePDF(invoice: Invoice, items: InvoiceItem[]): void
   doc.setFontSize(10);
   const currentDate = new Date().toLocaleDateString('fr-FR');
   doc.text(`Le ${currentDate}`, pageWidth - 20, y + 7, { align: 'right' });
-
-  y = 20;
   
   // Company info on left
   if (invoice.company) {

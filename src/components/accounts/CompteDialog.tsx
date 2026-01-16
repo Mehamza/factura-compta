@@ -108,7 +108,7 @@ export default function CompteDialog({ open, onOpenChange, compte, onSave, loadi
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg flex flex-col max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-2xl flex flex-col max-h-[90vh] overflow-y-auto">
         <DialogHeader className="flex-shrink-0">
           <DialogTitle>{compte ? 'Modifier le compte' : 'Nouveau compte'}</DialogTitle>
           <DialogDescription>

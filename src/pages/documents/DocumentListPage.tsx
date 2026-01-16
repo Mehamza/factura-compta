@@ -232,14 +232,29 @@ export default function DocumentListPage({ kind }: { kind: DocumentKind }) {
                       <TableCell className="font-medium">{r.invoice_number}</TableCell>
                       <TableCell>{r.clients?.name || r.suppliers?.name || '—'}</TableCell>
                       <TableCell>{r.issue_date}</TableCell>
-                      <TableCell className="text-right font-medium">
-                        {formatCurrency(computedTotals[r.id] ?? r.total)}
+                      <TableCell className="text-right">
+                        {(() => {
+                          const total = Number(computedTotals[r.id] ?? r.total ?? 0);
+                          const paid = Number((r as any).total_paid ?? 0);
+                          const remaining = Math.max(total - paid, 0);
+
+                          return (
+                            <div className="space-y-0.5">
+                              <div className="font-medium">{formatCurrency(total)}</div>
+                              {(kind === 'facture' || kind === 'facture_achat') && paid > 0 && remaining > 0 ? (
+                                <div className="text-xs text-muted-foreground">
+                                  Payé: {formatCurrency(paid)} · Reste: {formatCurrency(remaining)}
+                                </div>
+                              ) : (kind === 'facture' || kind === 'facture_achat') && remaining > 0 && r.status !== 'draft' && r.status !== 'cancelled' ? (
+                                <div className="text-xs text-muted-foreground">Reste: {formatCurrency(remaining)}</div>
+                              ) : null}
+                            </div>
+                          );
+                        })()}
                       </TableCell>
                       <TableCell>
                         <StatusBadge
                           status={r.status}
-                          paymentStatus={(r as any).payment_status}
-                          usePaymentStatus={r.document_kind === 'facture' || r.document_kind === 'facture_achat'}
                         />
                       </TableCell>
                       <TableCell>

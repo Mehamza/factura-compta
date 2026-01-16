@@ -206,7 +206,7 @@ export default function SettingsUsers() {
       </Card>
 
       <Dialog open={openAdd} onOpenChange={setOpenAdd}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-2xl">
           <DialogHeader>
             <DialogTitle>Ajouter un utilisateur</DialogTitle>
           </DialogHeader>

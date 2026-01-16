@@ -55,16 +55,16 @@ export default function Reports() {
   // Summary stats
   const summary = {
     issued: invoices.length,
-    paid: invoices.filter((i: any) => i.payment_status === 'paid').length,
-    outstanding: invoices.filter((i: any) => i.payment_status !== 'paid' && i.status !== InvoiceStatus.CANCELLED && i.status !== InvoiceStatus.PURCHASE_QUOTE).length,
-    overdue: invoices.filter((i: any) => i.payment_status === 'overdue').length,
-    totalRevenue: invoices.filter((i: any) => i.payment_status === 'paid').reduce((s, i) => s + Number(i.total), 0),
-    totalPending: invoices.filter((i: any) => i.payment_status !== 'paid' && i.status !== InvoiceStatus.PURCHASE_QUOTE).reduce((s, i) => s + Number(i.total), 0),
+    paid: invoices.filter((i: any) => i.status === 'paid').length,
+    outstanding: invoices.filter((i: any) => i.status !== 'paid' && i.status !== InvoiceStatus.CANCELLED).length,
+    overdue: invoices.filter((i: any) => i.status === 'overdue').length,
+    totalRevenue: invoices.filter((i: any) => i.status === 'paid').reduce((s, i) => s + Number(i.total), 0),
+    totalPending: invoices.filter((i: any) => i.status !== 'paid').reduce((s, i) => s + Number(i.total), 0),
     totalPayments: payments.reduce((s, p) => s + Number(p.amount), 0),
   };
 
   // VAT Report (exclude purchase quotes)
-  const vatCollected = invoices.filter(i => i.status !== InvoiceStatus.PURCHASE_QUOTE).reduce((s, i) => s + Number(i.tax_amount), 0);
+  const vatCollected = invoices.reduce((s, i) => s + Number(i.tax_amount), 0);
 
   // Monthly revenue chart data (last 6 months)
   const getMonthlyData = () => {
@@ -73,7 +73,7 @@ export default function Reports() {
       const d = new Date();
       d.setMonth(d.getMonth() - i);
       const monthStr = d.toISOString().slice(0, 7);
-        const monthInvoices = allInvoices.filter((inv: any) => inv.issue_date.startsWith(monthStr) && inv.payment_status === 'paid');
+      const monthInvoices = allInvoices.filter((inv: any) => inv.issue_date.startsWith(monthStr) && inv.status === 'paid');
       data.push({
         month: d.toLocaleDateString('fr-FR', { month: 'short', year: '2-digit' }),
         revenue: monthInvoices.reduce((s, inv) => s + Number(inv.total), 0),
@@ -85,22 +85,22 @@ export default function Reports() {
 
   // Status distribution
   const statusData = [
-    { name: 'Payées', value: invoices.filter((i: any) => i.payment_status === 'paid').length },
-    { name: 'En attente', value: invoices.filter(i => i.status === InvoiceStatus.SENT).length },
-    { name: 'Devis', value: invoices.filter(i => i.status === InvoiceStatus.PURCHASE_QUOTE || i.status === InvoiceStatus.DRAFT).length },
-    { name: 'En retard', value: invoices.filter((i: any) => i.payment_status === 'overdue').length },
+    { name: 'Payées', value: invoices.filter((i: any) => i.status === 'paid').length },
+    { name: 'En attente', value: invoices.filter((i: any) => i.status === 'unpaid' || i.status === 'partial').length },
+    { name: 'Brouillons', value: invoices.filter(i => i.status === InvoiceStatus.DRAFT).length },
+    { name: 'En retard', value: invoices.filter((i: any) => i.status === 'overdue').length },
     { name: 'Annulées', value: invoices.filter(i => i.status === InvoiceStatus.CANCELLED).length },
   ].filter(d => d.value > 0);
 
   // Client revenue
   const clientRevenue = clients.map(c => {
-    const clientInvoices = allInvoices.filter((i: any) => i.client_id === c.id && i.payment_status === 'paid');
+    const clientInvoices = allInvoices.filter((i: any) => i.client_id === c.id && i.status === 'paid');
     return {
       id: c.id,
       name: c.name,
       revenue: clientInvoices.reduce((s, i) => s + Number(i.total), 0),
       invoiceCount: clientInvoices.length,
-        pending: allInvoices.filter((i: any) => i.client_id === c.id && i.payment_status !== 'paid' && i.status !== InvoiceStatus.PURCHASE_QUOTE).length,
+      pending: allInvoices.filter((i: any) => i.client_id === c.id && i.status !== 'paid').length,
     };
   }).filter(c => c.revenue > 0 || c.pending > 0).sort((a, b) => b.revenue - a.revenue);
 

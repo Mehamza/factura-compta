@@ -195,10 +195,10 @@ export async function generateClientStatementPDF(
     y += 4;
   }
 
-  // Title on the right side
+  // Title on the right side (aligned with company title line)
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(16);
-  doc.text('RELEVÉ DES VENTES', pageWidth - margin, 30, { align: 'right' });
+  doc.text('RELEVÉ DES VENTES', pageWidth - margin, 20, { align: 'right' });
   
   y = Math.max(y, 50) + 5;
 

@@ -20,6 +20,7 @@ import { toast } from 'sonner';
 import { logger } from '@/lib/logger';
 import CompteDialog, { type CompteEditModel, type CompteFormData } from '@/components/accounts/CompteDialog';
 import ExpenseDialog, { type ExpenseFormData } from '@/components/accounts/ExpenseDialog';
+import AccountLoadDialog, { type AccountLoadFormData } from '@/components/accounts/AccountLoadDialog';
 
 type CompteRow = {
   id: string;
@@ -58,6 +59,7 @@ export default function Accounts() {
   const [compteDialogOpen, setCompteDialogOpen] = useState(false);
   const [editingCompte, setEditingCompte] = useState<CompteEditModel | null>(null);
   const [expenseDialogOpen, setExpenseDialogOpen] = useState(false);
+  const [accountLoadDialogOpen, setAccountLoadDialogOpen] = useState(false);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -135,7 +137,8 @@ export default function Accounts() {
         .limit(50);
 
       if (expensesError) throw expensesError;
-      setExpenses((expensesData || []) as ExpenseRow[]);
+      const expensesRows: unknown = expensesData || [];
+      setExpenses(expensesRows as ExpenseRow[]);
     } catch (error) {
       logger.error('Erreur chargement comptes/dépenses:', error);
       toast.error('Erreur lors du chargement');
@@ -188,7 +191,7 @@ export default function Accounts() {
           company_id: activeCompanyId,
           code,
           name: data.name,
-          type: 'actif',
+          type: 'asset',
           account_kind: data.kind,
           currency: data.currency,
           bank: data.bank || null,
@@ -270,6 +273,35 @@ export default function Accounts() {
     return { id: doc.id as string, filePath: (doc.file_path as string) || filePath };
   };
 
+  const uploadAccountLoadAttachment = async (file: File) => {
+    if (!user || !activeCompanyId) return null;
+    const fileExt = file.name.split('.').pop();
+    const fileName = `${Date.now()}.${fileExt}`;
+    const filePath = `${user.id}/${fileName}`;
+
+    const { error: uploadError } = await supabase.storage.from('documents').upload(filePath, file);
+    if (uploadError) throw uploadError;
+
+    const { data: doc, error: dbError } = await supabase
+      .from('documents')
+      .insert({
+        user_id: user.id,
+        company_id: activeCompanyId,
+        file_name: file.name,
+        file_path: filePath,
+        file_size: file.size,
+        file_type: file.type,
+        category: 'recu',
+        description: 'Pièce jointe chargement compte',
+      })
+      .select('id, file_path')
+      .single();
+
+    if (dbError) throw dbError;
+    if (!doc?.id) return null;
+    return { id: doc.id as string, filePath: (doc.file_path as string) || filePath };
+  };
+
   const cleanupUploadedDocument = async (docId: string, filePath?: string | null) => {
     try {
       if (filePath) {
@@ -321,6 +353,47 @@ export default function Accounts() {
     }
   };
 
+  const handleSaveAccountLoad = async (data: AccountLoadFormData) => {
+    if (!activeCompanyId) return;
+    setSaving(true);
+    let attachmentDocumentId: string | null = null;
+    let attachmentPath: string | null = null;
+    try {
+      if (data.file) {
+        const uploaded = await uploadAccountLoadAttachment(data.file);
+        attachmentDocumentId = uploaded?.id || null;
+        attachmentPath = uploaded?.filePath || null;
+      }
+
+      const selectedAccount = comptes.find((c) => c.id === data.account_id);
+      const currency = selectedAccount?.currency || 'TND';
+
+      const { error } = await supabase.rpc('create_account_load_operation', {
+        p_company_id: activeCompanyId,
+        p_account_id: data.account_id,
+        p_amount: data.amount,
+        p_load_date: data.load_date,
+        p_origin: data.origin,
+        p_notes: data.notes || null,
+        p_currency: currency,
+        p_attachment_document_id: attachmentDocumentId,
+      });
+      if (error) throw error;
+
+      toast.success('Compte chargé');
+      setAccountLoadDialogOpen(false);
+      await load();
+    } catch (error) {
+      logger.error('Erreur chargement compte:', error);
+      toast.error('Erreur lors du chargement du compte');
+      if (attachmentDocumentId) {
+        await cleanupUploadedDocument(attachmentDocumentId, attachmentPath);
+      }
+    } finally {
+      setSaving(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -346,6 +419,14 @@ export default function Accounts() {
           >
             <Plus className="h-4 w-4 mr-2" />
             Nouveau compte
+          </Button>
+          <Button
+            variant="outline"
+            onClick={() => setAccountLoadDialogOpen(true)}
+            disabled={comptes.length === 0}
+          >
+            <Plus className="h-4 w-4 mr-2" />
+            Charger compte
           </Button>
           <Button
             onClick={() => setExpenseDialogOpen(true)}
@@ -514,6 +595,14 @@ export default function Accounts() {
         onOpenChange={setCompteDialogOpen}
         compte={editingCompte}
         onSave={handleSaveCompte}
+        loading={saving}
+      />
+
+      <AccountLoadDialog
+        open={accountLoadDialogOpen}
+        onOpenChange={setAccountLoadDialogOpen}
+        comptes={comptes}
+        onSave={handleSaveAccountLoad}
         loading={saving}
       />
 
