@@ -28,6 +28,7 @@ import {
 } from '@/components/invoices/shared';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import { statusLabels } from '@/lib/documentStatus';
 
 type SourceInvoiceOption = {
   id: string;
@@ -589,7 +590,7 @@ export default function DocumentNewPage({ kind }: { kind: DocumentKind }) {
                   <SelectContent>
                     {config.statusOptions.map((s) => (
                       <SelectItem key={s} value={s}>
-                        {s}
+                        {statusLabels[s] ?? s}
                       </SelectItem>
                     ))}
                   </SelectContent>

@@ -120,6 +120,81 @@ function getBankPrefix(bankName: string): string {
   return acronym || name.substring(0, 3).toUpperCase();
 }
 
+function clamp01(value: number): number {
+  return Math.min(1, Math.max(0, value));
+}
+
+function hslToRgb(h: number, s: number, l: number): [number, number, number] {
+  // h in [0..360), s/l in [0..1]
+  const c = (1 - Math.abs(2 * l - 1)) * s;
+  const hp = ((h % 360) + 360) % 360 / 60;
+  const x = c * (1 - Math.abs((hp % 2) - 1));
+
+  let r1 = 0;
+  let g1 = 0;
+  let b1 = 0;
+
+  if (hp >= 0 && hp < 1) {
+    r1 = c;
+    g1 = x;
+  } else if (hp >= 1 && hp < 2) {
+    r1 = x;
+    g1 = c;
+  } else if (hp >= 2 && hp < 3) {
+    g1 = c;
+    b1 = x;
+  } else if (hp >= 3 && hp < 4) {
+    g1 = x;
+    b1 = c;
+  } else if (hp >= 4 && hp < 5) {
+    r1 = x;
+    b1 = c;
+  } else {
+    r1 = c;
+    b1 = x;
+  }
+
+  const m = l - c / 2;
+  const r = Math.round((r1 + m) * 255);
+  const g = Math.round((g1 + m) * 255);
+  const b = Math.round((b1 + m) * 255);
+  return [r, g, b];
+}
+
+function getThemeMutedRgb(fallback: [number, number, number] = [240, 240, 240]): [number, number, number] {
+  // shadcn/ui uses: bg-muted => hsl(var(--muted))
+  // --muted is typically stored as "H S% L%" (e.g. "210 40% 96.1%")
+  if (typeof window === 'undefined' || typeof document === 'undefined') return fallback;
+
+  const raw = getComputedStyle(document.documentElement).getPropertyValue('--muted').trim();
+  if (!raw) return fallback;
+
+  // Accept formats:
+  // - "210 40% 96.1%" (shadcn)
+  // - "hsl(210 40% 96.1%)"
+  // - "rgb(240, 240, 240)"
+  const normalized = raw.replace(/^hsl\(|\)$/g, '').trim();
+
+  const rgbMatch = normalized.match(/rgb\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*\)/i);
+  if (rgbMatch) {
+    return [
+      Number(rgbMatch[1]) || fallback[0],
+      Number(rgbMatch[2]) || fallback[1],
+      Number(rgbMatch[3]) || fallback[2],
+    ];
+  }
+
+  const parts = normalized.split(/[\s,]+/).filter(Boolean);
+  if (parts.length < 3) return fallback;
+
+  const h = Number(parts[0]);
+  const s = Number(parts[1].replace('%', '')) / 100;
+  const l = Number(parts[2].replace('%', '')) / 100;
+
+  if (!Number.isFinite(h) || !Number.isFinite(s) || !Number.isFinite(l)) return fallback;
+  return hslToRgb(h, clamp01(s), clamp01(l));
+}
+
 // Draw fallback logo with initials
 function drawFallbackLogo(
   doc: jsPDF,
@@ -547,7 +622,8 @@ export async function generateClassicPDF(invoice: InvoiceTemplateData, items: In
   
   // Table header
   const tableTop = y;
-  doc.setFillColor(240, 240, 240);
+  const [mutedR, mutedG, mutedB] = getThemeMutedRgb([240, 240, 240]);
+  doc.setFillColor(mutedR, mutedG, mutedB);
   doc.rect(margin, tableTop, contentWidth, 8, 'F');
   doc.setDrawColor(0, 0, 0);
   doc.setLineWidth(0.3);
