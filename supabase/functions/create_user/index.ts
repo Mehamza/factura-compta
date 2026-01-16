@@ -7,6 +7,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 type AppRole = 'admin' | 'manager' | 'accountant' | 'cashier';
+type CompanyPermissions = { allow: string[] };
 
 // Permissive CORS - function is protected by JWT verification
 const corsHeaders = {
@@ -73,6 +74,8 @@ serve(async (req: Request) => {
     const emailRaw = String(body?.email ?? '').trim();
     const password = String(body?.password ?? '');
     const targetRoleRaw = String(body?.role ?? 'cashier').toLowerCase().trim();
+    const requestedCompanyId = body?.company_id ? String(body.company_id).trim() : null;
+    const requestedPermissions = body?.permissions as CompanyPermissions | undefined;
 
     console.log('create_user: Creating user', { fullName, email: emailRaw, role: targetRoleRaw });
 
@@ -94,53 +97,62 @@ serve(async (req: Request) => {
       return json(400, { error: 'Rôle invalide.' });
     }
 
-    // Determine caller role from DB (own role row)
-    const { data: roleData, error: roleErr } = await callerClient
-      .from('user_roles')
-      .select('role')
-      .eq('user_id', caller.id)
-      .maybeSingle();
-
-    console.log('create_user: Caller role lookup', { roleData, roleErr });
-
-    if (roleErr || !roleData?.role) {
-      return json(403, { error: "Vous n'avez pas l'autorisation d'effectuer cette action." });
-    }
-
-    const actorRole = String(roleData.role).toLowerCase();
-    if (!(actorRole === 'admin' || actorRole === 'manager')) {
-      return json(403, { error: "Vous n'avez pas l'autorisation d'effectuer cette action." });
-    }
-    if (actorRole === 'manager' && targetRoleRaw === 'admin') {
-      return json(403, { error: 'Un gérant ne peut pas créer un administrateur.' });
-    }
-
-    // Get the caller's company_id BEFORE creating auth user
-    // This is needed to pass in user_metadata so the trigger can handle company assignment
-    console.log('create_user: Fetching caller company BEFORE creating auth user');
-    const callerCompanyResp = await fetch(
-      `${supabaseUrl}/rest/v1/company_users?user_id=eq.${caller.id}&select=company_id&limit=1`,
-      {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${serviceKey}`,
-          'apikey': serviceKey,
-          'Content-Type': 'application/json',
-        },
-      }
-    );
-
+    // Determine the company to attach the new user to.
+    // Prefer the explicitly provided company_id (from the UI activeCompanyId), but verify
+    // the caller belongs to that company.
     let callerCompanyId: string | null = null;
-    if (callerCompanyResp.ok) {
-      const callerCompanies = await callerCompanyResp.json();
-      if (callerCompanies && callerCompanies.length > 0) {
-        callerCompanyId = callerCompanies[0].company_id;
-        console.log('create_user: Found caller company', callerCompanyId);
-      } else {
-        console.warn('create_user: Caller has no company');
+
+    if (requestedCompanyId) {
+      console.log('create_user: Using requested company_id', requestedCompanyId);
+
+      // Validate membership via RLS (caller can always read their own memberships).
+      const { data: membership, error: membershipErr } = await callerClient
+        .from('company_users')
+        .select('company_id, role')
+        .eq('user_id', caller.id)
+        .eq('company_id', requestedCompanyId)
+        .maybeSingle();
+
+      if (membershipErr || !membership?.company_id) {
+        console.error('create_user: Caller not in requested company', membershipErr);
+        return json(403, { error: "Vous n'avez pas l'autorisation d'ajouter un utilisateur à cette société." });
+      }
+
+      callerCompanyId = membership.company_id;
+
+      // Authorize: only company managers can create users.
+      // This is intentionally based on company membership role (not legacy app role).
+      const actorCompanyRole = String((membership as any)?.role ?? '').toLowerCase();
+      const canCreate = actorCompanyRole === 'company_admin' || actorCompanyRole === 'gerant';
+      if (!canCreate) {
+        return json(403, { error: "Vous n'avez pas l'autorisation d'ajouter un utilisateur." });
       }
     } else {
-      console.error('create_user: Failed to fetch caller company');
+      // Backward-compatible fallback: pick the first company membership.
+      console.log('create_user: No company_id provided; falling back to first company membership');
+      const callerCompanyResp = await fetch(
+        `${supabaseUrl}/rest/v1/company_users?user_id=eq.${caller.id}&select=company_id&limit=1`,
+        {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${serviceKey}`,
+            'apikey': serviceKey,
+            'Content-Type': 'application/json',
+          },
+        }
+      );
+
+      if (callerCompanyResp.ok) {
+        const callerCompanies = await callerCompanyResp.json();
+        if (callerCompanies && callerCompanies.length > 0) {
+          callerCompanyId = callerCompanies[0].company_id;
+          console.log('create_user: Found caller company', callerCompanyId);
+        } else {
+          console.warn('create_user: Caller has no company');
+        }
+      } else {
+        console.error('create_user: Failed to fetch caller company');
+      }
     }
 
     console.log('create_user: Creating auth user via admin API');
@@ -164,6 +176,7 @@ serve(async (req: Request) => {
           is_employee: true,           // Tell trigger this is an employee
           company_id: callerCompanyId, // Company to join (trigger will use this)
           role: targetRoleRaw,         // Role to assign (trigger will use this)
+          permissions: requestedPermissions ?? { allow: ['*'] },
         },
       }),
     });

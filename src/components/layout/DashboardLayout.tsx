@@ -28,8 +28,8 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { ImpersonationBanner } from './ImpersonationBanner';
-import { navigationConfig, NavigationModule, NavigationRole } from '@/config/navigationConfig';
-import { isModuleLocked } from '@/lib/navigationPermissions';
+import { navigationConfig, NavigationModule } from '@/config/navigationConfig';
+import { hasAnyAccessInModule } from '@/lib/companyPermissions';
 
 // Super admin navigation (separate from main config)
 const superAdminNavigation = [
@@ -39,7 +39,7 @@ const superAdminNavigation = [
 ];
 
 export function DashboardLayout({ children }: { children: ReactNode }) {
-  const { user, profile, role, globalRole, activeCompanyId, signOut, isImpersonating, impersonatedUser, stopImpersonation, loading: authLoading } = useAuth();
+  const { user, profile, globalRole, activeCompanyId, activeCompanyPermissions, canAccess, signOut, isImpersonating, impersonatedUser, stopImpersonation, loading: authLoading } = useAuth();
   const isSuperAdmin = globalRole === 'SUPER_ADMIN';
   const { companySettings, loading: companySettingsLoading } = useCompanySettings();
   const location = useLocation();
@@ -48,8 +48,6 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
   const [collapsed, setCollapsed] = useState(false);
   const [exitingImpersonation, setExitingImpersonation] = useState(false);
   const [openDropdowns, setOpenDropdowns] = useState<Record<string, boolean>>({});
-
-  const navigationRole = role as NavigationRole | null | undefined;
 
   // Force the initial setup wizard for unconfigured companies.
   // The wizard itself is rendered from the Settings page; we redirect there from any protected page.
@@ -179,42 +177,6 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
     return linkContent;
   };
 
-  // Locked nav item (disabled with lock icon)
-  const NavItemLocked = ({ item }: { item: NavigationModule }) => {
-    const Icon = item.icon;
-    
-    const lockedContent = (
-      <div
-        className={cn(
-          "flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium opacity-50 cursor-not-allowed",
-          "text-sidebar-foreground/60",
-          collapsed && "justify-center px-2"
-        )}
-      >
-        <Icon className="h-4 w-4 shrink-0" />
-        {!collapsed && (
-          <>
-            <span className="flex-1">{item.name}</span>
-            <Lock className="h-3 w-3" />
-          </>
-        )}
-      </div>
-    );
-
-    if (collapsed) {
-      return (
-        <Tooltip delayDuration={0}>
-          <TooltipTrigger asChild>{lockedContent}</TooltipTrigger>
-          <TooltipContent side="right" className="font-medium">
-            {item.name} (Accès restreint)
-          </TooltipContent>
-        </Tooltip>
-      );
-    }
-
-    return lockedContent;
-  };
-
   // Dropdown nav item (with children)
   const NavItemDropdown = ({ item, onClick }: { 
     item: NavigationModule; 
@@ -296,20 +258,27 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
     );
   };
 
-  // Render a module based on its type and role
+  // Render a module based on its type and permissions
   const renderModule = (module: NavigationModule, onClick?: () => void) => {
-    // Check if module is locked for this role
-    if (isModuleLocked(module, navigationRole)) {
-      return <NavItemLocked key={module.id} item={module} />;
-    }
-
     // If has children, render as dropdown
     if (module.children) {
-      return <NavItemDropdown key={module.id} item={module} onClick={onClick} />;
+      // Show module only if user has access to the module itself or any child.
+      if (!hasAnyAccessInModule(activeCompanyPermissions, module.id)) return null;
+      const filteredChildren = module.children.filter((c) => canAccess(module.id, c.id));
+      if (filteredChildren.length === 0) return null;
+
+      return (
+        <NavItemDropdown
+          key={module.id}
+          item={{ ...module, children: filteredChildren }}
+          onClick={onClick}
+        />
+      );
     }
 
     // Regular item
     if (module.href) {
+      if (!canAccess(module.id)) return null;
       return (
         <NavItem 
           key={module.id} 

@@ -1,12 +1,15 @@
 import { useState, useEffect, createContext, useContext, ReactNode } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
+import { canAccessFromPermissions, normalizeCompanyPermissions, type CompanyPermissions } from '@/lib/companyPermissions';
 
 type AppRole = 'admin' | 'accountant' | 'manager' | 'cashier';
 type GlobalRole = 'SUPER_ADMIN';
-type CompanyRole = 'COMPANY_ADMIN' | 'ACCOUNTANT' | 'CASHIER' | 'EMPLOYEE' | 'READ_ONLY';
 
-interface CompanyRoleEntry { company_id: string; role: CompanyRole }
+// Company role is stored in DB as a company_users.role enum (e.g. company_admin/gerant/comptable/caissier).
+type CompanyRole = string;
+
+interface CompanyRoleEntry { company_id: string; role: CompanyRole; permissions?: CompanyPermissions }
 
 // Keys for sessionStorage
 const IMPERSONATION_ORIGINAL_SESSION_KEY = 'impersonation_original_session';
@@ -40,6 +43,9 @@ interface AuthContextType {
   globalRole: GlobalRole | null;
   companyRoles: CompanyRoleEntry[];
   activeCompanyId: string | null;
+  activeCompanyRole: CompanyRole | null;
+  activeCompanyPermissions: CompanyPermissions;
+  canAccess: (moduleId: string, subModuleId?: string) => boolean;
   setActiveCompany: (companyId: string | null) => void;
   loading: boolean;
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
@@ -63,6 +69,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [globalRole, setGlobalRole] = useState<GlobalRole | null>(null);
   const [companyRoles, setCompanyRoles] = useState<CompanyRoleEntry[]>([]);
   const [activeCompanyId, _setActiveCompanyId] = useState<string | null>(null);
+  const [activeCompanyRole, setActiveCompanyRole] = useState<CompanyRole | null>(null);
+  const [activeCompanyPermissions, setActiveCompanyPermissions] = useState<CompanyPermissions>({ allow: ['*'] });
   const [loading, setLoading] = useState(true);
   
   // Impersonation state from sessionStorage
@@ -198,12 +206,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const { data: companyUsers } = await supabase
         .from('company_users')
-        .select('company_id, role')
+        .select('company_id, role, permissions')
         .eq('user_id', userId);
       if (companyUsers && Array.isArray(companyUsers)) {
-        setCompanyRoles(
-          companyUsers.map((r: any) => ({ company_id: r.company_id, role: r.role as CompanyRole }))
-        );
+        const mapped: CompanyRoleEntry[] = companyUsers.map((r: any) => ({
+          company_id: String(r.company_id),
+          role: String(r.role),
+          permissions: normalizeCompanyPermissions(r.permissions),
+        }));
+        setCompanyRoles(mapped);
         // Auto-set active company if not already set
         const storedCompanyId = localStorage.getItem('active_company_id');
         if (!storedCompanyId && companyUsers.length > 0) {
@@ -219,6 +230,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } catch {
       setCompanyRoles([]);
     }
+  };
+
+  // Keep active company role/permissions in sync with activeCompanyId + memberships.
+  useEffect(() => {
+    if (!activeCompanyId) {
+      setActiveCompanyRole(null);
+      setActiveCompanyPermissions({ allow: ['*'] });
+      return;
+    }
+    const entry = companyRoles.find((c) => c.company_id === activeCompanyId);
+    setActiveCompanyRole(entry?.role ?? null);
+    setActiveCompanyPermissions(entry?.permissions ?? { allow: ['*'] });
+  }, [activeCompanyId, companyRoles]);
+
+  const canAccess = (moduleId: string, subModuleId?: string) => {
+    if (globalRole === 'SUPER_ADMIN') return true;
+    return canAccessFromPermissions(activeCompanyPermissions, moduleId, subModuleId);
   };
 
   useEffect(() => {
@@ -428,6 +456,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       globalRole,
       companyRoles,
       activeCompanyId,
+      activeCompanyRole,
+      activeCompanyPermissions,
+      canAccess,
       setActiveCompany,
       loading,
       signIn,

@@ -23,6 +23,7 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { Shield, Users } from 'lucide-react';
 import { logger } from '@/lib/logger';
+import { NO_ACCESS_MSG } from '@/lib/permissions';
 
 type AppRole = 'admin' | 'accountant' | 'manager' | 'cashier';
 
@@ -56,55 +57,79 @@ const roleBadgeColors: Record<AppRole, string> = {
 };
 
 export default function UsersPage() {
-  const { user, role } = useAuth();
+  const { user, activeCompanyId, canAccess } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
   const [users, setUsers] = useState<UserWithRole[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (role !== 'admin') {
-      toast({ variant: 'destructive', title: 'Accès refusé', description: 'Vous devez être administrateur' });
+    if (!canAccess('administration', 'utilisateurs')) {
+      toast({ variant: 'destructive', title: 'Accès refusé', description: NO_ACCESS_MSG });
       navigate('/');
       return;
     }
     fetchUsers();
-  }, [role, navigate]);
+  }, [navigate, activeCompanyId, canAccess]);
 
   const fetchUsers = async () => {
     try {
-      // Get all profiles
+      if (!activeCompanyId) {
+        setUsers([]);
+        return;
+      }
+
+      // Resolve team membership first (server-side scoped)
+      const { data: memberships, error: mErr } = await supabase
+        .from('company_users')
+        .select('user_id')
+        .eq('company_id', activeCompanyId);
+      if (mErr) throw mErr;
+
+      const userIds = (memberships || []).map((m: any) => m.user_id).filter(Boolean);
+      if (userIds.length === 0) {
+        setUsers([]);
+        return;
+      }
+
+      // Get profiles (only those in this company)
       const { data: profiles, error: profilesError } = await supabase
         .from('profiles')
-        .select('user_id, full_name, created_at, email');
+        .select('user_id, full_name, created_at, email')
+        .in('user_id', userIds);
 
       // Backward-compat: some remotes may not have profiles.email yet.
+      let profilesSafe: ProfileRow[] = [];
       if (profilesError) {
         const msg = String(profilesError.message ?? '');
         const missingEmailColumn = msg.toLowerCase().includes('column') && msg.toLowerCase().includes('email') && msg.toLowerCase().includes('does not exist');
         if (!missingEmailColumn) throw profilesError;
+
+        profilesSafe =
+          ((await supabase
+            .from('profiles')
+            .select('user_id, full_name, created_at')
+            .in('user_id', userIds)).data as unknown as ProfileRow[]) ?? [];
+      } else {
+        profilesSafe = ((profiles as unknown as ProfileRow[]) ?? []);
       }
 
-      const profilesSafe: ProfileRow[] = profilesError
-        ? ((await supabase.from('profiles').select('user_id, full_name, created_at')).data as unknown as ProfileRow[]) ?? []
-        : ((profiles as unknown as ProfileRow[]) ?? []);
-
-      // Get all user roles
+      // Get roles (only those in this company)
       const { data: roles, error: rolesError } = await supabase
         .from('user_roles')
-        .select('user_id, role');
-
+        .select('user_id, role')
+        .in('user_id', userIds);
       if (rolesError) throw rolesError;
 
-      // Combine data
-      const usersData: UserWithRole[] = (profilesSafe || []).map((profile) => {
-        const userRole = roles?.find(r => r.user_id === profile.user_id);
+      const usersData: UserWithRole[] = userIds.map((uid) => {
+        const profile = (profilesSafe || []).find((p) => p.user_id === uid);
+        const roleRow = (roles || []).find((r: any) => r.user_id === uid);
         return {
-          id: profile.user_id,
-          email: profile.email ?? '',
-          full_name: profile.full_name,
-          role: (userRole?.role as AppRole) || 'admin',
-          created_at: profile.created_at,
+          id: uid,
+          email: profile?.email ?? '',
+          full_name: profile?.full_name ?? null,
+          role: (roleRow?.role as AppRole) || 'cashier',
+          created_at: profile?.created_at ?? new Date().toISOString(),
         };
       });
 
@@ -119,6 +144,11 @@ export default function UsersPage() {
 
   const updateUserRole = async (userId: string, newRole: AppRole) => {
     try {
+      if (!canAccess('administration', 'utilisateurs')) {
+        toast({ variant: 'destructive', title: 'Accès refusé', description: NO_ACCESS_MSG });
+        return;
+      }
+
       // Check if user already has a role entry
       const { data: existingRole } = await supabase
         .from('user_roles')

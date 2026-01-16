@@ -26,10 +26,6 @@ export interface NavigationModule {
   name: string;
   href?: string;
   icon: LucideIcon;
-  // If empty array or undefined, all roles can access
-  allowedRoles?: NavigationRole[];
-  // Roles that see the module as locked (disabled with lock icon)
-  lockedForRoles?: NavigationRole[];
   children?: NavigationModule[];
 }
 
@@ -132,7 +128,6 @@ export const navigationConfig: NavigationModule[] = [
     id: 'comptabilite',
     name: 'Comptabilité',
     icon: Calculator,
-    lockedForRoles: ['cashier'],
     children: [
       {
         id: 'paiements',
@@ -201,7 +196,6 @@ export const navigationConfig: NavigationModule[] = [
     id: 'administration',
     name: 'Administration',
     icon: Users,
-    lockedForRoles: ['cashier'],
     children: [
       {
         id: 'utilisateurs',
@@ -212,31 +206,3 @@ export const navigationConfig: NavigationModule[] = [
     ],
   },
 ];
-
-// Get all routes that should be protected for cashier role
-export function getLockedRoutes(role: NavigationRole): string[] {
-  const routes: string[] = [];
-  
-  function collectRoutes(modules: NavigationModule[]) {
-    for (const module of modules) {
-      if (module.lockedForRoles?.includes(role)) {
-        if (module.href) {
-          routes.push(module.href);
-        }
-        // If parent is locked, all children are locked too
-        if (module.children) {
-          for (const child of module.children) {
-            if (child.href) {
-              routes.push(child.href);
-            }
-          }
-        }
-      } else if (module.children) {
-        collectRoutes(module.children);
-      }
-    }
-  }
-  
-  collectRoutes(navigationConfig);
-  return routes;
-}

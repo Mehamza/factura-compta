@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
-import { AppRole, NO_ACCESS_MSG, NO_PERMISSION_MSG, ROLE_LABELS, canAssignRole, canDeleteUser, canManageUsers } from '@/lib/permissions';
+import { AppRole, NO_ACCESS_MSG, ROLE_LABELS } from '@/lib/permissions';
 import { useToast } from '@/hooks/use-toast';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -12,7 +12,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Shield, Users as UsersIcon, Trash2 } from 'lucide-react';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Pencil, Shield, Users as UsersIcon, Trash2 } from 'lucide-react';
+import { navigationConfig } from '@/config/navigationConfig';
 
 interface UserRow {
   id: string;
@@ -20,19 +22,25 @@ interface UserRow {
   email: string | null;
   role: Exclude<AppRole, null | undefined>;
   created_at: string;
+  permissions?: { allow?: string[] } | null;
 }
 
 export default function SettingsUsers() {
-  const { role, user } = useAuth();
+  const { user, activeCompanyId, canAccess } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [rows, setRows] = useState<UserRow[]>([]);
   const [openAdd, setOpenAdd] = useState(false);
+  const [openEdit, setOpenEdit] = useState(false);
+  const [editing, setEditing] = useState<UserRow | null>(null);
+  const allModuleIds = useMemo(() => navigationConfig.map((m) => m.id), []);
   const [form, setForm] = useState({ full_name: '', email: '', role: 'cashier' as Exclude<AppRole, null | undefined>, password: '' });
+  const [allow, setAllow] = useState<string[]>(() => ['dashboard', ...allModuleIds]);
+  const [editAllow, setEditAllow] = useState<string[]>(() => ['dashboard', ...allModuleIds]);
   const [emailTaken, setEmailTaken] = useState(false);
 
-  const allowed = canManageUsers(role);
+  const allowed = canAccess('administration', 'utilisateurs');
 
   useEffect(() => {
     if (!allowed) {
@@ -41,24 +49,80 @@ export default function SettingsUsers() {
       return;
     }
     load();
-  }, [allowed]);
+  }, [allowed, activeCompanyId]);
+
+  useEffect(() => {
+    if (!openAdd) return;
+    // Reset default permissions to full access on dialog open.
+    setAllow(['dashboard', ...allModuleIds]);
+  }, [allModuleIds, openAdd]);
+
+  useEffect(() => {
+    if (!openEdit || !editing) return;
+    const stored = editing.permissions?.allow;
+    if (!stored || stored.includes('*')) {
+      setEditAllow(['dashboard', ...allModuleIds]);
+      return;
+    }
+    const next = new Set(stored);
+    next.add('dashboard');
+    setEditAllow(Array.from(next));
+  }, [allModuleIds, editing, openEdit]);
+
+  const computePermissionsPayload = (selected: string[]) => {
+    const allowNormalized = Array.from(new Set(selected.filter(Boolean)));
+    const allowWithDashboard = allowNormalized.includes('dashboard') ? allowNormalized : ['dashboard', ...allowNormalized];
+    const hasAllModules = allModuleIds.every((m) => allowWithDashboard.includes(m));
+    return hasAllModules ? { allow: ['*'] } : { allow: allowWithDashboard };
+  };
 
   const load = async () => {
     setLoading(true);
     try {
-      const { data: profiles, error: pErr } = await supabase.from('profiles').select('user_id, full_name, created_at');
+      if (!activeCompanyId) {
+        setRows([]);
+        return;
+      }
+
+      const { data: memberships, error: mErr } = await supabase
+        .from('company_users')
+        .select('user_id, created_at, permissions')
+        .eq('company_id', activeCompanyId);
+      if (mErr) throw mErr;
+
+      const userIds = (memberships || []).map((m: any) => m.user_id).filter(Boolean);
+      if (userIds.length === 0) {
+        setRows([]);
+        return;
+      }
+
+      const { data: profiles, error: pErr } = await supabase
+        .from('profiles')
+        .select('user_id, full_name, email, created_at')
+        .in('user_id', userIds);
       if (pErr) throw pErr;
-      const { data: roles, error: rErr } = await supabase.from('user_roles').select('user_id, role');
+
+      const { data: roles, error: rErr } = await supabase
+        .from('user_roles')
+        .select('user_id, role')
+        .in('user_id', userIds);
       if (rErr) throw rErr;
 
-      const merged: UserRow[] = (profiles || []).map((p: any) => ({
-        id: p.user_id,
-        full_name: p.full_name,
-        email: null,
-        role: (roles?.find(r => r.user_id === p.user_id)?.role as Exclude<AppRole, null | undefined>) || 'cashier',
-        created_at: p.created_at,
-      }));
-      setRows(merged);
+      const merged: UserRow[] = userIds.map((uid) => {
+        const profile = (profiles || []).find((p: any) => p.user_id === uid);
+        const roleRow = (roles || []).find((r: any) => r.user_id === uid);
+        const membership = (memberships || []).find((m: any) => m.user_id === uid);
+        return {
+          id: uid,
+          full_name: profile?.full_name ?? null,
+          email: profile?.email ?? null,
+          role: (roleRow?.role as Exclude<AppRole, null | undefined>) || 'cashier',
+          created_at: profile?.created_at ?? (memberships || []).find((m: any) => m.user_id === uid)?.created_at,
+          permissions: membership?.permissions ?? null,
+        };
+      });
+
+      setRows(merged.filter((r) => Boolean(r.created_at)));
     } catch (e: any) {
       toast({ variant: 'destructive', title: 'Erreur', description: e?.message || 'Impossible de charger les utilisateurs' });
     } finally {
@@ -67,13 +131,7 @@ export default function SettingsUsers() {
   };
 
   const updateRole = async (uid: string, newRole: Exclude<AppRole, null | undefined>) => {
-    if (!canAssignRole(role, newRole)) {
-      toast({ variant: 'destructive', title: 'Permission refusée', description: NO_PERMISSION_MSG });
-      return;
-    }
     try {
-      const { data: exists } = await supabase.from('user_roles').select('id').eq('user_id', uid).maybeSingle();
-      const payload = { user_id: uid, role: newRole } as any;
       const { error } = await supabase.from('user_roles').upsert({ user_id: uid, role: newRole }, { onConflict: 'user_id' });
 
       if (error) throw error;
@@ -85,17 +143,15 @@ export default function SettingsUsers() {
   };
 
   const deleteUser = async (uid: string, targetRole: Exclude<AppRole, null | undefined>) => {
-    if (!canDeleteUser(role, targetRole)) {
-      toast({ variant: 'destructive', title: 'Permission refusée', description: NO_PERMISSION_MSG });
-      return;
-    }
     if (!confirm('Supprimer cet utilisateur ?')) return;
     try {
-      const { error: rErr } = await supabase.from('user_roles').delete().eq('user_id', uid);
-      if (rErr) throw rErr;
-      const { error: pErr } = await supabase.from('profiles').delete().eq('user_id', uid);
-      if (pErr) throw pErr;
-      toast({ title: 'Succès', description: 'Utilisateur supprimé' });
+      if (!activeCompanyId) throw new Error('Aucune société active');
+
+      // Remove the user from the current company (do not delete their global profile).
+      const { error: cuErr } = await supabase.from('company_users').delete().eq('company_id', activeCompanyId).eq('user_id', uid);
+      if (cuErr) throw cuErr;
+
+      toast({ title: 'Succès', description: 'Utilisateur retiré de la société' });
       load();
     } catch (e: any) {
       toast({ variant: 'destructive', title: 'Erreur', description: e?.message || 'Échec suppression utilisateur' });
@@ -104,8 +160,8 @@ export default function SettingsUsers() {
 
   const submitCreate = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!canAssignRole(role, form.role)) {
-      toast({ variant: 'destructive', title: 'Permission refusée', description: NO_PERMISSION_MSG });
+    if (!activeCompanyId) {
+      toast({ variant: 'destructive', title: 'Erreur', description: 'Aucune société active.' });
       return;
     }
     if (!form.full_name.trim() || !form.email.trim() || !form.password.trim()) {
@@ -124,9 +180,17 @@ export default function SettingsUsers() {
     }
     // Call Edge Function to create auth user securely and assign role
     try {
+      const permissions = computePermissionsPayload(allow);
+
       const { data, error } = await supabase.functions.invoke('create_user', {
-        body: { full_name: form.full_name.trim(), email: form.email.trim(), password: form.password.trim(), role: form.role },
-        headers: { 'x-actor-role': role || '' },
+        body: {
+          full_name: form.full_name.trim(),
+          email: form.email.trim(),
+          password: form.password.trim(),
+          role: form.role,
+          company_id: activeCompanyId,
+          permissions,
+        },
       } as any);
       if (error) throw error;
       if (data?.error) { throw new Error(data.error); }
@@ -137,6 +201,81 @@ export default function SettingsUsers() {
       const msg = e?.message || "Impossible de créer l'utilisateur";
       toast({ variant: 'destructive', title: 'Erreur', description: msg });
     }
+  };
+
+  const submitEditPermissions = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      if (!activeCompanyId) throw new Error('Aucune société active');
+      if (!editing?.id) return;
+
+      const permissions = computePermissionsPayload(editAllow);
+      const { error } = await supabase
+        .from('company_users')
+        .update({ permissions } as any)
+        .eq('company_id', activeCompanyId)
+        .eq('user_id', editing.id);
+      if (error) throw error;
+
+      toast({ title: 'Succès', description: "Accès mis à jour" });
+      setOpenEdit(false);
+      setEditing(null);
+      load();
+    } catch (e: any) {
+      toast({ variant: 'destructive', title: 'Erreur', description: e?.message || 'Impossible de mettre à jour les accès' });
+    }
+  };
+
+  const PermissionsSelector = ({ value, onChange }: { value: string[]; onChange: (next: string[]) => void }) => {
+    return (
+      <div className="rounded-md border p-3 space-y-3">
+        {navigationConfig.map((module) => {
+          const moduleChecked = value.includes(module.id);
+          const toggleModule = () => {
+            onChange((() => {
+              const next = new Set(value);
+              if (next.has(module.id)) next.delete(module.id);
+              else next.add(module.id);
+              next.add('dashboard');
+              return Array.from(next);
+            })());
+          };
+
+          return (
+            <div key={module.id} className="space-y-2">
+              <div className="flex items-center gap-2">
+                <Checkbox checked={moduleChecked} onCheckedChange={toggleModule} />
+                <span className="text-sm font-medium">{module.name}</span>
+              </div>
+
+              {module.children && module.children.length > 0 && (
+                <div className="pl-6 grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  {module.children.map((child) => {
+                    const key = `${module.id}.${child.id}`;
+                    const checked = moduleChecked || value.includes(key);
+                    const toggleChild = () => {
+                      onChange((() => {
+                        const next = new Set(value);
+                        if (next.has(key)) next.delete(key);
+                        else next.add(key);
+                        next.add('dashboard');
+                        return Array.from(next);
+                      })());
+                    };
+                    return (
+                      <label key={key} className="flex items-center gap-2 text-sm">
+                        <Checkbox checked={checked} disabled={moduleChecked} onCheckedChange={toggleChild} />
+                        <span className={moduleChecked ? 'text-muted-foreground' : ''}>{child.name}</span>
+                      </label>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    );
   };
 
   const sorted = useMemo(() => rows.slice().sort((a, b) => a.full_name?.localeCompare(b.full_name || '') || 0), [rows]);
@@ -182,7 +321,7 @@ export default function SettingsUsers() {
                 <TableRow key={u.id}>
                   <TableCell className="font-medium">{u.full_name || 'Sans nom'}{u.id === user?.id && <Badge variant="outline" className="ml-2">Vous</Badge>}</TableCell>
                   <TableCell>
-                    <Select value={u.role} onValueChange={(val) => updateRole(u.id, val as Exclude<AppRole, null | undefined>)} disabled={!canAssignRole(role, u.role) || u.id === user?.id}>
+                    <Select value={u.role} onValueChange={(val) => updateRole(u.id, val as Exclude<AppRole, null | undefined>)} disabled={u.id === user?.id}>
                       <SelectTrigger className="w-44"><SelectValue /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="admin">{ROLE_LABELS.admin}</SelectItem>
@@ -194,9 +333,21 @@ export default function SettingsUsers() {
                   </TableCell>
                   <TableCell>{new Date(u.created_at).toLocaleDateString('fr-FR')}</TableCell>
                   <TableCell className="text-right">
-                    <Button variant="destructive" size="sm" onClick={() => deleteUser(u.id, u.role)} disabled={!canDeleteUser(role, u.role) || u.id === user?.id}>
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
+                    <div className="flex justify-end gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          setEditing(u);
+                          setOpenEdit(true);
+                        }}
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </Button>
+                      <Button variant="destructive" size="sm" onClick={() => deleteUser(u.id, u.role)} disabled={u.id === user?.id}>
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
                   </TableCell>
                 </TableRow>
               ))}
@@ -206,7 +357,7 @@ export default function SettingsUsers() {
       </Card>
 
       <Dialog open={openAdd} onOpenChange={setOpenAdd}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Ajouter un utilisateur</DialogTitle>
           </DialogHeader>
@@ -237,8 +388,41 @@ export default function SettingsUsers() {
               <Label>Mot de passe initial</Label>
               <Input type="password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} required />
             </div>
+
+            <div className="space-y-2">
+              <Label>Accès (modules / sous-modules)</Label>
+              <PermissionsSelector value={allow} onChange={setAllow} />
+            </div>
             <div>
               <Button type="submit" disabled={emailTaken}>Créer l'utilisateur</Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={openEdit}
+        onOpenChange={(open) => {
+          setOpenEdit(open);
+          if (!open) setEditing(null);
+        }}
+      >
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Modifier l'accès</DialogTitle>
+          </DialogHeader>
+          <form onSubmit={submitEditPermissions} className="grid gap-4">
+            <div className="text-sm text-muted-foreground">
+              {editing?.full_name || editing?.email || 'Utilisateur'}
+            </div>
+
+            <div className="space-y-2">
+              <Label>Accès (modules / sous-modules)</Label>
+              <PermissionsSelector value={editAllow} onChange={setEditAllow} />
+            </div>
+
+            <div>
+              <Button type="submit">Enregistrer</Button>
             </div>
           </form>
         </DialogContent>

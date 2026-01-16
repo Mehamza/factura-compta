@@ -1,8 +1,7 @@
 import React from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
-import { canAccessRoute } from '@/lib/navigationPermissions';
-import { NavigationRole } from '@/config/navigationConfig';
+import { getRoutePermission } from '@/lib/navigationPermissions';
 import { Button } from '@/components/ui/button';
 import { Lock } from 'lucide-react';
 
@@ -11,7 +10,7 @@ interface ModuleProtectedRouteProps {
 }
 
 export function ModuleProtectedRoute({ children }: ModuleProtectedRouteProps) {
-  const { role, loading } = useAuth();
+  const { canAccess, loading } = useAuth();
   const location = useLocation();
 
   if (loading) {
@@ -22,10 +21,8 @@ export function ModuleProtectedRoute({ children }: ModuleProtectedRouteProps) {
     );
   }
 
-  // Cast role to NavigationRole for permission check
-  const navigationRole = role as NavigationRole | null | undefined;
-  
-  if (!canAccessRoute(location.pathname, navigationRole)) {
+  const required = getRoutePermission(location.pathname);
+  if (required && !canAccess(required.moduleId, required.subModuleId)) {
     return (
       <div className="flex min-h-[50vh] items-center justify-center">
         <div className="max-w-md text-center space-y-4">
