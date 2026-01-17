@@ -685,7 +685,14 @@ export default function Settings() {
         await saveSettings(insertedCompany.id);
       } catch (e) {
         logger.error('Erreur création entreprise:', e);
-        toast.error('Erreur lors de la création de l\'entreprise');
+        const anyErr = e as any;
+        const message =
+          (typeof anyErr?.message === 'string' && anyErr.message.trim()) ||
+          (typeof anyErr?.error_description === 'string' && anyErr.error_description.trim()) ||
+          (typeof anyErr?.details === 'string' && anyErr.details.trim()) ||
+          (typeof anyErr?.hint === 'string' && anyErr.hint.trim()) ||
+          '';
+        toast.error(message ? `Erreur lors de la création de l'entreprise: ${message}` : 'Erreur lors de la création de l\'entreprise');
         return;
       }
     } else {
