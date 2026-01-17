@@ -262,6 +262,6 @@ const App = () => (
     </QueryClientProvider>
   </>
 );
-console.log("SUPABASE URL:", process.env.NEXT_PUBLIC_SUPABASE_URL)
+console.log("SUPABASE URL:", process.env.VITE_SUPABASE_URL)
 
 export default App;
