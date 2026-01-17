@@ -2,6 +2,7 @@ import { useState, useEffect, createContext, useContext, ReactNode } from 'react
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { canAccessFromPermissions, normalizeCompanyPermissions, type CompanyPermissions } from '@/lib/companyPermissions';
+import { env } from '@/env';
 
 type AppRole = 'admin' | 'accountant' | 'manager' | 'cashier';
 type GlobalRole = 'SUPER_ADMIN';
@@ -50,6 +51,8 @@ interface AuthContextType {
   loading: boolean;
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
   signUp: (email: string, password: string, fullName: string) => Promise<{ error: Error | null }>;
+  requestPasswordReset: (email: string) => Promise<{ error: Error | null }>;
+  updatePassword: (newPassword: string) => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
   // Impersonation methods (Super Admin only)
   isImpersonating: boolean;
@@ -306,8 +309,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return { error };
   };
 
+  const getAuthRedirectUrl = (path: string) => {
+    const origin = env.appOrigin ?? window.location.origin;
+    return `${origin}${path.startsWith('/') ? path : `/${path}`}`;
+  };
+
   const signUp = async (email: string, password: string, fullName: string) => {
-    const redirectUrl = `${window.location.origin}/`;
+    const redirectUrl = `${window.location.origin}/auth/callback`;
     const { error } = await supabase.auth.signUp({
       email,
       password,
@@ -316,6 +324,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         data: { full_name: fullName }
       }
     });
+    return { error };
+  };
+
+  const requestPasswordReset = async (email: string) => {
+    const redirectTo = getAuthRedirectUrl('/auth/callback');
+    const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo });
+    return { error };
+  };
+
+  const updatePassword = async (newPassword: string) => {
+    const { error } = await supabase.auth.updateUser({ password: newPassword });
     return { error };
   };
 
@@ -472,6 +491,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         : null,
       startImpersonation,
       stopImpersonation,
+      requestPasswordReset,
+      updatePassword,
       profile,
     }}>
       {children}

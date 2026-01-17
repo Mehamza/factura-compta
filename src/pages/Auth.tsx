@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -14,10 +14,15 @@ export default function Auth() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const { signIn, signUp, user } = useAuth();
+  const { signIn, signUp, requestPasswordReset, updatePassword, user } = useAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { toast } = useToast();
+
+  const mode = searchParams.get('mode');
 
   useEffect(() => {
     if (user) {
@@ -84,6 +89,71 @@ export default function Auth() {
     setIsLoading(false);
   };
 
+  const handleForgotPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsLoading(true);
+
+    const { error } = await requestPasswordReset(email);
+
+    if (error) {
+      toast({
+        variant: 'destructive',
+        title: 'Erreur',
+        description: error.message,
+      });
+    } else {
+      toast({
+        title: 'Email envoyé',
+        description: 'Vérifiez votre email pour réinitialiser votre mot de passe',
+      });
+      navigate('/auth', { replace: true });
+    }
+
+    setIsLoading(false);
+  };
+
+  const handleResetPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsLoading(true);
+
+    if (newPassword.length < 6) {
+      toast({
+        variant: 'destructive',
+        title: 'Erreur',
+        description: 'Le mot de passe doit contenir au moins 6 caractères',
+      });
+      setIsLoading(false);
+      return;
+    }
+
+    if (newPassword !== confirmPassword) {
+      toast({
+        variant: 'destructive',
+        title: 'Erreur',
+        description: 'Les mots de passe ne correspondent pas',
+      });
+      setIsLoading(false);
+      return;
+    }
+
+    const { error } = await updatePassword(newPassword);
+    if (error) {
+      toast({
+        variant: 'destructive',
+        title: 'Erreur',
+        description: error.message,
+      });
+    } else {
+      toast({
+        title: 'Mot de passe mis à jour',
+        description: 'Vous êtes maintenant connecté',
+      });
+      navigate('/dashboard', { replace: true });
+    }
+
+    setIsLoading(false);
+  };
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
       <Card className="w-full max-w-md">
@@ -97,6 +167,64 @@ export default function Auth() {
           <CardDescription>Gérez vos factures en toute simplicité</CardDescription>
         </CardHeader>
         <CardContent>
+          {mode === 'forgot' && (
+            <form onSubmit={handleForgotPassword} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="forgot-email">Email</Label>
+                <Input
+                  id="forgot-email"
+                  type="email"
+                  placeholder="vous@email.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                />
+              </div>
+              <Button type="submit" className="w-full" disabled={isLoading}>
+                {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Envoyer le lien
+              </Button>
+              <Button type="button" variant="outline" className="w-full" onClick={() => navigate('/auth')}>
+                Retour
+              </Button>
+            </form>
+          )}
+
+          {mode === 'reset' && (
+            <form onSubmit={handleResetPassword} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="reset-password">Nouveau mot de passe</Label>
+                <Input
+                  id="reset-password"
+                  type="password"
+                  placeholder="••••••••"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="reset-password-confirm">Confirmer le mot de passe</Label>
+                <Input
+                  id="reset-password-confirm"
+                  type="password"
+                  placeholder="••••••••"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  required
+                />
+              </div>
+              <Button type="submit" className="w-full" disabled={isLoading}>
+                {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Mettre à jour
+              </Button>
+              <Button type="button" variant="outline" className="w-full" onClick={() => navigate('/auth')}>
+                Annuler
+              </Button>
+            </form>
+          )}
+
+          {!mode && (
           <Tabs defaultValue="login">
             <TabsList className="grid w-full grid-cols-2 mb-6">
               <TabsTrigger value="login">Connexion</TabsTrigger>
@@ -130,6 +258,14 @@ export default function Auth() {
                 <Button type="submit" className="w-full" disabled={isLoading}>
                   {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                   Se connecter
+                </Button>
+                <Button
+                  type="button"
+                  variant="link"
+                  className="w-full"
+                  onClick={() => navigate('/auth?mode=forgot')}
+                >
+                  Mot de passe oublié ?
                 </Button>
               </form>
             </TabsContent>
@@ -176,6 +312,7 @@ export default function Auth() {
               </form>
             </TabsContent>
           </Tabs>
+          )}
         </CardContent>
       </Card>
     </div>

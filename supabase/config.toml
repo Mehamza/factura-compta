@@ -1,5 +1,15 @@
 project_id = "njkgynqrobfyiqwzdbaz"
 
+[auth]
+# Production website
+site_url = "https://www.smartfin.tn"
+
+# Allow email confirmation + password recovery links to redirect back into the SPA.
+additional_redirect_urls = [
+	"https://www.smartfin.tn/auth/callback",
+	"http://localhost:5173/auth/callback"
+]
+
 [functions.create_user]
 verify_jwt = true
 

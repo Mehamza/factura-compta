@@ -12,6 +12,7 @@ import { SpeedInsights } from "@vercel/speed-insights/react";
 import Index from "./pages/Index";
 import LandingPage from "./pages/LandingPage";
 import Auth from "./pages/Auth";
+import AuthCallback from "./pages/AuthCallback";
 import Clients from "./pages/Clients";
 import Suppliers from "./pages/Suppliers";
 import Invoices from "./pages/Invoices";
@@ -104,6 +105,7 @@ const router = createBrowserRouter(
       {/* Public routes */}
       <Route path="/" element={<PublicLayout><LandingPage /></PublicLayout>} />
       <Route path="/auth" element={<PublicLayout><Auth /></PublicLayout>} />
+      <Route path="/auth/callback" element={<PublicLayout><AuthCallback /></PublicLayout>} />
       <Route path="/tarif" element={<PublicLayout><PageTransition><Tarif /></PageTransition></PublicLayout>} />
       <Route path="/contact" element={<PublicLayout><PageTransition><Contact /></PageTransition></PublicLayout>} />
       <Route path="/blog" element={<PublicLayout><div>Blog page coming soon</div></PublicLayout>} />

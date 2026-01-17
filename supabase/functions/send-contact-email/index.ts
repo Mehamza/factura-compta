@@ -3,6 +3,8 @@ import { Resend } from "https://esm.sh/resend@2.0.0";
 
 const resend = new Resend(Deno.env.get("RESEND_API_KEY"));
 
+const fromEmail = Deno.env.get("RESEND_FROM") ?? "SmartFin <contact@smartfin.tn>";
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
@@ -50,7 +52,7 @@ const handler = async (req: Request): Promise<Response> => {
 
     // Send email to admin
     const emailResponse = await resend.emails.send({
-      from: "SmartFin <onboarding@resend.dev>",
+      from: fromEmail,
       to: ["contact@smartfin.tn"],
       subject: `[SmartFin Contact] ${subject}`,
       html: `
@@ -69,7 +71,7 @@ const handler = async (req: Request): Promise<Response> => {
 
     // Send confirmation email to user
     await resend.emails.send({
-      from: "SmartFin <onboarding@resend.dev>",
+      from: fromEmail,
       to: [email],
       subject: "Nous avons bien reçu votre message - SmartFin",
       html: `

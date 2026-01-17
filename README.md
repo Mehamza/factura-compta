@@ -134,6 +134,45 @@ Hosting requires an SPA rewrite rule so that unknown routes (e.g. `/clients`) se
 - Do not commit `.env` files.
 - `VITE_*` variables are public (bundled into the browser). Never put secrets there.
 
+## Supabase Auth: Email Confirmation + Forgot Password
+
+This app supports:
+- Email confirmation after signup
+- Forgot password (email link) + password reset
+
+### App-side routes used by Supabase
+
+- `https://www.smartfin.tn/auth/callback` (production)
+- `http://localhost:5173/auth/callback` (local dev)
+
+These routes are handled by `src/pages/AuthCallback.tsx` and will redirect users to:
+- `/dashboard` after email confirmation
+- `/auth?mode=reset` for password recovery
+
+### Required public env var
+
+Set this in production hosting so emails redirect to your official website:
+- `VITE_APP_ORIGIN=https://www.smartfin.tn`
+
+### Supabase Dashboard settings (hosted)
+
+In Supabase Dashboard → Authentication → URL Configuration:
+- **Site URL**: `https://www.smartfin.tn`
+- **Redirect URLs**: add
+	- `https://www.smartfin.tn/auth/callback`
+	- `http://localhost:5173/auth/callback`
+
+In Supabase Dashboard → Authentication → Providers:
+- Enable **Email** provider
+- Enable **Confirm email** (recommended)
+
+### Sending emails from contact@smartfin.tn
+
+To send Auth emails (confirmation + reset password) from `contact@smartfin.tn`, configure SMTP in:
+Supabase Dashboard → Authentication → SMTP settings.
+
+You must own/verify the domain `smartfin.tn` with your email provider.
+
 ### Verify `user_global_roles` table + RLS + policies
 
 Run in Supabase SQL Editor (or via psql) as an admin/owner:
