@@ -58,9 +58,21 @@ BEGIN
   -- Owner path (existing behavior)
   user_name := COALESCE(NEW.raw_user_meta_data->>'full_name', NEW.raw_user_meta_data->>'company_name', 'Entreprise');
 
-  INSERT INTO public.companies (legal_name, type, is_configured)
-  VALUES (user_name, 'personne_physique', false)
-  RETURNING id INTO new_company_id;
+  IF EXISTS (
+    SELECT 1
+    FROM information_schema.columns
+    WHERE table_schema = 'public'
+      AND table_name = 'companies'
+      AND column_name = 'legal_name'
+  ) THEN
+    INSERT INTO public.companies (legal_name, type, is_configured)
+    VALUES (user_name, 'personne_physique', false)
+    RETURNING id INTO new_company_id;
+  ELSE
+    INSERT INTO public.companies (name, active)
+    VALUES (user_name, true)
+    RETURNING id INTO new_company_id;
+  END IF;
 
   INSERT INTO public.company_users (user_id, company_id, role)
   VALUES (NEW.id, new_company_id, 'company_admin');
