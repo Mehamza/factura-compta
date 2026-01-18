@@ -11,11 +11,13 @@ import { FileText, Loader2 } from 'lucide-react';
 import LandingHeader from "@/components/landing/LandingHeader";
 
 export default function Auth() {
+  const [activeTab, setActiveTab] = useState<'login' | 'register'>('login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
   const [newPassword, setNewPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
+  const [resetConfirmPassword, setResetConfirmPassword] = useState('');
+  const [signUpConfirmPassword, setSignUpConfirmPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const { signIn, signUp, requestPasswordReset, updatePassword, user } = useAuth();
   const navigate = useNavigate();
@@ -59,6 +61,16 @@ export default function Auth() {
         variant: 'destructive',
         title: 'Erreur',
         description: 'Le mot de passe doit contenir au moins 6 caractères'
+      });
+      setIsLoading(false);
+      return;
+    }
+
+    if (password !== signUpConfirmPassword) {
+      toast({
+        variant: 'destructive',
+        title: 'Erreur',
+        description: 'Les mots de passe ne correspondent pas'
       });
       setIsLoading(false);
       return;
@@ -126,7 +138,7 @@ export default function Auth() {
       return;
     }
 
-    if (newPassword !== confirmPassword) {
+    if (newPassword !== resetConfirmPassword) {
       toast({
         variant: 'destructive',
         title: 'Erreur',
@@ -209,8 +221,8 @@ export default function Auth() {
                   id="reset-password-confirm"
                   type="password"
                   placeholder="••••••••"
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  value={resetConfirmPassword}
+                  onChange={(e) => setResetConfirmPassword(e.target.value)}
                   required
                 />
               </div>
@@ -225,7 +237,7 @@ export default function Auth() {
           )}
 
           {!mode && (
-          <Tabs defaultValue="login">
+          <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'login' | 'register')}>
             <TabsList className="grid w-full grid-cols-2 mb-6">
               <TabsTrigger value="login">Connexion</TabsTrigger>
               <TabsTrigger value="register">Inscription</TabsTrigger>
@@ -267,6 +279,15 @@ export default function Auth() {
                 >
                   Mot de passe oublié ?
                 </Button>
+
+                <Button
+                  type="button"
+                  variant="link"
+                  className="w-full"
+                  onClick={() => setActiveTab('register')}
+                >
+                  Vous n'avez pas de compte ? S'inscrire
+                </Button>
               </form>
             </TabsContent>
             
@@ -305,9 +326,30 @@ export default function Auth() {
                     required
                   />
                 </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="register-password-confirm">Confirmer le mot de passe</Label>
+                  <Input
+                    id="register-password-confirm"
+                    type="password"
+                    placeholder="••••••••"
+                    value={signUpConfirmPassword}
+                    onChange={(e) => setSignUpConfirmPassword(e.target.value)}
+                    required
+                  />
+                </div>
                 <Button type="submit" className="w-full" disabled={isLoading}>
                   {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                   S'inscrire
+                </Button>
+
+                <Button
+                  type="button"
+                  variant="link"
+                  className="w-full"
+                  onClick={() => setActiveTab('login')}
+                >
+                  Vous avez déjà un compte ? Se connecter
                 </Button>
               </form>
             </TabsContent>
