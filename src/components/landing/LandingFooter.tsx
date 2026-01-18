@@ -12,7 +12,7 @@ export default function LandingFooter() {
           <div className="lg:col-span-2 space-y-6">
             <div className="flex items-center gap-2">
               <div className="h-9 w-9 rounded-lg bg-primary flex items-center justify-center">
-                <img src="/logo2.png" alt="SmartFin Logo" className="h-6 w-6" />
+                <img src="/public/logo2.png" alt="SmartFin Logo" className="h-6 w-6" />
               </div>
               <span className="text-xl font-bold text-secondary-foreground">SmartFin</span>
             </div>
