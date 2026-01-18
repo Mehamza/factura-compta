@@ -642,6 +642,14 @@ export default function Settings() {
           type: settings.type,
         }));
 
+        // Attempt 1b: name + legal_name (without type) for older schemas
+        if (insertError && String((insertError as any).code || '') === 'PGRST204') {
+          ({ data: insertedCompany, error: insertError } = await tryInsert({
+            name: baseName,
+            legal_name: baseName,
+          }));
+        }
+
         // Attempt 2: only legal_name
         if (insertError && String(insertError.message || '').toLowerCase().includes('column') && String(insertError.message || '').toLowerCase().includes('name')) {
           ({ data: insertedCompany, error: insertError } = await tryInsert({
@@ -650,11 +658,25 @@ export default function Settings() {
           }));
         }
 
+        // Attempt 2b: only legal_name (without type) for older schemas
+        if (insertError && String((insertError as any).code || '') === 'PGRST204') {
+          ({ data: insertedCompany, error: insertError } = await tryInsert({
+            legal_name: baseName,
+          }));
+        }
+
         // Attempt 3: only name
         if (insertError && String(insertError.message || '').toLowerCase().includes('column') && String(insertError.message || '').toLowerCase().includes('legal_name')) {
           ({ data: insertedCompany, error: insertError } = await tryInsert({
             name: baseName,
             type: settings.type,
+          }));
+        }
+
+        // Attempt 3b: only name (without type) for older schemas
+        if (insertError && String((insertError as any).code || '') === 'PGRST204') {
+          ({ data: insertedCompany, error: insertError } = await tryInsert({
+            name: baseName,
           }));
         }
 
