@@ -88,5 +88,15 @@ export function useCompanySettings() {
     fetchCompanySettings();
   }, [fetchCompanySettings]);
 
+  // Allow other parts of the app (e.g. Settings wizard) to force-refresh company settings
+  // so redirect guards based on is_configured update immediately.
+  useEffect(() => {
+    const handler = () => {
+      void fetchCompanySettings();
+    };
+    window.addEventListener('company-settings-updated', handler);
+    return () => window.removeEventListener('company-settings-updated', handler);
+  }, [fetchCompanySettings]);
+
   return { companySettings, loading, refetch: fetchCompanySettings };
 }

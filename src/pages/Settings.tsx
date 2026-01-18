@@ -82,7 +82,7 @@ const defaultSettings: Omit<CompanySettings, 'id' | 'type' | 'is_configured'> = 
 };
 
 export default function Settings() {
-  const { user, activeCompanyId, setActiveCompany } = useAuth();
+  const { user, activeCompanyId, setActiveCompany, loading: authLoading } = useAuth();
   const [searchParams] = useSearchParams();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -100,6 +100,7 @@ export default function Settings() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const signatureInputRef = useRef<HTMLInputElement>(null);
   const stampInputRef = useRef<HTMLInputElement>(null);
+  const completingSetupRef = useRef(false);
 
   const OTHER_ACTIVITY_VALUE = 'Autre';
   const [activitySelectValue, setActivitySelectValue] = useState<string>('');
@@ -184,6 +185,9 @@ export default function Settings() {
 
   useEffect(() => {
     if (!user) return;
+    // Wait for auth provider to resolve memberships/activeCompanyId.
+    // Otherwise, we may incorrectly show the wizard and create duplicate companies.
+    if (authLoading) return;
     // If user has no company yet, initialize wizard with defaults.
     if (!activeCompanyId) {
       setSettings({
@@ -204,7 +208,7 @@ export default function Settings() {
 
     fetchSettings();
     fetchProfile();
-  }, [user, activeCompanyId]);
+  }, [user, activeCompanyId, authLoading]);
 
   const fetchProfile = async () => {
     const { data } = await supabase
@@ -504,7 +508,10 @@ export default function Settings() {
     setSettings(prev => prev ? { ...prev, stamp_url: '' } : null);
   };
 
-  const saveSettings = async (companyIdOverride?: string) => {
+  const saveSettings = async (
+    companyIdOverride?: string,
+    schemaOverride?: { supportedColumns?: Set<string>; supportsIsConfigured?: boolean }
+  ) => {
     const companyId = companyIdOverride ?? activeCompanyId;
     if (!settings || !companyId) return;
 
@@ -536,15 +543,18 @@ export default function Settings() {
         type: settings.type as 'personne_physique' | 'personne_morale',
       };
 
+      const columns = schemaOverride?.supportedColumns ?? supportedColumns;
+      const hasIsConfigured = schemaOverride?.supportsIsConfigured ?? supportsIsConfigured;
+
       // Include is_configured only if supported by remote schema
-      if (supportsIsConfigured) {
+      if (hasIsConfigured) {
         settingsToSave.is_configured = true;
       }
 
       // Filter payload to only include columns supported by remote schema
       const payload: any = {};
       for (const [key, value] of Object.entries(settingsToSave)) {
-        if (supportedColumns.has(key)) {
+        if (columns.has(key)) {
           payload[key] = value;
         }
       }
@@ -555,6 +565,13 @@ export default function Settings() {
         .eq('id', companyId);
 
       if (error) throw error;
+
+      // Let global company settings listeners refresh (DashboardLayout redirect guard depends on this)
+      try {
+        window.dispatchEvent(new Event('company-settings-updated'));
+      } catch (e) {
+        void e;
+      }
 
       toast.success('Paramètres enregistrés avec succès');
     } catch (error) {
@@ -617,9 +634,13 @@ export default function Settings() {
   if (!settings) return null;
 
   const handleCompleteSetup = async () => {
+    // Idempotency guard: prevent double-click / multiple submissions from creating multiple companies.
+    if (completingSetupRef.current) return;
+    completingSetupRef.current = true;
+
     // If the user has no company yet, create it now (only on wizard completion).
-    if (!activeCompanyId) {
-      try {
+    try {
+      if (!activeCompanyId) {
         // Try insert with both name and legal_name for compatibility.
         const baseName = (settings.legal_name || '').trim() || (profile?.full_name || '').trim() || user?.email || 'Entreprise';
 
@@ -698,30 +719,38 @@ export default function Settings() {
         setActiveCompany(insertedCompany.id);
 
         // Update local schema detection using returned row
+        const nextSupportedColumns = new Set(Object.keys(insertedCompany));
+        const nextSupportsIsConfigured = Object.prototype.hasOwnProperty.call(insertedCompany, 'is_configured');
         setSupportsBankAccounts(Object.prototype.hasOwnProperty.call(insertedCompany, 'bank_accounts'));
-        setSupportsIsConfigured(Object.prototype.hasOwnProperty.call(insertedCompany, 'is_configured'));
-        setSupportedColumns(new Set(Object.keys(insertedCompany)));
+        setSupportsIsConfigured(nextSupportsIsConfigured);
+        setSupportedColumns(nextSupportedColumns);
         setSettings((prev) => prev ? { ...prev, id: insertedCompany.id } : prev);
 
         // Now save the wizard fields into the created company
-        await saveSettings(insertedCompany.id);
-      } catch (e) {
-        logger.error('Erreur création entreprise:', e);
-        const anyErr = e as any;
-        const message =
-          (typeof anyErr?.message === 'string' && anyErr.message.trim()) ||
-          (typeof anyErr?.error_description === 'string' && anyErr.error_description.trim()) ||
-          (typeof anyErr?.details === 'string' && anyErr.details.trim()) ||
-          (typeof anyErr?.hint === 'string' && anyErr.hint.trim()) ||
-          '';
-        toast.error(message ? `Erreur lors de la création de l'entreprise: ${message}` : 'Erreur lors de la création de l\'entreprise');
-        return;
+        await saveSettings(insertedCompany.id, {
+          supportedColumns: nextSupportedColumns,
+          supportsIsConfigured: nextSupportsIsConfigured,
+        });
       }
-    } else {
-      await saveSettings();
-    }
 
-    setShowSetupWizard(false);
+      // Active company exists already, just save wizard changes.
+      await saveSettings();
+
+      setShowSetupWizard(false);
+    } catch (e) {
+      logger.error('Erreur création entreprise:', e);
+      const anyErr = e as any;
+      const message =
+        (typeof anyErr?.message === 'string' && anyErr.message.trim()) ||
+        (typeof anyErr?.error_description === 'string' && anyErr.error_description.trim()) ||
+        (typeof anyErr?.details === 'string' && anyErr.details.trim()) ||
+        (typeof anyErr?.hint === 'string' && anyErr.hint.trim()) ||
+        '';
+      toast.error(message ? `Erreur lors de la création de l'entreprise: ${message}` : 'Erreur lors de la création de l\'entreprise');
+      return;
+    } finally {
+      completingSetupRef.current = false;
+    }
   };
 
   // Render setup wizard for new users
