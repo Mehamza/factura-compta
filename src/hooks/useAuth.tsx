@@ -218,11 +218,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           permissions: normalizeCompanyPermissions(r.permissions),
         }));
         setCompanyRoles(mapped);
-        // Auto-set active company if not already set
+        // Auto-set active company.
+        // If the user explicitly picked a company (stored in localStorage), prefer it.
+        // This avoids bouncing back to an older/unconfigured company when memberships update asynchronously.
         const storedCompanyId = localStorage.getItem('active_company_id');
-        if (!storedCompanyId && companyUsers.length > 0) {
-          setActiveCompany(companyUsers[0].company_id);
-        } else if (storedCompanyId && companyUsers.some(c => c.company_id === storedCompanyId)) {
+        if (storedCompanyId) {
           _setActiveCompanyId(storedCompanyId);
         } else if (companyUsers.length > 0) {
           setActiveCompany(companyUsers[0].company_id);
