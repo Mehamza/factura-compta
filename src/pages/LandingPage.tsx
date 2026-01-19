@@ -104,12 +104,9 @@ export default function LandingPage() {
                   <Link to="/dashboard">Commencer gratuitement</Link>
                 </Button>
                 <Button asChild variant="outline" size="lg" className="transition-transform hover:scale-105">
-                  <Link to="#tarifs">Voir les tarifs</Link>
+                  <Link to="tarif">Voir les tarifs</Link>
                 </Button>
               </div>
-              <p className="mt-3 text-sm text-muted-foreground opacity-0 animate-fade-in-up [animation-delay:600ms]">
-                Sans carte bancaire. Annulation à tout moment.
-              </p>
             </div>
             
             {/* Dashboard Mock - Realistic */}
