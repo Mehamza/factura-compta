@@ -9,7 +9,6 @@ import { ProtectedRoute } from "@/components/layout/ProtectedRoute";
 import { SuperAdminRoute } from "@/components/layout/ProtectedRoute";
 import { ModuleProtectedRoute } from "@/components/layout/ModuleProtectedRoute";
 import { SpeedInsights } from "@vercel/speed-insights/react";
-import './vercel.json';
 import Index from "./pages/Index";
 import LandingPage from "./pages/LandingPage";
 import Auth from "./pages/Auth";
