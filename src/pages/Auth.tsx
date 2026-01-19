@@ -171,9 +171,9 @@ export default function Auth() {
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
           <div className="flex justify-center mb-4">
-            <div className="p-3 bg-primary/10 rounded-full">
-              <FileText className="h-8 w-8 text-primary" />
-            </div>
+            <div className="h-9 w-9 rounded-lg bg-primary flex items-center justify-center">
+                <img src="./public/logo2.png" alt="SmartFin Logo" className="h-6 w-6" />
+              </div>
           </div>
           <CardTitle className="text-2xl">SmartFin</CardTitle>
           <CardDescription>Gérez vos factures en toute simplicité</CardDescription>
