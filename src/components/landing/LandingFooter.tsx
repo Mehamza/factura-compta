@@ -13,7 +13,7 @@ export default function LandingFooter() {
             <div className="flex items-center gap-2">
                 <div className="h-9 w-9 rounded-lg bg-primary flex items-center justify-center">
                 <img
-                  src="./public/logo2.png"
+                  src="./logo2.png"
                   alt="SmartFin logo representing professional Tunisian invoicing and accounting software, shown in the website footer on a simple background with a clean and professional tone"
                   className="h-6 w-6"
                 />

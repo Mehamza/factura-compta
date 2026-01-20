@@ -50,9 +50,17 @@ export default function Reports() {
     const end = `${month}-31`;
 
     const [invRes, allInvRes, cliRes, payRes] = await Promise.all([
-      supabase.from('invoices').select('*').eq('company_id', activeCompanyId).gte('issue_date', start).lte('issue_date', end),
-      supabase.from('invoices').select('*').eq('company_id', activeCompanyId),
-      supabase.from('clients').select('*').eq('company_id', activeCompanyId),
+      supabase
+        .from('invoices')
+        .select('id, invoice_number, issue_date, client_id, status, subtotal, tax_rate, tax_amount, total')
+        .eq('company_id', activeCompanyId)
+        .gte('issue_date', start)
+        .lte('issue_date', end),
+      supabase
+        .from('invoices')
+        .select('id, issue_date, client_id, status, total')
+        .eq('company_id', activeCompanyId),
+      supabase.from('clients').select('id, name').eq('company_id', activeCompanyId),
       supabase.from('payments').select('id, amount, payment_date, invoice_id').eq('company_id', activeCompanyId).gte('payment_date', start).lte('payment_date', end),
     ]);
 

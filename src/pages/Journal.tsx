@@ -38,20 +38,42 @@ export default function Journal() {
   const load = async () => {
     if (!activeCompanyId) return;
     setLoading(true);
-    const accRes = await supabase.from('accounts').select('*').eq('company_id', activeCompanyId).order('code');
-    setAccounts(accRes.data || []);
+    try {
+      const [accRes, entRes] = await Promise.all([
+        supabase.from('accounts').select('*').eq('company_id', activeCompanyId).order('code'),
+        supabase
+          .from('journal_entries')
+          .select('*, journal_lines(*)')
+          .eq('company_id', activeCompanyId)
+          .order('entry_date', { ascending: false }),
+      ]);
 
-    const entRes = await supabase.from('journal_entries').select('*').eq('company_id', activeCompanyId).order('entry_date', { ascending: false });
-    const entriesData = entRes.data || [];
+      if (accRes.error) throw accRes.error;
+      if (entRes.error) throw entRes.error;
 
-    // Load lines per entry
-    const entriesWithLines: EntryWithLines[] = [];
-    for (const e of entriesData) {
-      const lr = await supabase.from('journal_lines').select('*').eq('company_id', activeCompanyId).eq('entry_id', e.id);
-      entriesWithLines.push({ ...e, lines: lr.data || [] });
+      setAccounts(accRes.data || []);
+      const entriesData = (entRes.data || []) as (JournalEntry & { journal_lines?: JournalLine[] | null })[];
+
+      if (entriesData.length === 0) {
+        setEntries([]);
+        return;
+      }
+
+      const entriesWithLines: EntryWithLines[] = entriesData.map((e) => {
+        const { journal_lines, ...rest } = e;
+        return {
+          ...(rest as JournalEntry),
+          lines: (journal_lines || []) as JournalLine[],
+        };
+      });
+
+      setEntries(entriesWithLines);
+    } catch (error) {
+      logger.error('Erreur chargement journal:', error);
+      toast.error('Erreur lors du chargement');
+    } finally {
+      setLoading(false);
     }
-    setEntries(entriesWithLines);
-    setLoading(false);
   };
 
   const filteredEntries = entries.filter(e => {

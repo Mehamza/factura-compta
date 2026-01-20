@@ -124,7 +124,7 @@ export default function Payments() {
           .order('invoice_number', { ascending: false }),
         supabase.from('clients').select('id, name').eq('company_id', activeCompanyId).order('name'),
         supabase.from('suppliers').select('id, name').eq('company_id', activeCompanyId).order('name'),
-        supabase.from('accounts').select('*').eq('company_id', activeCompanyId).in('account_kind', ['caisse', 'bank']).order('name'),
+          supabase.from('accounts').select('id, name, code').eq('company_id', activeCompanyId).in('account_kind', ['caisse', 'bank']).order('name'),
       ]);
 
       if (payRes.error) throw payRes.error;

@@ -87,33 +87,37 @@ export default function Accounts() {
       if (compteIds.length === 0) {
         setLines([]);
       } else {
-        const { data: entries, error: entriesError } = await supabase
-          .from('journal_entries')
-          .select('id, entry_date')
-          .eq('company_id', activeCompanyId);
-        if (entriesError) throw entriesError;
+        // NOTE: PostgREST has been returning 42703 with UUID lists (`in.(...)`) and also with `or=(...)`.
+        // Cash/bank accounts are few, so the simplest safe approach is one query per account.
+        const allLines: Line[] = [];
+        const concurrency = 8;
 
-        const entryIds = (entries || []).map((e) => e.id);
-        if (entryIds.length === 0) {
-          setLines([]);
-        } else {
-          const { data: journalLines, error: linesError } = await supabase
-            .from('journal_lines')
-            .select('account_id, debit, credit, entry_id')
-            .eq('company_id', activeCompanyId)
-            .in('account_id', compteIds)
-            .in('entry_id', entryIds);
-          if (linesError) throw linesError;
-
-          setLines(
-            (journalLines || []).map((l) => ({
-              account_id: l.account_id,
-              debit: Number(l.debit),
-              credit: Number(l.credit),
-              entry_id: l.entry_id,
-            }))
+        for (let i = 0; i < compteIds.length; i += concurrency) {
+          const batch = compteIds.slice(i, i + concurrency);
+          const results = await Promise.all(
+            batch.map((accountId) =>
+              supabase
+                .from('journal_lines')
+                .select('account_id, debit, credit, entry_id')
+                .eq('company_id', activeCompanyId)
+                .eq('account_id', accountId)
+            )
           );
+
+          for (const r of results) {
+            if (r.error) throw r.error;
+            for (const l of r.data || []) {
+              allLines.push({
+                account_id: l.account_id,
+                debit: Number(l.debit),
+                credit: Number(l.credit),
+                entry_id: l.entry_id,
+              });
+            }
+          }
         }
+
+        setLines(allLines);
       }
 
       const { data: expensesData, error: expensesError } = await supabase

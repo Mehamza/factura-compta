@@ -3,87 +3,96 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createBrowserRouter, createRoutesFromElements, RouterProvider, Route, Navigate } from "react-router-dom";
+import { Suspense, lazy } from "react";
 import { AnimatePresence, motion, MotionConfig } from "framer-motion";
 import { AuthProvider } from "@/hooks/useAuth";
 import { ProtectedRoute } from "@/components/layout/ProtectedRoute";
 import { SuperAdminRoute } from "@/components/layout/ProtectedRoute";
 import { ModuleProtectedRoute } from "@/components/layout/ModuleProtectedRoute";
 import { SpeedInsights } from "@vercel/speed-insights/react";
-import Index from "./pages/Index";
-import LandingPage from "./pages/LandingPage";
-import Auth from "./pages/Auth";
-import AuthCallback from "./pages/AuthCallback";
-import Clients from "./pages/Clients";
-import Suppliers from "./pages/Suppliers";
-import Invoices from "./pages/Invoices";
-import Purchases from "./pages/Purchases";
-// Sales documents
-import SalesDevis from "./pages/documents/SalesDevis";
-import SalesDevisNew from "./pages/documents/SalesDevisNew";
-import SalesDevisView from "./pages/documents/SalesDevisView";
-import SalesDevisEdit from "./pages/documents/SalesDevisEdit";
-import SalesBonCommande from "./pages/documents/SalesBonCommande";
-import SalesBonCommandeNew from "./pages/documents/SalesBonCommandeNew";
-import SalesBonCommandeView from "./pages/documents/SalesBonCommandeView";
-import SalesBonCommandeEdit from "./pages/documents/SalesBonCommandeEdit";
-import SalesBonLivraison from "./pages/documents/SalesBonLivraison";
-import SalesBonLivraisonNew from "./pages/documents/SalesBonLivraisonNew";
-import SalesBonLivraisonView from "./pages/documents/SalesBonLivraisonView";
-import SalesBonLivraisonEdit from "./pages/documents/SalesBonLivraisonEdit";
-// Facture unifiée (remplace facture_credit + facture_payee)
-import SalesFacture from "./pages/documents/SalesFacture";
-import SalesFactureNew from "./pages/documents/SalesFactureNew";
-import SalesFactureView from "./pages/documents/SalesFactureView";
-import SalesFactureEdit from "./pages/documents/SalesFactureEdit";
-// Avoirs
-import SalesFactureAvoir from "./pages/documents/SalesFactureAvoir";
-import SalesFactureAvoirNew from "./pages/documents/SalesFactureAvoirNew";
-import SalesFactureAvoirView from "./pages/documents/SalesFactureAvoirView";
-import SalesFactureAvoirEdit from "./pages/documents/SalesFactureAvoirEdit";
-// Purchase documents
-import PurchaseBonCommande from "./pages/documents/PurchaseBonCommande";
-import PurchaseBonCommandeNew from "./pages/documents/PurchaseBonCommandeNew";
-import PurchaseBonCommandeView from "./pages/documents/PurchaseBonCommandeView";
-import PurchaseBonCommandeEdit from "./pages/documents/PurchaseBonCommandeEdit";
-import PurchaseBonLivraison from "./pages/documents/PurchaseBonLivraison";
-import PurchaseBonLivraisonNew from "./pages/documents/PurchaseBonLivraisonNew";
-import PurchaseBonLivraisonView from "./pages/documents/PurchaseBonLivraisonView";
-import PurchaseBonLivraisonEdit from "./pages/documents/PurchaseBonLivraisonEdit";
-// Facture d'achat unifiée (remplace facture_credit_achat)
-import PurchaseFacture from "./pages/documents/PurchaseFacture";
-import PurchaseFactureNew from "./pages/documents/PurchaseFactureNew";
-import PurchaseFactureView from "./pages/documents/PurchaseFactureView";
-import PurchaseFactureEdit from "./pages/documents/PurchaseFactureEdit";
-// Avoirs achats
-import PurchaseAvoir from "./pages/documents/PurchaseAvoir";
-import PurchaseAvoirNew from "./pages/documents/PurchaseAvoirNew";
-import PurchaseAvoirView from "./pages/documents/PurchaseAvoirView";
-import PurchaseAvoirEdit from "./pages/documents/PurchaseAvoirEdit";
-// Other pages
-import Documents from "./pages/Documents";
-import Users from "./pages/Users";
-import Settings from "./pages/Settings";
-import SettingsUsers from "./pages/SettingsUsers";
-import Account from "./pages/Account";
-import NotFound from "./pages/NotFound";
-import Payments from "./pages/Payments";
-import Journal from "./pages/Journal";
-import Accounts from "./pages/Accounts";
-import AccountsBalance from "./pages/AccountsBalance";
-import Reports from "./pages/Reports";
-import StockProducts from "./pages/StockProducts";
-import StockMovements from "./pages/StockMovements";
-import StockTransfer from "./pages/StockTransfer";
-import StockEntry from "./pages/StockEntry";
-import Warehouses from "./pages/Warehouses";
-import SuperAdminDashboard from './pages/SuperAdminDashboard';
-import AdminUsers from "./pages/AdminUsers";
-import AdminPlans from "./pages/AdminPlans";
-import Tarif from "./pages/Tarif"; 
-import Contact from "./pages/Contact";
 import PublicLayout from "@/components/layout/PublicLayout";
 
 const queryClient = new QueryClient();
+
+const Index = lazy(() => import("./pages/Index"));
+const LandingPage = lazy(() => import("./pages/LandingPage"));
+const Auth = lazy(() => import("./pages/Auth"));
+const AuthCallback = lazy(() => import("./pages/AuthCallback"));
+const Clients = lazy(() => import("./pages/Clients"));
+const Suppliers = lazy(() => import("./pages/Suppliers"));
+const Invoices = lazy(() => import("./pages/Invoices"));
+const Purchases = lazy(() => import("./pages/Purchases"));
+
+// Sales documents
+const SalesDevis = lazy(() => import("./pages/documents/SalesDevis"));
+const SalesDevisNew = lazy(() => import("./pages/documents/SalesDevisNew"));
+const SalesDevisView = lazy(() => import("./pages/documents/SalesDevisView"));
+const SalesDevisEdit = lazy(() => import("./pages/documents/SalesDevisEdit"));
+const SalesBonCommande = lazy(() => import("./pages/documents/SalesBonCommande"));
+const SalesBonCommandeNew = lazy(() => import("./pages/documents/SalesBonCommandeNew"));
+const SalesBonCommandeView = lazy(() => import("./pages/documents/SalesBonCommandeView"));
+const SalesBonCommandeEdit = lazy(() => import("./pages/documents/SalesBonCommandeEdit"));
+const SalesBonLivraison = lazy(() => import("./pages/documents/SalesBonLivraison"));
+const SalesBonLivraisonNew = lazy(() => import("./pages/documents/SalesBonLivraisonNew"));
+const SalesBonLivraisonView = lazy(() => import("./pages/documents/SalesBonLivraisonView"));
+const SalesBonLivraisonEdit = lazy(() => import("./pages/documents/SalesBonLivraisonEdit"));
+
+// Facture unifiée (remplace facture_credit + facture_payee)
+const SalesFacture = lazy(() => import("./pages/documents/SalesFacture"));
+const SalesFactureNew = lazy(() => import("./pages/documents/SalesFactureNew"));
+const SalesFactureView = lazy(() => import("./pages/documents/SalesFactureView"));
+const SalesFactureEdit = lazy(() => import("./pages/documents/SalesFactureEdit"));
+
+// Avoirs
+const SalesFactureAvoir = lazy(() => import("./pages/documents/SalesFactureAvoir"));
+const SalesFactureAvoirNew = lazy(() => import("./pages/documents/SalesFactureAvoirNew"));
+const SalesFactureAvoirView = lazy(() => import("./pages/documents/SalesFactureAvoirView"));
+const SalesFactureAvoirEdit = lazy(() => import("./pages/documents/SalesFactureAvoirEdit"));
+
+// Purchase documents
+const PurchaseBonCommande = lazy(() => import("./pages/documents/PurchaseBonCommande"));
+const PurchaseBonCommandeNew = lazy(() => import("./pages/documents/PurchaseBonCommandeNew"));
+const PurchaseBonCommandeView = lazy(() => import("./pages/documents/PurchaseBonCommandeView"));
+const PurchaseBonCommandeEdit = lazy(() => import("./pages/documents/PurchaseBonCommandeEdit"));
+const PurchaseBonLivraison = lazy(() => import("./pages/documents/PurchaseBonLivraison"));
+const PurchaseBonLivraisonNew = lazy(() => import("./pages/documents/PurchaseBonLivraisonNew"));
+const PurchaseBonLivraisonView = lazy(() => import("./pages/documents/PurchaseBonLivraisonView"));
+const PurchaseBonLivraisonEdit = lazy(() => import("./pages/documents/PurchaseBonLivraisonEdit"));
+
+// Facture d'achat unifiée (remplace facture_credit_achat)
+const PurchaseFacture = lazy(() => import("./pages/documents/PurchaseFacture"));
+const PurchaseFactureNew = lazy(() => import("./pages/documents/PurchaseFactureNew"));
+const PurchaseFactureView = lazy(() => import("./pages/documents/PurchaseFactureView"));
+const PurchaseFactureEdit = lazy(() => import("./pages/documents/PurchaseFactureEdit"));
+
+// Avoirs achats
+const PurchaseAvoir = lazy(() => import("./pages/documents/PurchaseAvoir"));
+const PurchaseAvoirNew = lazy(() => import("./pages/documents/PurchaseAvoirNew"));
+const PurchaseAvoirView = lazy(() => import("./pages/documents/PurchaseAvoirView"));
+const PurchaseAvoirEdit = lazy(() => import("./pages/documents/PurchaseAvoirEdit"));
+
+// Other pages
+const Documents = lazy(() => import("./pages/Documents"));
+const Users = lazy(() => import("./pages/Users"));
+const Settings = lazy(() => import("./pages/Settings"));
+const SettingsUsers = lazy(() => import("./pages/SettingsUsers"));
+const Account = lazy(() => import("./pages/Account"));
+const NotFound = lazy(() => import("./pages/NotFound"));
+const Payments = lazy(() => import("./pages/Payments"));
+const Journal = lazy(() => import("./pages/Journal"));
+const Accounts = lazy(() => import("./pages/Accounts"));
+const AccountsBalance = lazy(() => import("./pages/AccountsBalance"));
+const Reports = lazy(() => import("./pages/Reports"));
+const StockProducts = lazy(() => import("./pages/StockProducts"));
+const StockMovements = lazy(() => import("./pages/StockMovements"));
+const StockTransfer = lazy(() => import("./pages/StockTransfer"));
+const StockEntry = lazy(() => import("./pages/StockEntry"));
+const Warehouses = lazy(() => import("./pages/Warehouses"));
+const SuperAdminDashboard = lazy(() => import("./pages/SuperAdminDashboard"));
+const AdminUsers = lazy(() => import("./pages/AdminUsers"));
+const AdminPlans = lazy(() => import("./pages/AdminPlans"));
+const Tarif = lazy(() => import("./pages/Tarif"));
+const Contact = lazy(() => import("./pages/Contact"));
 
 
 
@@ -103,42 +112,42 @@ const router = createBrowserRouter(
   createRoutesFromElements(
     <Route>
       {/* Public routes */}
-      <Route path="/" element={<PublicLayout><LandingPage /></PublicLayout>} />
-      <Route path="/auth" element={<PublicLayout><Auth /></PublicLayout>} />
-      <Route path="/auth/callback" element={<PublicLayout><AuthCallback /></PublicLayout>} />
-      <Route path="/tarif" element={<PublicLayout><PageTransition><Tarif /></PageTransition></PublicLayout>} />
-      <Route path="/contact" element={<PublicLayout><PageTransition><Contact /></PageTransition></PublicLayout>} />
+      <Route path="/" element={<PublicLayout><Suspense fallback={null}><LandingPage /></Suspense></PublicLayout>} />
+      <Route path="/auth" element={<PublicLayout><Suspense fallback={null}><Auth /></Suspense></PublicLayout>} />
+      <Route path="/auth/callback" element={<PublicLayout><Suspense fallback={null}><AuthCallback /></Suspense></PublicLayout>} />
+      <Route path="/tarif" element={<PublicLayout><PageTransition><Suspense fallback={null}><Tarif /></Suspense></PageTransition></PublicLayout>} />
+      <Route path="/contact" element={<PublicLayout><PageTransition><Suspense fallback={null}><Contact /></Suspense></PageTransition></PublicLayout>} />
       <Route path="/blog" element={<PublicLayout><div>Blog page coming soon</div></PublicLayout>} />
       
       {/* Protected routes - accessible by all roles */}
-      <Route path="/dashboard" element={<ProtectedRoute><PageTransition><Index /></PageTransition></ProtectedRoute>} />
-      <Route path="/clients" element={<ProtectedRoute><PageTransition><Clients /></PageTransition></ProtectedRoute>} />
-      <Route path="/suppliers" element={<ProtectedRoute><PageTransition><Suppliers /></PageTransition></ProtectedRoute>} />
-      <Route path="/documents" element={<ProtectedRoute><PageTransition><Documents /></PageTransition></ProtectedRoute>} />
-      <Route path="/settings" element={<ProtectedRoute><PageTransition><Settings /></PageTransition></ProtectedRoute>} />
-      <Route path="/account" element={<ProtectedRoute><PageTransition><Account /></PageTransition></ProtectedRoute>} />
-      <Route path="/payments" element={<ProtectedRoute><PageTransition><Payments /></PageTransition></ProtectedRoute>} />
+      <Route path="/dashboard" element={<ProtectedRoute><PageTransition><Suspense fallback={null}><Index /></Suspense></PageTransition></ProtectedRoute>} />
+      <Route path="/clients" element={<ProtectedRoute><PageTransition><Suspense fallback={null}><Clients /></Suspense></PageTransition></ProtectedRoute>} />
+      <Route path="/suppliers" element={<ProtectedRoute><PageTransition><Suspense fallback={null}><Suppliers /></Suspense></PageTransition></ProtectedRoute>} />
+      <Route path="/documents" element={<ProtectedRoute><PageTransition><Suspense fallback={null}><Documents /></Suspense></PageTransition></ProtectedRoute>} />
+      <Route path="/settings" element={<ProtectedRoute><PageTransition><Suspense fallback={null}><Settings /></Suspense></PageTransition></ProtectedRoute>} />
+      <Route path="/account" element={<ProtectedRoute><PageTransition><Suspense fallback={null}><Account /></Suspense></PageTransition></ProtectedRoute>} />
+      <Route path="/payments" element={<ProtectedRoute><PageTransition><Suspense fallback={null}><Payments /></Suspense></PageTransition></ProtectedRoute>} />
       
       {/* Sales invoice routes */}
-      <Route path="/invoices" element={<ProtectedRoute><PageTransition><Invoices /></PageTransition></ProtectedRoute>} />
-      <Route path="/invoices/devis" element={<ProtectedRoute><PageTransition><SalesDevis /></PageTransition></ProtectedRoute>} />
-      <Route path="/invoices/devis/new" element={<ProtectedRoute><PageTransition><SalesDevisNew /></PageTransition></ProtectedRoute>} />
-      <Route path="/invoices/devis/:id" element={<ProtectedRoute><PageTransition><SalesDevisView /></PageTransition></ProtectedRoute>} />
-      <Route path="/invoices/devis/:id/edit" element={<ProtectedRoute><PageTransition><SalesDevisEdit /></PageTransition></ProtectedRoute>} />
-      <Route path="/invoices/bon-commande" element={<ProtectedRoute><PageTransition><SalesBonCommande /></PageTransition></ProtectedRoute>} />
-      <Route path="/invoices/bon-commande/new" element={<ProtectedRoute><PageTransition><SalesBonCommandeNew /></PageTransition></ProtectedRoute>} />
-      <Route path="/invoices/bon-commande/:id" element={<ProtectedRoute><PageTransition><SalesBonCommandeView /></PageTransition></ProtectedRoute>} />
-      <Route path="/invoices/bon-commande/:id/edit" element={<ProtectedRoute><PageTransition><SalesBonCommandeEdit /></PageTransition></ProtectedRoute>} />
-      <Route path="/invoices/bon-livraison" element={<ProtectedRoute><PageTransition><SalesBonLivraison /></PageTransition></ProtectedRoute>} />
-      <Route path="/invoices/bon-livraison/new" element={<ProtectedRoute><PageTransition><SalesBonLivraisonNew /></PageTransition></ProtectedRoute>} />
-      <Route path="/invoices/bon-livraison/:id" element={<ProtectedRoute><PageTransition><SalesBonLivraisonView /></PageTransition></ProtectedRoute>} />
-      <Route path="/invoices/bon-livraison/:id/edit" element={<ProtectedRoute><PageTransition><SalesBonLivraisonEdit /></PageTransition></ProtectedRoute>} />
+      <Route path="/invoices" element={<ProtectedRoute><PageTransition><Suspense fallback={null}><Invoices /></Suspense></PageTransition></ProtectedRoute>} />
+      <Route path="/invoices/devis" element={<ProtectedRoute><PageTransition><Suspense fallback={null}><SalesDevis /></Suspense></PageTransition></ProtectedRoute>} />
+      <Route path="/invoices/devis/new" element={<ProtectedRoute><PageTransition><Suspense fallback={null}><SalesDevisNew /></Suspense></PageTransition></ProtectedRoute>} />
+      <Route path="/invoices/devis/:id" element={<ProtectedRoute><PageTransition><Suspense fallback={null}><SalesDevisView /></Suspense></PageTransition></ProtectedRoute>} />
+      <Route path="/invoices/devis/:id/edit" element={<ProtectedRoute><PageTransition><Suspense fallback={null}><SalesDevisEdit /></Suspense></PageTransition></ProtectedRoute>} />
+      <Route path="/invoices/bon-commande" element={<ProtectedRoute><PageTransition><Suspense fallback={null}><SalesBonCommande /></Suspense></PageTransition></ProtectedRoute>} />
+      <Route path="/invoices/bon-commande/new" element={<ProtectedRoute><PageTransition><Suspense fallback={null}><SalesBonCommandeNew /></Suspense></PageTransition></ProtectedRoute>} />
+      <Route path="/invoices/bon-commande/:id" element={<ProtectedRoute><PageTransition><Suspense fallback={null}><SalesBonCommandeView /></Suspense></PageTransition></ProtectedRoute>} />
+      <Route path="/invoices/bon-commande/:id/edit" element={<ProtectedRoute><PageTransition><Suspense fallback={null}><SalesBonCommandeEdit /></Suspense></PageTransition></ProtectedRoute>} />
+      <Route path="/invoices/bon-livraison" element={<ProtectedRoute><PageTransition><Suspense fallback={null}><SalesBonLivraison /></Suspense></PageTransition></ProtectedRoute>} />
+      <Route path="/invoices/bon-livraison/new" element={<ProtectedRoute><PageTransition><Suspense fallback={null}><SalesBonLivraisonNew /></Suspense></PageTransition></ProtectedRoute>} />
+      <Route path="/invoices/bon-livraison/:id" element={<ProtectedRoute><PageTransition><Suspense fallback={null}><SalesBonLivraisonView /></Suspense></PageTransition></ProtectedRoute>} />
+      <Route path="/invoices/bon-livraison/:id/edit" element={<ProtectedRoute><PageTransition><Suspense fallback={null}><SalesBonLivraisonEdit /></Suspense></PageTransition></ProtectedRoute>} />
       
       {/* Factures unifiées (nouvelle route) */}
-      <Route path="/invoices/facture" element={<ProtectedRoute><PageTransition><SalesFacture /></PageTransition></ProtectedRoute>} />
-      <Route path="/invoices/facture/new" element={<ProtectedRoute><PageTransition><SalesFactureNew /></PageTransition></ProtectedRoute>} />
-      <Route path="/invoices/facture/:id" element={<ProtectedRoute><PageTransition><SalesFactureView /></PageTransition></ProtectedRoute>} />
-      <Route path="/invoices/facture/:id/edit" element={<ProtectedRoute><PageTransition><SalesFactureEdit /></PageTransition></ProtectedRoute>} />
+      <Route path="/invoices/facture" element={<ProtectedRoute><PageTransition><Suspense fallback={null}><SalesFacture /></Suspense></PageTransition></ProtectedRoute>} />
+      <Route path="/invoices/facture/new" element={<ProtectedRoute><PageTransition><Suspense fallback={null}><SalesFactureNew /></Suspense></PageTransition></ProtectedRoute>} />
+      <Route path="/invoices/facture/:id" element={<ProtectedRoute><PageTransition><Suspense fallback={null}><SalesFactureView /></Suspense></PageTransition></ProtectedRoute>} />
+      <Route path="/invoices/facture/:id/edit" element={<ProtectedRoute><PageTransition><Suspense fallback={null}><SalesFactureEdit /></Suspense></PageTransition></ProtectedRoute>} />
       
       {/* Redirections legacy pour rétro-compatibilité */}
       <Route path="/invoices/credit" element={<Navigate to="/invoices/facture" replace />} />
@@ -147,51 +156,51 @@ const router = createBrowserRouter(
       <Route path="/invoices/recu/*" element={<Navigate to="/invoices/facture" replace />} />
 
       {/* Avoirs */}
-      <Route path="/invoices/avoir" element={<ProtectedRoute><PageTransition><SalesFactureAvoir /></PageTransition></ProtectedRoute>} />
-      <Route path="/invoices/avoir/new" element={<ProtectedRoute><PageTransition><SalesFactureAvoirNew /></PageTransition></ProtectedRoute>} />
-      <Route path="/invoices/avoir/:id" element={<ProtectedRoute><PageTransition><SalesFactureAvoirView /></PageTransition></ProtectedRoute>} />
-      <Route path="/invoices/avoir/:id/edit" element={<ProtectedRoute><PageTransition><SalesFactureAvoirEdit /></PageTransition></ProtectedRoute>} />
+      <Route path="/invoices/avoir" element={<ProtectedRoute><PageTransition><Suspense fallback={null}><SalesFactureAvoir /></Suspense></PageTransition></ProtectedRoute>} />
+      <Route path="/invoices/avoir/new" element={<ProtectedRoute><PageTransition><Suspense fallback={null}><SalesFactureAvoirNew /></Suspense></PageTransition></ProtectedRoute>} />
+      <Route path="/invoices/avoir/:id" element={<ProtectedRoute><PageTransition><Suspense fallback={null}><SalesFactureAvoirView /></Suspense></PageTransition></ProtectedRoute>} />
+      <Route path="/invoices/avoir/:id/edit" element={<ProtectedRoute><PageTransition><Suspense fallback={null}><SalesFactureAvoirEdit /></Suspense></PageTransition></ProtectedRoute>} />
       
       {/* Purchase invoice routes */}
-      <Route path="/purchases" element={<ProtectedRoute><PageTransition><Purchases /></PageTransition></ProtectedRoute>} />
-      <Route path="/purchases/bon-commande" element={<ProtectedRoute><PageTransition><PurchaseBonCommande /></PageTransition></ProtectedRoute>} />
-      <Route path="/purchases/bon-commande/new" element={<ProtectedRoute><PageTransition><PurchaseBonCommandeNew /></PageTransition></ProtectedRoute>} />
-      <Route path="/purchases/bon-commande/:id" element={<ProtectedRoute><PageTransition><PurchaseBonCommandeView /></PageTransition></ProtectedRoute>} />
-      <Route path="/purchases/bon-commande/:id/edit" element={<ProtectedRoute><PageTransition><PurchaseBonCommandeEdit /></PageTransition></ProtectedRoute>} />
-      <Route path="/purchases/bon-livraison" element={<ProtectedRoute><PageTransition><PurchaseBonLivraison /></PageTransition></ProtectedRoute>} />
-      <Route path="/purchases/bon-livraison/new" element={<ProtectedRoute><PageTransition><PurchaseBonLivraisonNew /></PageTransition></ProtectedRoute>} />
-      <Route path="/purchases/bon-livraison/:id" element={<ProtectedRoute><PageTransition><PurchaseBonLivraisonView /></PageTransition></ProtectedRoute>} />
-      <Route path="/purchases/bon-livraison/:id/edit" element={<ProtectedRoute><PageTransition><PurchaseBonLivraisonEdit /></PageTransition></ProtectedRoute>} />
+      <Route path="/purchases" element={<ProtectedRoute><PageTransition><Suspense fallback={null}><Purchases /></Suspense></PageTransition></ProtectedRoute>} />
+      <Route path="/purchases/bon-commande" element={<ProtectedRoute><PageTransition><Suspense fallback={null}><PurchaseBonCommande /></Suspense></PageTransition></ProtectedRoute>} />
+      <Route path="/purchases/bon-commande/new" element={<ProtectedRoute><PageTransition><Suspense fallback={null}><PurchaseBonCommandeNew /></Suspense></PageTransition></ProtectedRoute>} />
+      <Route path="/purchases/bon-commande/:id" element={<ProtectedRoute><PageTransition><Suspense fallback={null}><PurchaseBonCommandeView /></Suspense></PageTransition></ProtectedRoute>} />
+      <Route path="/purchases/bon-commande/:id/edit" element={<ProtectedRoute><PageTransition><Suspense fallback={null}><PurchaseBonCommandeEdit /></Suspense></PageTransition></ProtectedRoute>} />
+      <Route path="/purchases/bon-livraison" element={<ProtectedRoute><PageTransition><Suspense fallback={null}><PurchaseBonLivraison /></Suspense></PageTransition></ProtectedRoute>} />
+      <Route path="/purchases/bon-livraison/new" element={<ProtectedRoute><PageTransition><Suspense fallback={null}><PurchaseBonLivraisonNew /></Suspense></PageTransition></ProtectedRoute>} />
+      <Route path="/purchases/bon-livraison/:id" element={<ProtectedRoute><PageTransition><Suspense fallback={null}><PurchaseBonLivraisonView /></Suspense></PageTransition></ProtectedRoute>} />
+      <Route path="/purchases/bon-livraison/:id/edit" element={<ProtectedRoute><PageTransition><Suspense fallback={null}><PurchaseBonLivraisonEdit /></Suspense></PageTransition></ProtectedRoute>} />
       
       {/* Factures d'achat unifiées (nouvelle route) */}
-      <Route path="/purchases/facture" element={<ProtectedRoute><PageTransition><PurchaseFacture /></PageTransition></ProtectedRoute>} />
-      <Route path="/purchases/facture/new" element={<ProtectedRoute><PageTransition><PurchaseFactureNew /></PageTransition></ProtectedRoute>} />
-      <Route path="/purchases/facture/:id" element={<ProtectedRoute><PageTransition><PurchaseFactureView /></PageTransition></ProtectedRoute>} />
-      <Route path="/purchases/facture/:id/edit" element={<ProtectedRoute><PageTransition><PurchaseFactureEdit /></PageTransition></ProtectedRoute>} />
+      <Route path="/purchases/facture" element={<ProtectedRoute><PageTransition><Suspense fallback={null}><PurchaseFacture /></Suspense></PageTransition></ProtectedRoute>} />
+      <Route path="/purchases/facture/new" element={<ProtectedRoute><PageTransition><Suspense fallback={null}><PurchaseFactureNew /></Suspense></PageTransition></ProtectedRoute>} />
+      <Route path="/purchases/facture/:id" element={<ProtectedRoute><PageTransition><Suspense fallback={null}><PurchaseFactureView /></Suspense></PageTransition></ProtectedRoute>} />
+      <Route path="/purchases/facture/:id/edit" element={<ProtectedRoute><PageTransition><Suspense fallback={null}><PurchaseFactureEdit /></Suspense></PageTransition></ProtectedRoute>} />
 
       {/* Redirection legacy */}
       <Route path="/purchases/credit" element={<Navigate to="/purchases/facture" replace />} />
       <Route path="/purchases/credit/*" element={<Navigate to="/purchases/facture" replace />} />
 
       {/* Avoirs achats */}
-      <Route path="/purchases/avoir" element={<ProtectedRoute><PageTransition><PurchaseAvoir /></PageTransition></ProtectedRoute>} />
-      <Route path="/purchases/avoir/new" element={<ProtectedRoute><PageTransition><PurchaseAvoirNew /></PageTransition></ProtectedRoute>} />
-      <Route path="/purchases/avoir/:id" element={<ProtectedRoute><PageTransition><PurchaseAvoirView /></PageTransition></ProtectedRoute>} />
-      <Route path="/purchases/avoir/:id/edit" element={<ProtectedRoute><PageTransition><PurchaseAvoirEdit /></PageTransition></ProtectedRoute>} />
+      <Route path="/purchases/avoir" element={<ProtectedRoute><PageTransition><Suspense fallback={null}><PurchaseAvoir /></Suspense></PageTransition></ProtectedRoute>} />
+      <Route path="/purchases/avoir/new" element={<ProtectedRoute><PageTransition><Suspense fallback={null}><PurchaseAvoirNew /></Suspense></PageTransition></ProtectedRoute>} />
+      <Route path="/purchases/avoir/:id" element={<ProtectedRoute><PageTransition><Suspense fallback={null}><PurchaseAvoirView /></Suspense></PageTransition></ProtectedRoute>} />
+      <Route path="/purchases/avoir/:id/edit" element={<ProtectedRoute><PageTransition><Suspense fallback={null}><PurchaseAvoirEdit /></Suspense></PageTransition></ProtectedRoute>} />
       
       {/* Stock routes */}
-      <Route path="/stock/produits" element={<ProtectedRoute><PageTransition><StockProducts /></PageTransition></ProtectedRoute>} />
-      <Route path="/stock/mouvements" element={<ProtectedRoute><PageTransition><StockMovements /></PageTransition></ProtectedRoute>} />
-      <Route path="/stock/entrepots" element={<ProtectedRoute><PageTransition><Warehouses /></PageTransition></ProtectedRoute>} />
-      <Route path="/stock/bon-transfert" element={<ProtectedRoute><PageTransition><StockTransfer /></PageTransition></ProtectedRoute>} />
-      <Route path="/stock/bon-entree" element={<ProtectedRoute><PageTransition><StockEntry /></PageTransition></ProtectedRoute>} />
+      <Route path="/stock/produits" element={<ProtectedRoute><PageTransition><Suspense fallback={null}><StockProducts /></Suspense></PageTransition></ProtectedRoute>} />
+      <Route path="/stock/mouvements" element={<ProtectedRoute><PageTransition><Suspense fallback={null}><StockMovements /></Suspense></PageTransition></ProtectedRoute>} />
+      <Route path="/stock/entrepots" element={<ProtectedRoute><PageTransition><Suspense fallback={null}><Warehouses /></Suspense></PageTransition></ProtectedRoute>} />
+      <Route path="/stock/bon-transfert" element={<ProtectedRoute><PageTransition><Suspense fallback={null}><StockTransfer /></Suspense></PageTransition></ProtectedRoute>} />
+      <Route path="/stock/bon-entree" element={<ProtectedRoute><PageTransition><Suspense fallback={null}><StockEntry /></Suspense></PageTransition></ProtectedRoute>} />
       
       {/* Protected routes - locked for cashier role */}
-      <Route path="/journal" element={<ProtectedRoute><ModuleProtectedRoute><PageTransition><Journal /></PageTransition></ModuleProtectedRoute></ProtectedRoute>} />
-      <Route path="/accounts" element={<ProtectedRoute><ModuleProtectedRoute><PageTransition><Accounts /></PageTransition></ModuleProtectedRoute></ProtectedRoute>} />
-      <Route path="/accounts/balance" element={<ProtectedRoute><ModuleProtectedRoute><PageTransition><AccountsBalance /></PageTransition></ModuleProtectedRoute></ProtectedRoute>} />
-      <Route path="/reports" element={<ProtectedRoute><ModuleProtectedRoute><PageTransition><Reports /></PageTransition></ModuleProtectedRoute></ProtectedRoute>} />
-      <Route path="/settings/utilisateurs" element={<ProtectedRoute><ModuleProtectedRoute><PageTransition><SettingsUsers /></PageTransition></ModuleProtectedRoute></ProtectedRoute>} />
+      <Route path="/journal" element={<ProtectedRoute><ModuleProtectedRoute><PageTransition><Suspense fallback={null}><Journal /></Suspense></PageTransition></ModuleProtectedRoute></ProtectedRoute>} />
+      <Route path="/accounts" element={<ProtectedRoute><ModuleProtectedRoute><PageTransition><Suspense fallback={null}><Accounts /></Suspense></PageTransition></ModuleProtectedRoute></ProtectedRoute>} />
+      <Route path="/accounts/balance" element={<ProtectedRoute><ModuleProtectedRoute><PageTransition><Suspense fallback={null}><AccountsBalance /></Suspense></PageTransition></ModuleProtectedRoute></ProtectedRoute>} />
+      <Route path="/reports" element={<ProtectedRoute><ModuleProtectedRoute><PageTransition><Suspense fallback={null}><Reports /></Suspense></PageTransition></ModuleProtectedRoute></ProtectedRoute>} />
+      <Route path="/settings/utilisateurs" element={<ProtectedRoute><ModuleProtectedRoute><PageTransition><Suspense fallback={null}><SettingsUsers /></Suspense></PageTransition></ModuleProtectedRoute></ProtectedRoute>} />
       
       {/* Super admin routes */}
       <Route
@@ -200,7 +209,7 @@ const router = createBrowserRouter(
           <ProtectedRoute>
             <SuperAdminRoute>
               <PageTransition>
-                <SuperAdminDashboard />
+                <Suspense fallback={null}><SuperAdminDashboard /></Suspense>
               </PageTransition>
             </SuperAdminRoute>
           </ProtectedRoute>
@@ -213,7 +222,7 @@ const router = createBrowserRouter(
           <ProtectedRoute>
             <SuperAdminRoute>
               <PageTransition>
-                <AdminPlans />
+                <Suspense fallback={null}><AdminPlans /></Suspense>
               </PageTransition>
             </SuperAdminRoute>
           </ProtectedRoute>
@@ -226,14 +235,14 @@ const router = createBrowserRouter(
           <ProtectedRoute>
             <SuperAdminRoute>
               <PageTransition>
-                <AdminUsers />
+                <Suspense fallback={null}><AdminUsers /></Suspense>
               </PageTransition>
             </SuperAdminRoute>
           </ProtectedRoute>
         }
       />
       {/* 404 */}
-      <Route path="*" element={<motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }}><NotFound /></motion.div>} />
+      <Route path="*" element={<motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }}><Suspense fallback={null}><NotFound /></Suspense></motion.div>} />
     </Route>
   ),
   {
