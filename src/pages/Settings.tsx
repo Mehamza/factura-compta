@@ -8,12 +8,11 @@ import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
-import { Building2, Receipt, FileText, Plus, Trash2, Save, Upload, Image } from 'lucide-react';
+import { Building2, Receipt, FileText, Plus, Trash2, Save, Upload, Image, Check } from 'lucide-react';
 import { currencies } from '@/lib/numberToWords';
 import { logger } from '@/lib/logger';
-import SetupWizard from '@/components/settings/SetupWizard';
 import type { Tables } from '@/integrations/supabase/types';
-import { useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 
 interface VatRate {
   rate: number;
@@ -84,6 +83,7 @@ const defaultSettings: Omit<CompanySettings, 'id' | 'type' | 'is_configured'> = 
 export default function Settings() {
   const { user, activeCompanyId, setActiveCompany, loading: authLoading } = useAuth();
   const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [supportsBankAccounts, setSupportsBankAccounts] = useState(false);
@@ -96,7 +96,6 @@ export default function Settings() {
   const [profile, setProfile] = useState<Tables<'profiles'> | null>(null);
   const [newVatRate, setNewVatRate] = useState({ rate: 0, label: '' });
   const [showSetupWizard, setShowSetupWizard] = useState(false);
-  const [setupStep, setSetupStep] = useState(1);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const signatureInputRef = useRef<HTMLInputElement>(null);
   const stampInputRef = useRef<HTMLInputElement>(null);
@@ -200,7 +199,6 @@ export default function Settings() {
       setSupportsIsConfigured(false);
       setSupportedColumns(new Set());
       setShowSetupWizard(true);
-      setSetupStep(1);
       setLoading(false);
       fetchProfile();
       return;
@@ -288,7 +286,6 @@ export default function Settings() {
           (!data.legal_name && !(data as any).name);
 
         if (needsOnboarding) {
-          setSetupStep(1);
           setShowSetupWizard(true);
         }
       }
@@ -737,6 +734,10 @@ export default function Settings() {
       await saveSettings();
 
       setShowSetupWizard(false);
+
+      // Redirect to dashboard after successful onboarding.
+      toast.success('bienvenue chez smartfin');
+      navigate('/dashboard', { replace: true });
     } catch (e) {
       logger.error('Erreur création entreprise:', e);
       const anyErr = e as any;
@@ -753,237 +754,26 @@ export default function Settings() {
     }
   };
 
-  // Render setup wizard for new users
-  if (showSetupWizard) {
-    return (
-      <SetupWizard 
-        onComplete={handleCompleteSetup}
-        currentStep={setupStep}
-        setCurrentStep={setSetupStep}
-      >
-        {setupStep === 1 && (
-          <div className="space-y-4">
-            {/* Company info fields for wizard */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="wizard_legal_name">Raison sociale</Label>
-                <Input
-                  id="wizard_legal_name"
-                  value={settings.legal_name}
-                  onChange={(e) => setSettings({ ...settings, legal_name: e.target.value })}
-                  placeholder="Nom de votre entreprise"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="wizard_activity">Activité</Label>
-                <Select
-                  value={activitySelectValue}
-                  onValueChange={handleActivitySelectChange}
-                >
-                  <SelectTrigger id="wizard_activity">
-                    <SelectValue placeholder="Sélectionner une activité" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {TUNISIAN_ACTIVITIES.map((activity) => (
-                      <SelectItem key={activity} value={activity}>
-                        {activity}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-
-                {activitySelectValue === OTHER_ACTIVITY_VALUE && (
-                  <div className="space-y-2">
-                    <Label htmlFor="wizard_activity_other">Précisez votre activité</Label>
-                    <Input
-                      id="wizard_activity_other"
-                      value={customActivity}
-                      onChange={(e) => handleCustomActivityChange(e.target.value)}
-                      placeholder="Ex: Vente en ligne de vêtements"
-                    />
-                  </div>
-                )}
-              </div>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="wizard_email">Email</Label>
-                <Input
-                  id="wizard_email"
-                  type="email"
-                  value={settings.email}
-                  onChange={(e) => setSettings({ ...settings, email: e.target.value })}
-                  placeholder="contact@entreprise.tn"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="wizard_phone">Téléphone</Label>
-                <Input
-                  id="wizard_phone"
-                  value={settings.phone}
-                  onChange={(e) => setSettings({ ...settings, phone: e.target.value })}
-                  placeholder="+216 XX XXX XXX"
-                />
-              </div>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="wizard_address">Adresse</Label>
-              <Input
-                id="wizard_address"
-                value={settings.address}
-                onChange={(e) => setSettings({ ...settings, address: e.target.value })}
-                placeholder="Adresse complète"
-              />
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="wizard_city">Ville</Label>
-                <Input
-                  id="wizard_city"
-                  value={settings.city}
-                  onChange={(e) => setSettings({ ...settings, city: e.target.value })}
-                  placeholder="Tunis"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="wizard_postal">Code postal</Label>
-                <Input
-                  id="wizard_postal"
-                  value={settings.postal_code}
-                  onChange={(e) => setSettings({ ...settings, postal_code: e.target.value })}
-                  placeholder="1000"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="wizard_tax_id">Matricule fiscal</Label>
-                <Input
-                  id="wizard_tax_id"
-                  value={settings.company_tax_id}
-                  onChange={(e) => setSettings({ ...settings, company_tax_id: e.target.value })}
-                  placeholder="XXXXXXX/X/X/XXX"
-                />
-              </div>
-            </div>
-          </div>
-        )}
-        
-        {setupStep === 2 && (
-          <div className="space-y-4">
-            {/* Invoice format fields for wizard */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="wizard_padding">Nombre de chiffres</Label>
-                <Select
-                  value={String(settings.invoice_number_padding)}
-                  onValueChange={(value) => setSettings({ ...settings, invoice_number_padding: Number(value) })}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="3">3 (001)</SelectItem>
-                    <SelectItem value="4">4 (0001)</SelectItem>
-                    <SelectItem value="5">5 (00001)</SelectItem>
-                    <SelectItem value="6">6 (000001)</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="wizard_format">Modèle</Label>
-                <Select
-                  value={settings.invoice_format}
-                  onValueChange={(value) => setSettings({ ...settings, invoice_format: value })}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                      <SelectItem value="{prefix}-{year}-{number}">type_doc-année-numéro</SelectItem>
-                      <SelectItem value="{year}-{month}-{number}">année-mois-numéro</SelectItem>
-                      <SelectItem value="{year}-{number}">année-numéro</SelectItem>
-                      <SelectItem value="{number}">numéro</SelectItem>
-                      <SelectItem value="{year} {number}">année numéro</SelectItem>
-                      <SelectItem value="{prefix}-{number}">type_doc-numéro</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="wizard_currency">Devise par défaut</Label>
-              <Select
-                value={settings.default_currency}
-                onValueChange={(value) => setSettings({ ...settings, default_currency: value })}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Sélectionner une devise" />
-                </SelectTrigger>
-                <SelectContent>
-                  {Object.entries(currencies).map(([code, info]) => (
-                    <SelectItem key={code} value={code}>
-                      {info.symbol} - {info.name.charAt(0).toUpperCase() + info.name.slice(1)} ({code})
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="p-4 bg-primary/10 rounded-lg">
-              <Label className="text-muted-foreground">Aperçu de la prochaine facture</Label>
-              <p className="text-2xl font-mono font-bold mt-2">{getInvoicePreview()}</p>
-            </div>
-          </div>
-        )}
-        
-        {setupStep === 3 && (
-          <div className="space-y-4">
-            {/* VAT settings for wizard */}
-            <div className="space-y-2">
-              <Label>Taux TVA par défaut</Label>
-              <Select
-                value={String(settings.default_vat_rate)}
-                onValueChange={(value) => setSettings({ ...settings, default_vat_rate: Number(value) })}
-              >
-                <SelectTrigger className="w-full md:w-[300px]">
-                  <SelectValue placeholder="Sélectionner un taux" />
-                </SelectTrigger>
-                <SelectContent>
-                  {settings.vat_rates.map((vat) => (
-                    <SelectItem key={vat.rate} value={String(vat.rate)}>
-                      {vat.label} ({vat.rate}%)
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label>Taux disponibles</Label>
-              <div className="grid grid-cols-2 gap-2">
-                {settings.vat_rates.map((vat) => (
-                  <div key={vat.rate} className="p-3 bg-primary/10 rounded-lg flex justify-between items-center">
-                    <span>{vat.rate}% - {vat.label}</span>
-                  </div>
-                ))}
-              </div>
-              <p className="text-sm text-muted-foreground">
-                Vous pourrez ajouter ou modifier les taux TVA après la configuration initiale.
-              </p>
-            </div>
-          </div>
-        )}
-      </SetupWizard>
-    );
-  }
-
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-foreground">Paramètres</h1>
-          <p className="text-muted-foreground">Configuration de votre entreprise et facturation</p>
+          <h1 className="text-3xl font-bold text-foreground">{showSetupWizard ? 'Configuration initiale' : 'Paramètres'}</h1>
+          <p className="text-muted-foreground">
+            {showSetupWizard ? 'Configurez votre entreprise pour commencer' : 'Configuration de votre entreprise et facturation'}
+          </p>
         </div>
-        <Button onClick={() => saveSettings()} disabled={saving}>
-          <Save className="h-4 w-4 mr-2" />
-          {saving ? 'Enregistrement...' : 'Enregistrer'}
-        </Button>
+        {showSetupWizard ? (
+          <Button onClick={handleCompleteSetup} disabled={saving}>
+            <Check className="h-4 w-4 mr-2" />
+            Terminer
+          </Button>
+        ) : (
+          <Button onClick={() => saveSettings()} disabled={saving}>
+            <Save className="h-4 w-4 mr-2" />
+            {saving ? 'Enregistrement...' : 'Enregistrer'}
+          </Button>
+        )}
       </div>
 
       <Tabs defaultValue={defaultTab} className="space-y-4">
