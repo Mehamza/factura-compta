@@ -342,19 +342,48 @@ export default function DocumentEditPage({ kind }: { kind: DocumentKind }) {
       delete next[index];
       return next;
     });
+
+    // Detach from stock product on manual mode.
+    setItems(prev => {
+      const next = [...prev];
+      if (!next[index]) return prev;
+      next[index] = { ...next[index], product_id: null };
+      return next;
+    });
+  };
+
+  const handleModeChange = (index: number, mode: 'stock' | 'manual') => {
+    if (mode === 'manual') {
+      handleManualEntry(index);
+      return;
+    }
+
+    setManualLines(prev => ({ ...prev, [index]: false }));
   };
 
   const handleReferenceChange = (index: number, text: string) => {
     handleUpdateItem(index, 'reference', text);
-    setManualLines(prev => ({ ...prev, [index]: true }));
+
+    const isManual = Boolean(manualLines[index]);
+    if (isManual) return;
+
+    // Stock mode: typing means “search/change product”, so detach existing product selection.
     setItemProductMap(prev => {
+      if (!prev[index]) return prev;
       const newMap = { ...prev };
       delete newMap[index];
       return newMap;
     });
     setItemProductMeta(prev => {
+      if (!prev[index]) return prev;
       const next = { ...prev };
       delete next[index];
+      return next;
+    });
+    setItems(prev => {
+      const next = [...prev];
+      if (!next[index]) return prev;
+      next[index] = { ...next[index], product_id: null };
       return next;
     });
   };
@@ -644,9 +673,11 @@ export default function DocumentEditPage({ kind }: { kind: DocumentKind }) {
             <InvoiceItemsTable
               items={items}
               itemProductMap={itemProductMap}
+              manualLines={manualLines}
               maxQuantityMap={maxQuantityMap}
               priceType={priceType}
               defaultVatRate={defaultVatRate}
+              onModeChange={handleModeChange}
               onProductSelect={handleProductSelect}
               onReferenceChange={handleReferenceChange}
               onUpdateItem={handleUpdateItem}

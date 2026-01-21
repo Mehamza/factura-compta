@@ -6,9 +6,11 @@ import type { InvoiceItem, Product } from './types';
 interface InvoiceItemsTableProps {
   items: InvoiceItem[];
   itemProductMap: Record<number, string>;
+  manualLines: Record<number, boolean>;
   maxQuantityMap?: Record<number, number>;
   priceType: 'sale' | 'purchase';
   defaultVatRate: number;
+  onModeChange: (index: number, mode: 'stock' | 'manual') => void;
   onProductSelect: (index: number, product: Product) => void;
   onReferenceChange: (index: number, text: string) => void;
   onUpdateItem: (index: number, field: keyof InvoiceItem, value: string | number | boolean) => void;
@@ -19,9 +21,11 @@ interface InvoiceItemsTableProps {
 export function InvoiceItemsTable({
   items,
   itemProductMap,
+  manualLines,
   maxQuantityMap,
   priceType,
   defaultVatRate,
+  onModeChange,
   onProductSelect,
   onReferenceChange,
   onUpdateItem,
@@ -40,8 +44,9 @@ export function InvoiceItemsTable({
 
       {/* Header row - hidden on mobile */}
       <div className="hidden md:grid grid-cols-12 gap-2 text-xs font-medium text-muted-foreground px-3">
+        <div className="col-span-1">Mode</div>
         <div className="col-span-3">Produit / Réf.</div>
-        <div className="col-span-3">Description</div>
+        <div className="col-span-2">Description</div>
         <div className="col-span-1">Qté</div>
         <div className="col-span-1">P.U. HT</div>
         <div className="col-span-1">TVA %</div>
@@ -58,9 +63,11 @@ export function InvoiceItemsTable({
             item={item}
             index={index}
             productId={itemProductMap[index]}
+            isManual={Boolean(manualLines[index])}
             maxQuantity={maxQuantityMap?.[index]}
             priceType={priceType}
             defaultVatRate={defaultVatRate}
+            onModeChange={onModeChange}
             onProductSelect={onProductSelect}
             onReferenceChange={onReferenceChange}
             onUpdate={onUpdateItem}

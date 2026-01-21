@@ -81,7 +81,7 @@ export default function DocumentNewPage({ kind }: { kind: DocumentKind }) {
   ]);
   const [itemProductMap, setItemProductMap] = useState<Record<number, string>>({});
   const [itemProductMeta, setItemProductMeta] = useState<Record<number, { purchasePrice: number; stock: number }>>({});
-  const [manualLines, setManualLines] = useState<Record<number, boolean>>({ 0: true });
+  const [manualLines, setManualLines] = useState<Record<number, boolean>>({ 0: false });
 
   const priceType = config.module === 'achats' ? 'purchase' : 'sale';
 
@@ -293,20 +293,53 @@ export default function DocumentNewPage({ kind }: { kind: DocumentKind }) {
       delete next[index];
       return next;
     });
+
+    // Detach from stock product on manual mode.
+    setItems(prev => {
+      const next = [...prev];
+      if (!next[index]) return prev;
+      next[index] = { ...next[index], product_id: null };
+      return next;
+    });
+  };
+
+  const handleModeChange = (index: number, mode: 'stock' | 'manual') => {
+    if (mode === 'manual') {
+      handleManualEntry(index);
+      return;
+    }
+
+    // Stock mode: keep current typed text, but ensure we are not considered manual.
+    setManualLines(prev => ({ ...prev, [index]: false }));
+    // If a product was previously selected, keep it until user changes it.
   };
 
   const handleReferenceChange = (index: number, text: string) => {
-    // Treat typing as manual entry (but still allow selecting product from suggestions)
     handleUpdateItem(index, 'reference', text);
-    setManualLines(prev => ({ ...prev, [index]: true }));
+
+    const isManual = Boolean(manualLines[index]);
+    if (isManual) {
+      // Manual mode: keep as-is.
+      return;
+    }
+
+    // Stock mode: typing means “search/change product”, so detach existing product selection.
     setItemProductMap(prev => {
+      if (!prev[index]) return prev;
       const newMap = { ...prev };
       delete newMap[index];
       return newMap;
     });
     setItemProductMeta(prev => {
+      if (!prev[index]) return prev;
       const next = { ...prev };
       delete next[index];
+      return next;
+    });
+    setItems(prev => {
+      const next = [...prev];
+      if (!next[index]) return prev;
+      next[index] = { ...next[index], product_id: null };
       return next;
     });
   };
@@ -602,9 +635,11 @@ export default function DocumentNewPage({ kind }: { kind: DocumentKind }) {
             <InvoiceItemsTable
               items={items}
               itemProductMap={itemProductMap}
+              manualLines={manualLines}
               maxQuantityMap={maxQuantityMap}
               priceType={priceType}
               defaultVatRate={defaultVatRate}
+              onModeChange={handleModeChange}
               onProductSelect={handleProductSelect}
               onReferenceChange={handleReferenceChange}
               onUpdateItem={handleUpdateItem}

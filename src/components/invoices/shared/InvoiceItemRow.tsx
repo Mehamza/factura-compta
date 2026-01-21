@@ -9,9 +9,11 @@ interface InvoiceItemRowProps {
   item: InvoiceItem;
   index: number;
   productId?: string;
+  isManual: boolean;
   maxQuantity?: number;
   priceType: 'sale' | 'purchase';
   defaultVatRate: number;
+  onModeChange: (index: number, mode: 'stock' | 'manual') => void;
   onProductSelect: (index: number, product: Product) => void;
   onReferenceChange: (index: number, text: string) => void;
   onUpdate: (index: number, field: keyof InvoiceItem, value: string | number | boolean) => void;
@@ -23,9 +25,11 @@ export function InvoiceItemRow({
   item,
   index,
   productId,
+  isManual,
   maxQuantity,
   priceType,
   defaultVatRate,
+  onModeChange,
   onProductSelect,
   onReferenceChange,
   onUpdate,
@@ -38,19 +42,55 @@ export function InvoiceItemRow({
 
   return (
     <div className="grid grid-cols-12 gap-2 items-start p-3 border rounded-lg bg-card">
+      {/* Mode */}
+      <div className="col-span-12 md:col-span-1">
+        <div className="flex gap-2 md:flex-col md:gap-1">
+          <Button
+            type="button"
+            size="sm"
+            variant={!isManual ? 'secondary' : 'outline'}
+            className="h-10 md:h-[19px] px-3 md:px-0 md:w-12"
+            onClick={() => onModeChange(index, 'stock')}
+            title="Stock"
+          >
+            <span className="md:hidden">Stock</span>
+            <span className="hidden md:inline">Stock</span>
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant={isManual ? 'secondary' : 'outline'}
+            className="h-10 md:h-[19px] px-3 md:px-0 md:w-12"
+            onClick={() => onModeChange(index, 'manual')}
+            title="Manuel"
+          >
+            <span className="md:hidden">Manuel</span>
+            <span className="hidden md:inline">Manuel</span>
+          </Button>
+        </div>
+      </div>
+
       {/* Product / Ref (autocomplete + manual typing) */}
       <div className="col-span-12 md:col-span-3">
-        <ProductRefAutocomplete
-          value={item.reference}
-          selectedProductId={productId}
-          onChangeText={(text) => onReferenceChange(index, text)}
-          onSelectProduct={handleProductChange}
-          priceType={priceType}
-        />
+        {isManual ? (
+          <Input
+            placeholder="Produit / Service"
+            value={item.reference}
+            onChange={(e) => onReferenceChange(index, e.target.value)}
+          />
+        ) : (
+          <ProductRefAutocomplete
+            value={item.reference}
+            selectedProductId={productId}
+            onChangeText={(text) => onReferenceChange(index, text)}
+            onSelectProduct={handleProductChange}
+            priceType={priceType}
+          />
+        )}
       </div>
 
       {/* Description */}
-      <div className="col-span-12 md:col-span-3">
+      <div className="col-span-12 md:col-span-2">
         <Input
           placeholder="Description"
           value={item.description}
