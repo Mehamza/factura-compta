@@ -85,12 +85,23 @@ export const templateDescriptions: Record<TemplateType, string> = {
 
 // Helper to extract company initials for fallback logo
 function getCompanyInitials(companyName: string): string {
-  if (!companyName) return 'CO';
-  const words = companyName.trim().split(/\s+/);
+  const raw = String(companyName ?? '').trim();
+  if (!raw) return 'CO';
+
+  // Use the first letter of the first two words.
+  // Fallback: if only one word, use its first two characters.
+  const words = raw
+    .split(/\s+/)
+    .map(w => w.replace(/[^0-9a-zA-Z]/g, ''))
+    .filter(Boolean);
+
   if (words.length >= 2) {
-    return (words[0][0] + words[1][0]).toUpperCase();
+    return ((words[0][0] || '') + (words[1][0] || '')).toUpperCase() || 'CO';
   }
-  return companyName.substring(0, 2).toUpperCase();
+
+  const one = (words[0] || raw).replace(/[^0-9a-zA-Z]/g, '');
+  const two = (one || 'CO').substring(0, 2);
+  return two.toUpperCase();
 }
 
 // Map common Tunisian banks to their usual abbreviations
@@ -195,6 +206,33 @@ function getThemeMutedRgb(fallback: [number, number, number] = [240, 240, 240]):
   return hslToRgb(h, clamp01(s), clamp01(l));
 }
 
+function getThemePrimaryRgb(fallback: [number, number, number] = [37, 99, 235]): [number, number, number] {
+  // shadcn/ui uses: bg-primary => hsl(var(--primary))
+  if (typeof window === 'undefined' || typeof document === 'undefined') return fallback;
+
+  const raw = getComputedStyle(document.documentElement).getPropertyValue('--primary').trim();
+  if (!raw) return fallback;
+
+  const normalized = raw.replace(/^hsl\(|\)$/g, '').trim();
+  const rgbMatch = normalized.match(/rgb\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*\)/i);
+  if (rgbMatch) {
+    return [
+      Number(rgbMatch[1]) || fallback[0],
+      Number(rgbMatch[2]) || fallback[1],
+      Number(rgbMatch[3]) || fallback[2],
+    ];
+  }
+
+  const parts = normalized.split(/[\s,]+/).filter(Boolean);
+  if (parts.length < 3) return fallback;
+
+  const h = Number(parts[0]);
+  const s = Number(parts[1].replace('%', '')) / 100;
+  const l = Number(parts[2].replace('%', '')) / 100;
+  if (!Number.isFinite(h) || !Number.isFinite(s) || !Number.isFinite(l)) return fallback;
+  return hslToRgb(h, clamp01(s), clamp01(l));
+}
+
 // Draw fallback logo with initials
 function drawFallbackLogo(
   doc: jsPDF,
@@ -208,8 +246,9 @@ function drawFallbackLogo(
   const rectY = y;
   const rectW = size;
   const rectH = size;
-  // Draw rectangle background (professional blue)
-  doc.setFillColor(37, 99, 235); // #2563eb
+  // Draw rectangle background using app primary color (fallback to #2563eb)
+  const [pr, pg, pb] = getThemePrimaryRgb([37, 99, 235]);
+  doc.setFillColor(pr, pg, pb);
   doc.rect(rectX, rectY, rectW, rectH, 'F');
 
   // Draw initials in white, centered
@@ -217,11 +256,33 @@ function drawFallbackLogo(
   const centerY = rectY + rectH / 2;
   doc.setTextColor(255, 255, 255);
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(size * 0.45);
-  doc.text(initials, centerX, centerY + size * 0.15, { align: 'center' });
+  // Make initials fill the logo height, then shrink if too wide.
+  let fontSize = size * 1.05;
+  doc.setFontSize(fontSize);
+  const maxWidth = size * 0.96;
+  const currentWidth = doc.getTextWidth(initials) || 1;
+  if (currentWidth > maxWidth) {
+    fontSize = fontSize * (maxWidth / currentWidth);
+    doc.setFontSize(fontSize);
+  }
+  // jsPDF uses baseline Y; this offset keeps large letters visually centered.
+  doc.text(initials, centerX, rectY + rectH * 0.72, { align: 'center' });
   
   // Reset text color
   doc.setTextColor(0, 0, 0);
+}
+
+type InvoicePdfOutput = {
+  output?: 'save' | 'blob';
+  fileName?: string;
+};
+
+function finalizeInvoicePdf(doc: jsPDF, invoiceNumber: string, options?: InvoicePdfOutput): Blob | void {
+  const fileName = options?.fileName || `facture-${invoiceNumber}.pdf`;
+  if (options?.output === 'blob') {
+    return doc.output('blob');
+  }
+  doc.save(fileName);
 }
 
 // Draw company logo (loads image or uses fallback)
@@ -268,6 +329,7 @@ async function drawProfessionalHeader(
   pageWidth: number, 
   company: InvoiceTemplateData['company'],
   title: string,
+  headerDate: string | undefined,
   margin: number = 20
 ): Promise<number> {
   const headerY = 10;
@@ -317,14 +379,11 @@ async function drawProfessionalHeader(
       y += 5;
     }
     // Show first bank RIB if available
-    console.log('Drawing header - bank_accounts:', company.bank_accounts);
     if (company.bank_accounts && company.bank_accounts.length > 0) {
       const b = company.bank_accounts[0];
-      console.log('First bank account:', b);
       if (b && (b.rib || b.bank)) {
         const prefix = getBankPrefix(b.bank || '');
         const ribText = prefix ? `RIB: ${prefix} : ${b.rib}` : `RIB: ${b.bank || ''} : ${b.rib || ''}`;
-        console.log('RIB text:', ribText);
         doc.text(ribText, textX, y);
         y += 5;
       }
@@ -340,8 +399,8 @@ async function drawProfessionalHeader(
   doc.setFontSize(10);
   doc.setFont('helvetica', 'normal');
   doc.setTextColor(0, 0, 0);
-  const currentDate = new Date().toLocaleDateString('fr-FR');
-  doc.text(`Le ${currentDate}`, pageWidth - margin, headerY + 6, { align: 'right' });
+  const dateToShow = headerDate ? new Date(headerDate).toLocaleDateString('fr-FR') : new Date().toLocaleDateString('fr-FR');
+  doc.text(`Le ${dateToShow}`, pageWidth - margin, headerY + 6, { align: 'right' });
   
   return Math.max(y + 4, 40);
 }
@@ -603,7 +662,7 @@ function loadImage(url: string): Promise<string> {
 }
 
 // Template Classique
-export async function generateClassicPDF(invoice: InvoiceTemplateData, items: InvoiceItem[]): Promise<void> {
+export async function generateClassicPDF(invoice: InvoiceTemplateData, items: InvoiceItem[], options?: InvoicePdfOutput): Promise<Blob | void> {
   const doc = new jsPDF();
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
@@ -612,7 +671,7 @@ export async function generateClassicPDF(invoice: InvoiceTemplateData, items: In
   const currency = currencies[invoice.currency] || currencies.TND;
   
   // Professional header
-  let y = await drawProfessionalHeader(doc, pageWidth, invoice.company, invoice.document_title || 'FACTURE', margin);
+  let y = await drawProfessionalHeader(doc, pageWidth, invoice.company, invoice.document_title || 'FACTURE', invoice.issue_date, margin);
   
   // Invoice info box
   y = drawInvoiceInfoBox(doc, pageWidth, y, invoice, margin);
@@ -752,11 +811,11 @@ export async function generateClassicPDF(invoice: InvoiceTemplateData, items: In
   // Professional footer
   await drawProfessionalFooter(doc, pageWidth, pageHeight, 1, invoice.company, margin);
   
-  doc.save(`facture-${invoice.invoice_number}.pdf`);
+  return finalizeInvoicePdf(doc, invoice.invoice_number, options);
 }
 
 // Template Moderne
-export async function generateModernPDF(invoice: InvoiceTemplateData, items: InvoiceItem[]): Promise<void> {
+export async function generateModernPDF(invoice: InvoiceTemplateData, items: InvoiceItem[], options?: InvoicePdfOutput): Promise<Blob | void> {
   const doc = new jsPDF();
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
@@ -764,7 +823,7 @@ export async function generateModernPDF(invoice: InvoiceTemplateData, items: Inv
   const contentWidth = pageWidth - margin * 2;
   
   // Professional header
-  let y = await drawProfessionalHeader(doc, pageWidth, invoice.company, invoice.document_title || 'FACTURE', margin);
+  let y = await drawProfessionalHeader(doc, pageWidth, invoice.company, invoice.document_title || 'FACTURE', invoice.issue_date, margin);
   
   // Invoice info box
   y = drawInvoiceInfoBox(doc, pageWidth, y, invoice, margin);
@@ -889,18 +948,18 @@ export async function generateModernPDF(invoice: InvoiceTemplateData, items: Inv
   // Professional footer
   await drawProfessionalFooter(doc, pageWidth, pageHeight, 1, invoice.company, margin);
   
-  doc.save(`facture-${invoice.invoice_number}.pdf`);
+  return finalizeInvoicePdf(doc, invoice.invoice_number, options);
 }
 
 // Template Minimaliste
-export async function generateMinimalPDF(invoice: InvoiceTemplateData, items: InvoiceItem[]): Promise<void> {
+export async function generateMinimalPDF(invoice: InvoiceTemplateData, items: InvoiceItem[], options?: InvoicePdfOutput): Promise<Blob | void> {
   const doc = new jsPDF();
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
   const margin = 12;
   
   // Professional header
-  let y = await drawProfessionalHeader(doc, pageWidth, invoice.company, invoice.document_title || 'FACTURE', margin);
+  let y = await drawProfessionalHeader(doc, pageWidth, invoice.company, invoice.document_title || 'FACTURE', invoice.issue_date, margin);
   
   // Invoice info box
   y = drawInvoiceInfoBox(doc, pageWidth, y, invoice, margin);
@@ -1022,24 +1081,22 @@ export async function generateMinimalPDF(invoice: InvoiceTemplateData, items: In
   // Professional footer
   await drawProfessionalFooter(doc, pageWidth, pageHeight, 1, invoice.company, margin);
   
-  doc.save(`facture-${invoice.invoice_number}.pdf`);
+  return finalizeInvoicePdf(doc, invoice.invoice_number, options);
 }
 
 // Main function to generate PDF based on template
 export async function generateInvoiceWithTemplate(
   invoice: InvoiceTemplateData,
-  items: InvoiceItem[]
-): Promise<void> {
+  items: InvoiceItem[],
+  options?: InvoicePdfOutput
+): Promise<Blob | void> {
   switch (invoice.template_type) {
     case 'modern':
-      await generateModernPDF(invoice, items);
-      break;
+      return await generateModernPDF(invoice, items, options);
     case 'minimal':
-      await generateMinimalPDF(invoice, items);
-      break;
+      return await generateMinimalPDF(invoice, items, options);
     case 'classic':
     default:
-      await generateClassicPDF(invoice, items);
-      break;
+      return await generateClassicPDF(invoice, items, options);
   }
 }

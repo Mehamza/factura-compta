@@ -1,36 +1,97 @@
 
+export type OpenPdfForPrintOptions = {
+  /**
+   * If provided (and not blocked by popup blockers), the PDF is rendered in this window.
+   * This is the most reliable approach when printing is triggered after async work.
+   */
+  preOpenedWindow?: Window | null;
+  /**
+   * Whether to attempt printing automatically (some browsers may block this).
+   * Defaults to true.
+   */
+  autoPrint?: boolean;
+};
+
 /**
- * Print a PDF Blob by loading it in a hidden iframe and triggering the native print dialog.
- * - No file download is triggered.
- * - Works in Chrome, Edge, Firefox.
- * - Ensures window.print() is called only after PDF is fully loaded.
- * - Keeps invoice design/layout unchanged.
- * - No visible reloads or blank pages.
+ * Print a PDF Blob by rendering it and triggering the native print dialog.
+ * - If `preOpenedWindow` is provided: renders PDF in that window (best for popup policies).
+ * - Otherwise: falls back to a hidden iframe.
  */
-export async function openPdfForPrint(blob: Blob) {
+export async function openPdfForPrint(blob: Blob, options?: OpenPdfForPrintOptions) {
   const url = URL.createObjectURL(blob);
-  // Create a hidden iframe to load the PDF
+  const autoPrint = options?.autoPrint !== false;
+
+  const scheduleRevoke = () => {
+    // Do not revoke too early: some browsers need the blob URL alive while the print dialog is open.
+    window.setTimeout(() => {
+      URL.revokeObjectURL(url);
+    }, 2 * 60 * 1000);
+  };
+
+  // Preferred: use a pre-opened window to avoid popup blockers/user-gesture loss.
+  if (options?.preOpenedWindow && !options.preOpenedWindow.closed) {
+    const w = options.preOpenedWindow;
+    try {
+      w.document.title = 'Impression PDF';
+      w.document.body.style.margin = '0';
+      w.document.body.innerHTML = `
+        <iframe id="__pdf" src="${url}" style="border:0;width:100%;height:100vh;"></iframe>
+      `;
+      const frame = w.document.getElementById('__pdf') as HTMLIFrameElement | null;
+
+      await new Promise<void>((resolve) => {
+        if (!frame) return resolve();
+        frame.onload = () => resolve();
+        // Safety: don't hang forever if the browser doesn't fire onload for PDF
+        window.setTimeout(() => resolve(), 2500);
+      });
+
+      if (autoPrint) {
+        // Small delay improves reliability (PDF viewer initialization).
+        await new Promise<void>((resolve) => window.setTimeout(() => resolve(), 250));
+        // Print the PDF iframe itself (more reliable than printing the wrapper window).
+        if (frame?.contentWindow) {
+          frame.contentWindow.focus();
+          frame.contentWindow.print();
+        } else {
+          w.focus();
+          w.print();
+        }
+      }
+
+      scheduleRevoke();
+      return;
+    } catch {
+      // Fall back to iframe method below.
+    }
+  }
+
+  // Fallback: hidden iframe in the current window.
   const iframe = document.createElement('iframe');
   iframe.style.position = 'fixed';
-  iframe.style.right = '0';
-  iframe.style.bottom = '0';
-  iframe.style.width = '0';
-  iframe.style.height = '0';
-  iframe.style.border = 'none';
+  iframe.style.left = '-10000px';
+  iframe.style.top = '0';
+  iframe.style.width = '1px';
+  iframe.style.height = '1px';
+  iframe.style.opacity = '0';
+  iframe.style.border = '0';
   iframe.src = url;
   document.body.appendChild(iframe);
 
-  // Wait for the PDF to fully load before printing
-  iframe.onload = () => {
-    // Focus the iframe's window and call print
-    if (iframe.contentWindow) {
-      iframe.contentWindow.focus();
-      iframe.contentWindow.print();
-    }
-    // Clean up after printing
-    setTimeout(() => {
-      document.body.removeChild(iframe);
-      URL.revokeObjectURL(url);
-    }, 1000);
-  };
+  await new Promise<void>((resolve) => {
+    iframe.onload = () => resolve();
+    window.setTimeout(() => resolve(), 2500);
+  });
+
+  if (autoPrint && iframe.contentWindow) {
+    await new Promise<void>((resolve) => window.setTimeout(() => resolve(), 250));
+    iframe.contentWindow.focus();
+    iframe.contentWindow.print();
+  }
+
+  // Cleanup iframe, but keep blob URL around for a bit.
+  window.setTimeout(() => {
+    if (iframe.parentNode) iframe.parentNode.removeChild(iframe);
+  }, 10_000);
+  scheduleRevoke();
 }

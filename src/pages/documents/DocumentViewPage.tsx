@@ -10,6 +10,7 @@ import { getDocumentTypeConfig, documentTypeConfig, documentKindToRoute } from '
 import { StatusBadge } from '@/components/invoices/shared';
 import { calculateTotals, type InvoiceItem, STAMP_AMOUNT } from '@/components/invoices/shared/types';
 import { generateInvoiceWithTemplate, type InvoiceTemplateData, type InvoiceItem as PDFInvoiceItem } from '@/lib/invoiceTemplates';
+import { openPdfForPrint } from '@/lib/print';
 import { ArrowLeft, Pencil, Printer, Download, ArrowRight } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -58,133 +59,151 @@ export default function DocumentViewPage({ kind }: { kind: DocumentKind }) {
     }
   };
 
-  const handleGeneratePDF = async () => {
+  const buildPdfPayload = async () => {
     if (!invoice || !companySettings) {
-      toast({ variant: 'destructive', title: 'Erreur', description: 'Données manquantes pour générer le PDF' });
-      return;
+      throw new Error('Données manquantes pour générer le PDF');
     }
 
+    const createdByUserId = (invoice as any).created_by_user_id || invoice.user_id;
+    const { data: createdByProfile } = await supabase
+      .from('profiles')
+      .select('full_name')
+      .eq('user_id', createdByUserId)
+      .maybeSingle();
+
+    const invoiceItems: InvoiceItem[] = items.map(item => ({
+      id: item.id,
+      reference: item.reference || '',
+      description: item.description,
+      quantity: item.quantity,
+      unit_price: item.unit_price,
+      vat_rate: item.vat_rate || 0,
+      vat_amount: item.vat_amount || 0,
+      fodec_applicable: item.fodec_applicable,
+      fodec_rate: item.fodec_rate,
+      fodec_amount: item.fodec_amount || 0,
+      total: item.total,
+    }));
+
+    const stampIncluded = invoice.stamp_included ?? false;
+    const discount = {
+      type: (invoice.discount_type as 'percent' | 'fixed') || 'percent',
+      value: Number(invoice.discount_value) || 0,
+    };
+    const totals = calculateTotals(invoiceItems, stampIncluded, discount);
+
+    const pdfData: InvoiceTemplateData = {
+      invoice_number: invoice.invoice_number,
+      issue_date: invoice.issue_date,
+      due_date: invoice.due_date || invoice.issue_date,
+      subtotal: totals.subtotal,
+      tax_rate: invoice.tax_rate || 19,
+      tax_amount: totals.taxAmount,
+      total: totals.total,
+      fodec_amount_total: totals.totalFodec,
+      base_tva: totals.baseTVA,
+      stamp_included: stampIncluded,
+      stamp_amount: stampIncluded ? STAMP_AMOUNT : 0,
+      discount_amount: totals.discountAmount,
+      discount_type: discount.type,
+      discount_value: discount.value,
+      notes: invoice.notes,
+      currency: invoice.currency || 'TND',
+      template_type: invoice.template_type || 'classic',
+      document_title: docConfig.label.toUpperCase(),
+      party_type: invoice.suppliers ? 'fournisseur' : 'client',
+      created_by: {
+        name: createdByProfile?.full_name || undefined,
+        created_at: invoice.created_at || undefined,
+      },
+      client: invoice.clients ? {
+        id: invoice.clients.id,
+        name: invoice.clients.name,
+        address: invoice.clients.address,
+        city: invoice.clients.city,
+        postal_code: invoice.clients.postal_code,
+        phone: invoice.clients.phone,
+        email: invoice.clients.email,
+        siret: invoice.clients.siret,
+        vat_number: invoice.clients.vat_number,
+      } : invoice.suppliers ? {
+        id: invoice.suppliers.id,
+        name: invoice.suppliers.name,
+        address: invoice.suppliers.address,
+        city: invoice.suppliers.city,
+        postal_code: invoice.suppliers.postal_code,
+        phone: invoice.suppliers.phone,
+        email: invoice.suppliers.email,
+        siret: invoice.suppliers.siret,
+        vat_number: invoice.suppliers.vat_number,
+      } : undefined,
+      company: {
+        name: companySettings.legal_name || companySettings.company_name || '',
+        address: companySettings.address || companySettings.company_address || '',
+        city: companySettings.city || companySettings.company_city || '',
+        postal_code: companySettings.postal_code || companySettings.company_postal_code || '',
+        country: companySettings.company_country || '',
+        phone: companySettings.phone || companySettings.company_phone || '',
+        email: companySettings.email || companySettings.company_email || '',
+        vat_number: companySettings.company_vat_number || '',
+        tax_id: companySettings.company_tax_id || companySettings.matricule_fiscale || '',
+        trade_register: companySettings.company_trade_register || '',
+        logo_url: companySettings.logo_url || companySettings.company_logo_url || '',
+        activity: companySettings.activity || '',
+        signature_url: companySettings.signature_url || '',
+        stamp_url: companySettings.stamp_url || '',
+        bank_accounts: companySettings.bank_accounts || [],
+      },
+    };
+
+    const pdfItems: PDFInvoiceItem[] = items.map(item => ({
+      reference: item.reference || '',
+      description: item.description,
+      quantity: item.quantity,
+      unit_price: item.unit_price,
+      vat_rate: item.vat_rate,
+      vat_amount: item.vat_amount,
+      fodec_applicable: item.fodec_applicable,
+      fodec_rate: item.fodec_rate,
+      fodec_amount: item.fodec_amount,
+      total: item.total,
+    }));
+
+    return { pdfData, pdfItems };
+  };
+
+  const handleGeneratePDF = async () => {
     setGenerating(true);
     try {
-      const createdByUserId = (invoice as any).created_by_user_id || invoice.user_id;
-      const { data: createdByProfile } = await supabase
-        .from('profiles')
-        .select('full_name')
-        .eq('user_id', createdByUserId)
-        .maybeSingle();
-
-      const invoiceItems: InvoiceItem[] = items.map(item => ({
-        id: item.id,
-        reference: item.reference || '',
-        description: item.description,
-        quantity: item.quantity,
-        unit_price: item.unit_price,
-        vat_rate: item.vat_rate || 0,
-        vat_amount: item.vat_amount || 0,
-        fodec_applicable: item.fodec_applicable,
-        fodec_rate: item.fodec_rate,
-        fodec_amount: item.fodec_amount || 0,
-        total: item.total,
-      }));
-
-      const stampIncluded = invoice.stamp_included ?? false;
-      // Utiliser la remise stockée dans l'invoice
-      const discount = {
-        type: (invoice.discount_type as 'percent' | 'fixed') || 'percent',
-        value: Number(invoice.discount_value) || 0,
-      };
-      const totals = calculateTotals(invoiceItems, stampIncluded, discount);
-
-      const pdfData: InvoiceTemplateData = {
-        invoice_number: invoice.invoice_number,
-        issue_date: invoice.issue_date,
-        due_date: invoice.due_date || invoice.issue_date,
-        // Always use computed totals to keep PDF consistent with UI
-        subtotal: totals.subtotal,
-        tax_rate: invoice.tax_rate || 19,
-        tax_amount: totals.taxAmount,
-        total: totals.total,
-        fodec_amount_total: totals.totalFodec,
-        base_tva: totals.baseTVA,
-        stamp_included: stampIncluded,
-        stamp_amount: stampIncluded ? STAMP_AMOUNT : 0,
-        discount_amount: totals.discountAmount,
-        discount_type: discount.type,
-        discount_value: discount.value,
-        notes: invoice.notes,
-        currency: invoice.currency || 'TND',
-        template_type: invoice.template_type || 'classic',
-        document_title: docConfig.label.toUpperCase(),
-        party_type: invoice.suppliers ? 'fournisseur' : 'client',
-        created_by: {
-          name: createdByProfile?.full_name || undefined,
-          created_at: invoice.created_at || undefined,
-        },
-        client: invoice.clients ? {
-          id: invoice.clients.id,
-          name: invoice.clients.name,
-          address: invoice.clients.address,
-          city: invoice.clients.city,
-          postal_code: invoice.clients.postal_code,
-          phone: invoice.clients.phone,
-          email: invoice.clients.email,
-          siret: invoice.clients.siret,
-          vat_number: invoice.clients.vat_number,
-        } : invoice.suppliers ? {
-          id: invoice.suppliers.id,
-          name: invoice.suppliers.name,
-          address: invoice.suppliers.address,
-          city: invoice.suppliers.city,
-          postal_code: invoice.suppliers.postal_code,
-          phone: invoice.suppliers.phone,
-          email: invoice.suppliers.email,
-          siret: invoice.suppliers.siret,
-          vat_number: invoice.suppliers.vat_number,
-        } : undefined,
-        company: companySettings ? {
-          name: companySettings.legal_name || companySettings.company_name || '',
-          address: companySettings.address || companySettings.company_address || '',
-          city: companySettings.city || companySettings.company_city || '',
-          postal_code: companySettings.postal_code || companySettings.company_postal_code || '',
-          country: companySettings.company_country || '',
-          phone: companySettings.phone || companySettings.company_phone || '',
-          email: companySettings.email || companySettings.company_email || '',
-          vat_number: companySettings.company_vat_number || '',
-          tax_id: companySettings.company_tax_id || companySettings.matricule_fiscale || '',
-          trade_register: companySettings.company_trade_register || '',
-          logo_url: companySettings.logo_url || companySettings.company_logo_url || '',
-          activity: companySettings.activity || '',
-          signature_url: companySettings.signature_url || '',
-          stamp_url: companySettings.stamp_url || '',
-          bank_accounts: companySettings.bank_accounts || [],
-        } : undefined,
-      };
-
-      const pdfItems: PDFInvoiceItem[] = items.map(item => ({
-        reference: item.reference || '',
-        description: item.description,
-        quantity: item.quantity,
-        unit_price: item.unit_price,
-        vat_rate: item.vat_rate,
-        vat_amount: item.vat_amount,
-        fodec_applicable: item.fodec_applicable,
-        fodec_rate: item.fodec_rate,
-        fodec_amount: item.fodec_amount,
-        total: item.total,
-      }));
-
+      const { pdfData, pdfItems } = await buildPdfPayload();
       await generateInvoiceWithTemplate(pdfData, pdfItems);
       toast({ title: 'Succès', description: 'PDF généré avec succès' });
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error generating PDF:', error);
-      toast({ variant: 'destructive', title: 'Erreur', description: 'Erreur lors de la génération du PDF' });
+      toast({ variant: 'destructive', title: 'Erreur', description: error?.message || 'Erreur lors de la génération du PDF' });
     } finally {
       setGenerating(false);
     }
   };
 
-  const handlePrint = () => {
-    window.print();
+  const handlePrint = async () => {
+    // Open a window synchronously (before awaiting) to avoid popup blocking.
+    const printWindow = window.open('', '_blank');
+
+    setGenerating(true);
+    try {
+      const { pdfData, pdfItems } = await buildPdfPayload();
+      const blob = await generateInvoiceWithTemplate(pdfData, pdfItems, { output: 'blob' });
+      if (!(blob instanceof Blob)) {
+        throw new Error('Impossible de générer le PDF pour impression');
+      }
+      await openPdfForPrint(blob, { preOpenedWindow: printWindow });
+    } catch (error: any) {
+      console.error('Error printing PDF:', error);
+      toast({ variant: 'destructive', title: 'Erreur', description: error?.message || "Erreur lors de l'impression" });
+    } finally {
+      setGenerating(false);
+    }
   };
 
   if (loading) {
@@ -226,7 +245,7 @@ export default function DocumentViewPage({ kind }: { kind: DocumentKind }) {
           <p className="text-sm text-muted-foreground">{invoice.issue_date}</p>
         </div>
         <div className="flex gap-2 flex-wrap">
-          <Button variant="outline" size="sm" onClick={handlePrint}>
+          <Button variant="outline" size="sm" onClick={handlePrint} disabled={generating}>
             <Printer className="h-4 w-4 mr-2" /> Imprimer
           </Button>
           <Button variant="outline" size="sm" onClick={handleGeneratePDF} disabled={generating}>

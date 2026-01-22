@@ -24,12 +24,87 @@ interface CompanySettings {
 
 // Helper to extract company initials for fallback logo
 function getCompanyInitials(companyName: string): string {
-  if (!companyName) return 'CO';
-  const words = companyName.trim().split(/\s+/);
+  const raw = String(companyName ?? '').trim();
+  if (!raw) return 'CO';
+
+  const words = raw
+    .split(/\s+/)
+    .map(w => w.replace(/[^0-9a-zA-Z]/g, ''))
+    .filter(Boolean);
+
   if (words.length >= 2) {
-    return (words[0][0] + words[1][0]).toUpperCase();
+    return ((words[0][0] || '') + (words[1][0] || '')).toUpperCase() || 'CO';
   }
-  return companyName.substring(0, 2).toUpperCase();
+
+  const one = (words[0] || raw).replace(/[^0-9a-zA-Z]/g, '');
+  const two = (one || 'CO').substring(0, 2);
+  return two.toUpperCase();
+}
+
+function clamp01(value: number): number {
+  return Math.min(1, Math.max(0, value));
+}
+
+function hslToRgb(h: number, s: number, l: number): [number, number, number] {
+  const c = (1 - Math.abs(2 * l - 1)) * s;
+  const hp = ((h % 360) + 360) % 360 / 60;
+  const x = c * (1 - Math.abs((hp % 2) - 1));
+
+  let r1 = 0;
+  let g1 = 0;
+  let b1 = 0;
+
+  if (hp >= 0 && hp < 1) {
+    r1 = c;
+    g1 = x;
+  } else if (hp >= 1 && hp < 2) {
+    r1 = x;
+    g1 = c;
+  } else if (hp >= 2 && hp < 3) {
+    g1 = c;
+    b1 = x;
+  } else if (hp >= 3 && hp < 4) {
+    g1 = x;
+    b1 = c;
+  } else if (hp >= 4 && hp < 5) {
+    r1 = x;
+    b1 = c;
+  } else {
+    r1 = c;
+    b1 = x;
+  }
+
+  const m = l - c / 2;
+  return [
+    Math.round((r1 + m) * 255),
+    Math.round((g1 + m) * 255),
+    Math.round((b1 + m) * 255),
+  ];
+}
+
+function getThemePrimaryRgb(fallback: [number, number, number] = [37, 99, 235]): [number, number, number] {
+  if (typeof window === 'undefined' || typeof document === 'undefined') return fallback;
+  const raw = getComputedStyle(document.documentElement).getPropertyValue('--primary').trim();
+  if (!raw) return fallback;
+
+  const normalized = raw.replace(/^hsl\(|\)$/g, '').trim();
+  const rgbMatch = normalized.match(/rgb\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*\)/i);
+  if (rgbMatch) {
+    return [
+      Number(rgbMatch[1]) || fallback[0],
+      Number(rgbMatch[2]) || fallback[1],
+      Number(rgbMatch[3]) || fallback[2],
+    ];
+  }
+
+  const parts = normalized.split(/[\s,]+/).filter(Boolean);
+  if (parts.length < 3) return fallback;
+
+  const h = Number(parts[0]);
+  const s = Number(parts[1].replace('%', '')) / 100;
+  const l = Number(parts[2].replace('%', '')) / 100;
+  if (!Number.isFinite(h) || !Number.isFinite(s) || !Number.isFinite(l)) return fallback;
+  return hslToRgb(h, clamp01(s), clamp01(l));
 }
 
 // Draw fallback logo with initials
@@ -45,15 +120,23 @@ function drawFallbackLogo(
   const centerY = y + size / 2;
   const radius = size / 2;
   
-  // Draw circle background (professional blue)
-  doc.setFillColor(37, 99, 235); // #2563eb
+  // Draw circle background using app primary color (fallback to #2563eb)
+  const [pr, pg, pb] = getThemePrimaryRgb([37, 99, 235]);
+  doc.setFillColor(pr, pg, pb);
   doc.circle(centerX, centerY, radius, 'F');
   
   // Draw initials in white
   doc.setTextColor(255, 255, 255);
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(size * 0.45);
-  doc.text(initials, centerX, centerY + size * 0.15, { align: 'center' });
+  let fontSize = size * 0.9;
+  doc.setFontSize(fontSize);
+  const maxWidth = size * 0.82;
+  const currentWidth = doc.getTextWidth(initials) || 1;
+  if (currentWidth > maxWidth) {
+    fontSize = fontSize * (maxWidth / currentWidth);
+    doc.setFontSize(fontSize);
+  }
+  doc.text(initials, centerX, y + size * 0.68, { align: 'center' });
   
   // Reset text color
   doc.setTextColor(0, 0, 0);
