@@ -81,7 +81,7 @@ const defaultSettings: Omit<CompanySettings, 'id' | 'type' | 'is_configured'> = 
 };
 
 export default function Settings() {
-  const { user, activeCompanyId, setActiveCompany, loading: authLoading } = useAuth();
+  const { user, activeCompanyId, setActiveCompany, loading: authLoading, globalRole } = useAuth();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
@@ -187,6 +187,16 @@ export default function Settings() {
     // Wait for auth provider to resolve memberships/activeCompanyId.
     // Otherwise, we may incorrectly show the wizard and create duplicate companies.
     if (authLoading) return;
+
+    // Super-admins don't go through company onboarding unless they are in a company context.
+    if (globalRole === 'SUPER_ADMIN' && !activeCompanyId) {
+      setShowSetupWizard(false);
+      setLoading(false);
+      fetchProfile();
+      navigate('/hamzafacturation', { replace: true });
+      return;
+    }
+
     // If user has no company yet, initialize wizard with defaults.
     if (!activeCompanyId) {
       setSettings({
@@ -206,7 +216,7 @@ export default function Settings() {
 
     fetchSettings();
     fetchProfile();
-  }, [user, activeCompanyId, authLoading]);
+  }, [user, activeCompanyId, authLoading, globalRole, navigate]);
 
   const fetchProfile = async () => {
     const { data } = await supabase
