@@ -4,6 +4,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { PasswordInput } from '@/components/shared/PasswordInput';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
@@ -206,9 +207,8 @@ export default function Auth() {
             <form onSubmit={handleResetPassword} className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="reset-password">Nouveau mot de passe</Label>
-                <Input
+                <PasswordInput
                   id="reset-password"
-                  type="password"
                   placeholder="••••••••"
                   value={newPassword}
                   onChange={(e) => setNewPassword(e.target.value)}
@@ -217,9 +217,8 @@ export default function Auth() {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="reset-password-confirm">Confirmer le mot de passe</Label>
-                <Input
+                <PasswordInput
                   id="reset-password-confirm"
-                  type="password"
                   placeholder="••••••••"
                   value={resetConfirmPassword}
                   onChange={(e) => setResetConfirmPassword(e.target.value)}
@@ -258,9 +257,8 @@ export default function Auth() {
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="login-password">Mot de passe</Label>
-                  <Input
+                  <PasswordInput
                     id="login-password"
-                    type="password"
                     placeholder="••••••••"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
@@ -317,9 +315,8 @@ export default function Auth() {
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="register-password">Mot de passe</Label>
-                  <Input
+                  <PasswordInput
                     id="register-password"
-                    type="password"
                     placeholder="••••••••"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
@@ -329,9 +326,8 @@ export default function Auth() {
 
                 <div className="space-y-2">
                   <Label htmlFor="register-password-confirm">Confirmer le mot de passe</Label>
-                  <Input
+                  <PasswordInput
                     id="register-password-confirm"
-                    type="password"
                     placeholder="••••••••"
                     value={signUpConfirmPassword}
                     onChange={(e) => setSignUpConfirmPassword(e.target.value)}

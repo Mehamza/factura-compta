@@ -5,6 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { PasswordInput } from '@/components/shared/PasswordInput';
 import { Separator } from '@/components/ui/separator';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { toast } from 'sonner';
@@ -146,9 +147,8 @@ export default function AccountTab({ profile, onProfileUpdate }: AccountTabProps
           <div className="grid md:grid-cols-3 gap-4">
             <div className="space-y-2">
               <Label htmlFor="new_password">Nouveau mot de passe</Label>
-              <Input
+              <PasswordInput
                 id="new_password"
-                type="password"
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
                 placeholder="••••••••"
@@ -156,9 +156,8 @@ export default function AccountTab({ profile, onProfileUpdate }: AccountTabProps
             </div>
             <div className="space-y-2">
               <Label htmlFor="confirm_password">Confirmer le mot de passe</Label>
-              <Input
+              <PasswordInput
                 id="confirm_password"
-                type="password"
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 placeholder="••••••••"

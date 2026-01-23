@@ -11,6 +11,7 @@ import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { PasswordInput } from '@/components/shared/PasswordInput';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Pencil, Shield, Users as UsersIcon, Trash2 } from 'lucide-react';
@@ -388,7 +389,7 @@ export default function SettingsUsers() {
             </div>
             <div>
               <Label>Mot de passe initial</Label>
-              <Input type="password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} required />
+              <PasswordInput value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} required />
             </div>
 
             <div className="space-y-2">
