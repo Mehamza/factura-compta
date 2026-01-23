@@ -29,33 +29,22 @@ export async function openPdfForPrint(blob: Blob, options?: OpenPdfForPrintOptio
   };
 
   // Preferred: use a pre-opened window to avoid popup blockers/user-gesture loss.
+  // IMPORTANT: Do not attempt to call print() on an embedded PDF iframe's contentWindow.
+  // In Firefox the PDF viewer may be cross-origin, which throws a security error.
   if (options?.preOpenedWindow && !options.preOpenedWindow.closed) {
     const w = options.preOpenedWindow;
     try {
-      w.document.title = 'Impression PDF';
-      w.document.body.style.margin = '0';
-      w.document.body.innerHTML = `
-        <iframe id="__pdf" src="${url}" style="border:0;width:100%;height:100vh;"></iframe>
-      `;
-      const frame = w.document.getElementById('__pdf') as HTMLIFrameElement | null;
-
-      await new Promise<void>((resolve) => {
-        if (!frame) return resolve();
-        frame.onload = () => resolve();
-        // Safety: don't hang forever if the browser doesn't fire onload for PDF
-        window.setTimeout(() => resolve(), 2500);
-      });
+      // Navigate the window directly to the blob URL (best compatibility).
+      w.location.href = url;
 
       if (autoPrint) {
-        // Small delay improves reliability (PDF viewer initialization).
-        await new Promise<void>((resolve) => window.setTimeout(() => resolve(), 250));
-        // Print the PDF iframe itself (more reliable than printing the wrapper window).
-        if (frame?.contentWindow) {
-          frame.contentWindow.focus();
-          frame.contentWindow.print();
-        } else {
+        // Give the built-in PDF viewer time to initialize.
+        await new Promise<void>((resolve) => window.setTimeout(() => resolve(), 600));
+        try {
           w.focus();
           w.print();
+        } catch {
+          // If auto-print is blocked, keep the PDF window open for manual printing.
         }
       }
 
@@ -85,8 +74,14 @@ export async function openPdfForPrint(blob: Blob, options?: OpenPdfForPrintOptio
 
   if (autoPrint && iframe.contentWindow) {
     await new Promise<void>((resolve) => window.setTimeout(() => resolve(), 250));
-    iframe.contentWindow.focus();
-    iframe.contentWindow.print();
+    try {
+      iframe.contentWindow.focus();
+      iframe.contentWindow.print();
+    } catch {
+      // Some browsers treat the PDF viewer as cross-origin.
+      // As a fallback, open the PDF in a new tab; user can print manually.
+      window.open(url, '_blank');
+    }
   }
 
   // Cleanup iframe, but keep blob URL around for a bit.
