@@ -221,11 +221,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // Auto-set active company.
         // If the user explicitly picked a company (stored in localStorage), prefer it.
         // This avoids bouncing back to an older/unconfigured company when memberships update asynchronously.
-        const storedCompanyId = localStorage.getItem('active_company_id');
-        if (storedCompanyId) {
+        let storedCompanyId: string | null = null;
+        try {
+          storedCompanyId = localStorage.getItem('active_company_id');
+        } catch {
+          storedCompanyId = null;
+        }
+
+        const storedIsValid = !!storedCompanyId && mapped.some((m) => m.company_id === storedCompanyId);
+
+        if (storedIsValid && storedCompanyId) {
           _setActiveCompanyId(storedCompanyId);
         } else if (companyUsers.length > 0) {
+          // Clear invalid stored selection (common when switching accounts / impersonating).
+          try {
+            if (storedCompanyId) localStorage.removeItem('active_company_id');
+          } catch {
+            // ignore
+          }
           setActiveCompany(companyUsers[0].company_id);
+        } else {
+          setActiveCompany(null);
         }
       } else {
         setCompanyRoles([]);
