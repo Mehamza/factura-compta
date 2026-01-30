@@ -28,6 +28,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { ImpersonationBanner } from './ImpersonationBanner';
+import { TrialBanner } from './TrialBanner';
 import { navigationConfig, NavigationModule } from '@/config/navigationConfig';
 import { hasAnyAccessInModule } from '@/lib/companyPermissions';
 
@@ -399,6 +400,7 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
         )}>
           {/* Top Header Navbar - Desktop and Mobile */}
           <header className="sticky top-0 z-30 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+            <TrialBanner />
             <div className="flex h-14 items-center justify-between px-4">
               {/* Mobile menu button */}
               <Button
