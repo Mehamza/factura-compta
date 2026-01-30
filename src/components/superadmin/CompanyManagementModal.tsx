@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { format, formatDistanceToNow, addDays, addWeeks, addMonths } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { Building2, Mail, Calendar, CreditCard, AlertTriangle, Clock, Ban, CheckCircle } from 'lucide-react';
@@ -26,6 +26,8 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
+import { Switch } from '@/components/ui/switch';
+import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -50,6 +52,17 @@ interface CompanyManagementModalProps {
   onOpenChange: (open: boolean) => void;
   onStatusChange: () => void;
 }
+
+type CompanyAccessRow = {
+  trial_ends_at: string;
+  is_paid: boolean;
+  paid_until: string | null;
+  lifetime: boolean;
+  restricted: boolean;
+  unpaid_permissions: { allow?: unknown } | null;
+};
+
+type PaidDurationUnit = 'days' | 'months' | 'lifetime';
 
 type DeactivationDuration = '1_day' | '3_days' | '1_week' | '2_weeks' | '1_month' | 'permanent';
 
@@ -86,6 +99,76 @@ export function CompanyManagementModal({
   const [deactivationReason, setDeactivationReason] = useState('');
   const [deactivationDuration, setDeactivationDuration] = useState<DeactivationDuration>('1_week');
   const [loading, setLoading] = useState(false);
+
+  const [accessRow, setAccessRow] = useState<CompanyAccessRow | null>(null);
+  const [accessLoading, setAccessLoading] = useState(false);
+  const [paidToggle, setPaidToggle] = useState(false);
+  const [paidUnit, setPaidUnit] = useState<PaidDurationUnit>('months');
+  const [paidValue, setPaidValue] = useState('1');
+  const [unpaidAllowText, setUnpaidAllowText] = useState('dashboard');
+  const [trialEndsAtInput, setTrialEndsAtInput] = useState<string>('');
+
+  const companyId = company?.id ?? null;
+
+  const computed = useMemo(() => {
+    if (!accessRow) return null;
+
+    const paidActive = Boolean(accessRow.is_paid) && (Boolean(accessRow.lifetime) || (accessRow.paid_until && new Date(accessRow.paid_until).getTime() > Date.now()));
+    const inTrial = !paidActive && Date.now() < new Date(accessRow.trial_ends_at).getTime();
+    const msLeft = new Date(accessRow.trial_ends_at).getTime() - Date.now();
+    const trialDaysLeft = msLeft <= 0 ? 0 : Math.ceil(msLeft / (1000 * 60 * 60 * 24));
+
+    return { paidActive, inTrial, trialDaysLeft };
+  }, [accessRow]);
+
+  useEffect(() => {
+    if (!open || !companyId) {
+      setAccessRow(null);
+      return;
+    }
+    let cancelled = false;
+
+    const loadAccess = async () => {
+      setAccessLoading(true);
+      try {
+        const { data, error } = await supabase
+          .from('company_access' as never)
+          .select('trial_ends_at,is_paid,paid_until,lifetime,restricted,unpaid_permissions')
+          .eq('company_id', companyId)
+          .maybeSingle();
+
+        if (cancelled) return;
+        if (error || !data) {
+          setAccessRow(null);
+          return;
+        }
+
+        const row = data as CompanyAccessRow;
+        setAccessRow(row);
+        setPaidToggle(Boolean(row.is_paid));
+        setPaidUnit(row.lifetime ? 'lifetime' : 'months');
+        setPaidValue('1');
+
+        const allowRaw = row.unpaid_permissions?.allow;
+        const allow = Array.isArray(allowRaw)
+          ? allowRaw.map((x) => String(x)).join(',')
+          : 'dashboard';
+        setUnpaidAllowText(allow);
+
+        // datetime-local expects YYYY-MM-DDTHH:mm
+        const d = new Date(row.trial_ends_at);
+        const pad = (n: number) => String(n).padStart(2, '0');
+        setTrialEndsAtInput(`${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`);
+      } finally {
+        if (!cancelled) setAccessLoading(false);
+      }
+    };
+
+    void loadAccess();
+    return () => {
+      cancelled = true;
+    };
+  }, [open, companyId]);
 
   if (!company) return null;
 
@@ -201,6 +284,57 @@ export function CompanyManagementModal({
     }
   };
 
+  const handleSaveBilling = async () => {
+    if (!company?.id) return;
+    setLoading(true);
+    try {
+      const now = new Date();
+      let lifetime = false;
+      let paid_until: string | null = null;
+
+      if (paidToggle) {
+        if (paidUnit === 'lifetime') {
+          lifetime = true;
+          paid_until = null;
+        } else {
+          const n = Math.max(1, Number(paidValue || '1'));
+          const until = paidUnit === 'days' ? addDays(now, n) : addMonths(now, n);
+          paid_until = until.toISOString();
+        }
+      }
+
+      const allow = unpaidAllowText
+        .split(',')
+        .map((s) => s.trim())
+        .filter(Boolean);
+
+      const trialEndsIso = trialEndsAtInput ? new Date(trialEndsAtInput).toISOString() : null;
+
+      const { error } = await supabase
+        .from('company_access' as never)
+        .update({
+          is_paid: paidToggle,
+          lifetime,
+          paid_until: paidToggle ? paid_until : null,
+          unpaid_permissions: { allow: allow.length ? allow : ['dashboard'] },
+          trial_ends_at: trialEndsIso ?? undefined,
+        } as any)
+        .eq('company_id', company.id);
+
+      if (error) throw error;
+
+      // Best-effort recompute restricted flag immediately
+      await supabase.rpc('compute_company_access' as never, { p_company_id: company.id } as never);
+
+      toast({ title: 'Accès mis à jour', description: 'Paramètres essai/paiement enregistrés.' });
+      onStatusChange();
+    } catch (error: any) {
+      toast({ variant: 'destructive', title: 'Erreur', description: error.message });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
@@ -244,6 +378,87 @@ export function CompanyManagementModal({
                 <Building2 className="h-4 w-4 text-muted-foreground" />
                 <span className="text-muted-foreground">Utilisateurs:</span>
                 <Badge variant="outline">{company.users_count}</Badge>
+              </div>
+            </div>
+
+            <Separator />
+
+            {/* Trial / Billing Section */}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-medium">Accès / Essai</span>
+                {accessLoading ? (
+                  <Badge variant="outline">Chargement…</Badge>
+                ) : computed?.paidActive ? (
+                  <Badge className="bg-blue-500/10 text-blue-700 border-blue-500/20 hover:bg-blue-500/20">Payant</Badge>
+                ) : computed?.inTrial ? (
+                  <Badge className="bg-amber-500/10 text-amber-700 border-amber-500/20 hover:bg-amber-500/20">Essai ({computed.trialDaysLeft}j)</Badge>
+                ) : (
+                  <Badge variant="destructive">Restreint</Badge>
+                )}
+              </div>
+
+              <div className="grid grid-cols-1 gap-3">
+                <div className="flex items-center justify-between rounded-md border p-3">
+                  <div>
+                    <div className="text-sm font-medium">Compte payé</div>
+                    <div className="text-xs text-muted-foreground">Active l’accès complet (selon période)</div>
+                  </div>
+                  <Switch checked={paidToggle} onCheckedChange={setPaidToggle} />
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                  <div className="space-y-1">
+                    <Label>Durée</Label>
+                    <Select value={paidUnit} onValueChange={(v) => setPaidUnit(v as PaidDurationUnit)}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Choisir" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="days">Jours</SelectItem>
+                        <SelectItem value="months">Mois</SelectItem>
+                        <SelectItem value="lifetime">À vie</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1">
+                    <Label>Valeur</Label>
+                    <Input
+                      type="number"
+                      min={1}
+                      value={paidValue}
+                      onChange={(e) => setPaidValue(e.target.value)}
+                      disabled={!paidToggle || paidUnit === 'lifetime'}
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label>Fin de l’essai</Label>
+                    <Input
+                      type="datetime-local"
+                      value={trialEndsAtInput}
+                      onChange={(e) => setTrialEndsAtInput(e.target.value)}
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-1">
+                  <Label>Modules autorisés si non payé (CSV)</Label>
+                  <Textarea
+                    value={unpaidAllowText}
+                    onChange={(e) => setUnpaidAllowText(e.target.value)}
+                    placeholder="dashboard, invoices, clients"
+                    className="min-h-[70px]"
+                  />
+                  <div className="text-xs text-muted-foreground">
+                    Exemple: <span className="font-mono">dashboard, settings</span>.
+                  </div>
+                </div>
+
+                <div className="flex justify-end">
+                  <Button onClick={handleSaveBilling} disabled={loading || accessLoading}>
+                    Enregistrer l’accès
+                  </Button>
+                </div>
               </div>
             </div>
 

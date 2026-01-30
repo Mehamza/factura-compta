@@ -46,6 +46,14 @@ interface AuthContextType {
   activeCompanyId: string | null;
   activeCompanyRole: CompanyRole | null;
   activeCompanyPermissions: CompanyPermissions;
+  activeCompanyAccess: {
+    trialEndsAt: string;
+    trialDaysLeft: number;
+    inTrial: boolean;
+    paidActive: boolean;
+    restricted: boolean;
+    unpaidAllow: string[];
+  } | null;
   canAccess: (moduleId: string, subModuleId?: string) => boolean;
   setActiveCompany: (companyId: string | null) => void;
   loading: boolean;
@@ -74,6 +82,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [activeCompanyId, _setActiveCompanyId] = useState<string | null>(null);
   const [activeCompanyRole, setActiveCompanyRole] = useState<CompanyRole | null>(null);
   const [activeCompanyPermissions, setActiveCompanyPermissions] = useState<CompanyPermissions>({ allow: ['*'] });
+  const [activeCompanyAccess, setActiveCompanyAccess] = useState<AuthContextType['activeCompanyAccess']>(null);
   const [loading, setLoading] = useState(true);
   
   // Impersonation state from sessionStorage
@@ -256,6 +265,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!activeCompanyId) {
       setActiveCompanyRole(null);
       setActiveCompanyPermissions({ allow: ['*'] });
+      setActiveCompanyAccess(null);
       return;
     }
     const entry = companyRoles.find((c) => c.company_id === activeCompanyId);
@@ -263,8 +273,78 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setActiveCompanyPermissions(entry?.permissions ?? { allow: ['*'] });
   }, [activeCompanyId, companyRoles]);
 
+  // Keep active company access/trial state in sync.
+  useEffect(() => {
+    if (!activeCompanyId) {
+      setActiveCompanyAccess(null);
+      return;
+    }
+
+    let cancelled = false;
+    const run = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('company_access' as never)
+          .select('trial_ends_at,is_paid,paid_until,lifetime,restricted,unpaid_permissions')
+          .eq('company_id', activeCompanyId)
+          .maybeSingle();
+
+        if (cancelled) return;
+        if (error || !data?.trial_ends_at) {
+          setActiveCompanyAccess(null);
+          return;
+        }
+
+        const paidActive =
+          Boolean(data.is_paid) &&
+          (Boolean(data.lifetime) || (data.paid_until && new Date(data.paid_until).getTime() > Date.now()));
+
+        const inTrial = !paidActive && Date.now() < new Date(data.trial_ends_at).getTime();
+        const restricted = Boolean(data.restricted) || (!paidActive && !inTrial);
+
+        const msLeft = new Date(String(data.trial_ends_at)).getTime() - Date.now();
+        const trialDaysLeft = msLeft <= 0 ? 0 : Math.ceil(msLeft / (1000 * 60 * 60 * 24));
+
+        const allowRaw = data?.unpaid_permissions?.allow;
+        const unpaidAllow = Array.isArray(allowRaw)
+          ? allowRaw.map((x: unknown) => String(x))
+          : ['dashboard'];
+
+        setActiveCompanyAccess({
+          trialEndsAt: String(data.trial_ends_at),
+          trialDaysLeft,
+          inTrial,
+          paidActive,
+          restricted,
+          unpaidAllow,
+        });
+      } catch {
+        if (!cancelled) setActiveCompanyAccess(null);
+      }
+    };
+
+    void run();
+    return () => {
+      cancelled = true;
+    };
+  }, [activeCompanyId]);
+
   const canAccess = (moduleId: string, subModuleId?: string) => {
     if (globalRole === 'SUPER_ADMIN') return true;
+
+    // If restricted (trial ended + unpaid), gate by unpaid allow-list.
+    if (activeCompanyAccess?.restricted) {
+      const allow = activeCompanyAccess.unpaidAllow;
+      if (moduleId === 'dashboard') return true;
+      if (allow.includes('*')) return true;
+
+      if (!subModuleId) {
+        return allow.includes(moduleId) || allow.some((k) => k.startsWith(moduleId + '.'));
+      }
+
+      return allow.includes(moduleId) || allow.includes(`${moduleId}.${subModuleId}`);
+    }
+
     return canAccessFromPermissions(activeCompanyPermissions, moduleId, subModuleId);
   };
 
@@ -493,6 +573,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       activeCompanyId,
       activeCompanyRole,
       activeCompanyPermissions,
+      activeCompanyAccess,
       canAccess,
       setActiveCompany,
       loading,
