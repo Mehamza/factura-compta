@@ -9,11 +9,33 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from 'recharts';
 import { Download, FileText, TrendingUp, Users } from 'lucide-react';
-import type { Tables } from '@/integrations/supabase/types';
 import { InvoiceStatus } from '@/lib/documentStatus';
 
-type Invoice = Tables<'invoices'>;
-type Client = Tables<'clients'>;
+// Partial types for report queries
+interface ReportInvoice {
+  id: string;
+  invoice_number: string;
+  issue_date: string;
+  client_id: string | null;
+  status: string;
+  subtotal: number;
+  tax_rate: number;
+  tax_amount: number;
+  total: number;
+}
+
+interface AllInvoice {
+  id: string;
+  issue_date: string;
+  client_id: string | null;
+  status: string;
+  total: number;
+}
+
+interface ReportClient {
+  id: string;
+  name: string;
+}
 
 interface Payment {
   id: string;
@@ -27,9 +49,9 @@ const COLORS = ['hsl(var(--primary))', 'hsl(var(--chart-2))', 'hsl(var(--chart-3
 export default function Reports() {
   const { activeCompanyId } = useAuth();
   const [month, setMonth] = useState(() => new Date().toISOString().slice(0, 7));
-  const [invoices, setInvoices] = useState<Invoice[]>([]);
-  const [allInvoices, setAllInvoices] = useState<Invoice[]>([]);
-  const [clients, setClients] = useState<Client[]>([]);
+  const [invoices, setInvoices] = useState<ReportInvoice[]>([]);
+  const [allInvoices, setAllInvoices] = useState<AllInvoice[]>([]);
+  const [clients, setClients] = useState<ReportClient[]>([]);
   const [payments, setPayments] = useState<Payment[]>([]);
   const [loading, setLoading] = useState(true);
 
