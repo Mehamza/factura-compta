@@ -54,8 +54,8 @@ export default function AccountTab({ profile, onProfileUpdate }: AccountTabProps
       toast.error('Les mots de passe ne correspondent pas');
       return;
     }
-    if (newPassword.length < 6) {
-      toast.error('Le mot de passe doit contenir au moins 6 caractères');
+    if (newPassword.length < 8) {
+      toast.error('Le mot de passe doit contenir au moins 8 caractères');
       return;
     }
 

@@ -16,11 +16,15 @@ interface CompanyRoleEntry { company_id: string; role: CompanyRole; permissions?
 const IMPERSONATION_ORIGINAL_SESSION_KEY = 'impersonation_original_session';
 const IMPERSONATION_STATE_KEY = 'impersonation_state';
 
+// Security: Impersonation session expires after 30 minutes
+const IMPERSONATION_SESSION_DURATION_MS = 30 * 60 * 1000; // 30 minutes
+
 interface StoredOriginalSession {
   access_token: string;
   refresh_token: string;
   user_id: string;
   user_email: string;
+  expires_at: number; // Unix timestamp when impersonation expires
 }
 
 interface StoredImpersonationState {
@@ -34,6 +38,7 @@ interface StoredImpersonationState {
   } | null;
   superAdminId: string;
   superAdminEmail: string;
+  expires_at: number; // Unix timestamp when impersonation expires
 }
 
 interface AuthContextType {
@@ -99,11 +104,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   // Load impersonation state from sessionStorage on mount
+  // Security: Check expiration and clear if expired
   const loadImpersonationState = (): StoredImpersonationState | null => {
     try {
       const stored = sessionStorage.getItem(IMPERSONATION_STATE_KEY);
       if (stored) {
-        return JSON.parse(stored);
+        const state = JSON.parse(stored) as StoredImpersonationState;
+        // Security: Check if impersonation session has expired
+        if (state.expires_at && Date.now() > state.expires_at) {
+          console.warn('Impersonation session expired, clearing state');
+          clearImpersonationStorage();
+          return null;
+        }
+        return state;
       }
     } catch (error) {
       console.error('Error loading impersonation state:', error);
@@ -126,11 +139,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const saveOriginalSession = (session: Session, user: User) => {
     try {
+      const expiresAt = Date.now() + IMPERSONATION_SESSION_DURATION_MS;
       const original: StoredOriginalSession = {
         access_token: session.access_token,
         refresh_token: session.refresh_token,
         user_id: user.id,
         user_email: user.email || '',
+        expires_at: expiresAt,
       };
       sessionStorage.setItem(IMPERSONATION_ORIGINAL_SESSION_KEY, JSON.stringify(original));
     } catch (error) {
@@ -142,7 +157,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const stored = sessionStorage.getItem(IMPERSONATION_ORIGINAL_SESSION_KEY);
       if (stored) {
-        return JSON.parse(stored);
+        const session = JSON.parse(stored) as StoredOriginalSession;
+        // Security: Check if session has expired
+        if (session.expires_at && Date.now() > session.expires_at) {
+          console.warn('Original session expired, clearing');
+          clearImpersonationStorage();
+          return null;
+        }
+        return session;
       }
     } catch (error) {
       console.error('Error getting original session:', error);
@@ -406,11 +428,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     // Save impersonation state BEFORE redirecting
+    // Security: Add expiration time for time-limited impersonation (30 minutes)
+    const expiresAt = Date.now() + IMPERSONATION_SESSION_DURATION_MS;
     const newImpersonationState: StoredImpersonationState = {
       isImpersonating: true,
       targetUser: target_user,
       superAdminId: super_admin.id,
       superAdminEmail: super_admin.email,
+      expires_at: expiresAt,
     };
     saveImpersonationState(newImpersonationState);
 
@@ -444,10 +469,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       // Create a temporary client with the original session to log the end
       // Since we're still logged in as the target user, we need to use the original token
+      // Import env to use environment variables instead of hardcoded credentials
+      const { env } = await import('@/env');
       const { createClient } = await import('@supabase/supabase-js');
       const tempClient = createClient(
-        'https://njkgynqrobfyiqwzdbaz.supabase.co',
-        'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5qa2d5bnFyb2JmeWlxd3pkYmF6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjUzMjUyOTcsImV4cCI6MjA4MDkwMTI5N30.Xa_YZBMi-NAqrJStjoZEYhyTrxx8ned3q3CUu3v2ASs',
+        env.supabaseUrl,
+        env.supabaseAnonKey,
         {
           global: {
             headers: {

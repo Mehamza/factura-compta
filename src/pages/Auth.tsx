@@ -57,11 +57,11 @@ export default function Auth() {
     e.preventDefault();
     setIsLoading(true);
     
-    if (password.length < 6) {
+    if (password.length < 8) {
       toast({
         variant: 'destructive',
         title: 'Erreur',
-        description: 'Le mot de passe doit contenir au moins 6 caractères'
+        description: 'Le mot de passe doit contenir au moins 8 caractères'
       });
       setIsLoading(false);
       return;
@@ -129,11 +129,11 @@ export default function Auth() {
     e.preventDefault();
     setIsLoading(true);
 
-    if (newPassword.length < 6) {
+    if (newPassword.length < 8) {
       toast({
         variant: 'destructive',
         title: 'Erreur',
-        description: 'Le mot de passe doit contenir au moins 6 caractères',
+        description: 'Le mot de passe doit contenir au moins 8 caractères',
       });
       setIsLoading(false);
       return;
