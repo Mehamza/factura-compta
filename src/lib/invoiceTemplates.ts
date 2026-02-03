@@ -54,6 +54,19 @@ export interface InvoiceTemplateData {
     role?: string;
     created_at?: string;
   };
+  // Delivery info for bon de livraison
+  delivery?: {
+    delivery_address?: string;
+    delivery_contact?: string;
+    delivery_phone?: string;
+    transport_method?: string;
+    driver_name?: string;
+    vehicle_info?: string;
+    delivery_date?: string;
+    package_count?: number | null;
+    total_weight?: number | null;
+    delivery_notes?: string;
+  };
 }
 
 export interface InvoiceItem {
@@ -507,6 +520,80 @@ function drawClientInfoBox(
   });
   
   return y + rowHeight + 4;
+}
+
+// Draw delivery info box for bon de livraison
+function drawDeliveryInfoBox(
+  doc: jsPDF,
+  pageWidth: number,
+  y: number,
+  delivery: InvoiceTemplateData['delivery'],
+  margin: number = 20
+): number {
+  if (!delivery) return y;
+  
+  const hasInfo = delivery.delivery_address || delivery.delivery_contact || 
+                  delivery.transport_method || delivery.driver_name || delivery.delivery_date;
+  if (!hasInfo) return y;
+
+  const boxX = margin;
+  const boxWidth = pageWidth - margin * 2;
+  const rowHeight = 6;
+  const paddingX = 3;
+
+  doc.setDrawColor(100, 100, 100);
+  doc.setLineWidth(0.2);
+  doc.setFontSize(8);
+  doc.setFont('helvetica', 'bold');
+  doc.text('INFORMATIONS DE LIVRAISON', boxX, y);
+  y += 4;
+
+  const transportLabels: Record<string, string> = {
+    'vehicule_propre': 'Véhicule propre',
+    'transporteur': 'Transporteur externe', 
+    'livraison_client': 'Enlevé par le client',
+    'autre': 'Autre'
+  };
+
+  const fields: Array<{ label: string; value: string }> = [];
+  if (delivery.delivery_address) fields.push({ label: 'Adresse', value: delivery.delivery_address });
+  if (delivery.delivery_date) fields.push({ label: 'Date', value: new Date(delivery.delivery_date).toLocaleString('fr-FR') });
+  if (delivery.delivery_contact) fields.push({ label: 'Contact', value: delivery.delivery_contact });
+  if (delivery.delivery_phone) fields.push({ label: 'Tél', value: delivery.delivery_phone });
+  if (delivery.transport_method) fields.push({ label: 'Transport', value: transportLabels[delivery.transport_method] || delivery.transport_method });
+  if (delivery.driver_name) fields.push({ label: 'Chauffeur', value: delivery.driver_name });
+  if (delivery.vehicle_info) fields.push({ label: 'Véhicule', value: delivery.vehicle_info });
+  if (delivery.package_count) fields.push({ label: 'Colis', value: String(delivery.package_count) });
+  if (delivery.total_weight) fields.push({ label: 'Poids', value: `${delivery.total_weight} kg` });
+
+  doc.setFillColor(248, 248, 248);
+  doc.rect(boxX, y, boxWidth, Math.ceil(fields.length / 3) * rowHeight + 2, 'F');
+  doc.rect(boxX, y, boxWidth, Math.ceil(fields.length / 3) * rowHeight + 2);
+  y += 1;
+
+  doc.setFont('helvetica', 'normal');
+  const colWidth = boxWidth / 3;
+  fields.forEach((f, i) => {
+    const col = i % 3;
+    const row = Math.floor(i / 3);
+    const xPos = boxX + col * colWidth + paddingX;
+    const yPos = y + row * rowHeight + 4;
+    doc.setFont('helvetica', 'bold');
+    doc.text(`${f.label}: `, xPos, yPos);
+    doc.setFont('helvetica', 'normal');
+    const labelWidth = doc.getTextWidth(`${f.label}: `);
+    doc.text(f.value.substring(0, 25), xPos + labelWidth, yPos);
+  });
+
+  y += Math.ceil(fields.length / 3) * rowHeight + 4;
+
+  if (delivery.delivery_notes) {
+    doc.setFont('helvetica', 'italic');
+    doc.text(`Instructions: ${delivery.delivery_notes.substring(0, 80)}`, boxX + paddingX, y);
+    y += 5;
+  }
+
+  return y + 2;
 }
 
 // Common invoice info box

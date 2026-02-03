@@ -783,16 +783,23 @@ export type Database = {
           created_at: string
           created_by_user_id: string | null
           currency: string | null
+          delivery_address: string | null
+          delivery_contact: string | null
+          delivery_date: string | null
+          delivery_notes: string | null
+          delivery_phone: string | null
           discount_amount: number | null
           discount_type: string | null
           discount_value: number | null
           document_kind: string
+          driver_name: string | null
           due_date: string
           fodec_amount: number | null
           id: string
           invoice_number: string
           issue_date: string
           notes: string | null
+          package_count: number | null
           reference_devis: string | null
           remaining_amount: number
           source_invoice_id: string | null
@@ -806,9 +813,12 @@ export type Database = {
           template_type: string | null
           total: number
           total_paid: number
+          total_weight: number | null
+          transport_method: string | null
           updated_at: string
           user_id: string
           validity_date: string | null
+          vehicle_info: string | null
         }
         Insert: {
           client_id?: string | null
@@ -816,16 +826,23 @@ export type Database = {
           created_at?: string
           created_by_user_id?: string | null
           currency?: string | null
+          delivery_address?: string | null
+          delivery_contact?: string | null
+          delivery_date?: string | null
+          delivery_notes?: string | null
+          delivery_phone?: string | null
           discount_amount?: number | null
           discount_type?: string | null
           discount_value?: number | null
           document_kind?: string
+          driver_name?: string | null
           due_date: string
           fodec_amount?: number | null
           id?: string
           invoice_number: string
           issue_date?: string
           notes?: string | null
+          package_count?: number | null
           reference_devis?: string | null
           remaining_amount?: number
           source_invoice_id?: string | null
@@ -839,9 +856,12 @@ export type Database = {
           template_type?: string | null
           total?: number
           total_paid?: number
+          total_weight?: number | null
+          transport_method?: string | null
           updated_at?: string
           user_id: string
           validity_date?: string | null
+          vehicle_info?: string | null
         }
         Update: {
           client_id?: string | null
@@ -849,16 +869,23 @@ export type Database = {
           created_at?: string
           created_by_user_id?: string | null
           currency?: string | null
+          delivery_address?: string | null
+          delivery_contact?: string | null
+          delivery_date?: string | null
+          delivery_notes?: string | null
+          delivery_phone?: string | null
           discount_amount?: number | null
           discount_type?: string | null
           discount_value?: number | null
           document_kind?: string
+          driver_name?: string | null
           due_date?: string
           fodec_amount?: number | null
           id?: string
           invoice_number?: string
           issue_date?: string
           notes?: string | null
+          package_count?: number | null
           reference_devis?: string | null
           remaining_amount?: number
           source_invoice_id?: string | null
@@ -872,9 +899,12 @@ export type Database = {
           template_type?: string | null
           total?: number
           total_paid?: number
+          total_weight?: number | null
+          transport_method?: string | null
           updated_at?: string
           user_id?: string
           validity_date?: string | null
+          vehicle_info?: string | null
         }
         Relationships: [
           {

@@ -7,7 +7,7 @@ import { useInvoices } from '@/hooks/useInvoices';
 import { useCompanySettings } from '@/hooks/useCompanySettings';
 import type { DocumentKind } from '@/config/documentTypes';
 import { getDocumentTypeConfig, documentTypeConfig, documentKindToRoute } from '@/config/documentTypes';
-import { StatusBadge } from '@/components/invoices/shared';
+import { StatusBadge, transportMethods } from '@/components/invoices/shared';
 import { calculateTotals, type InvoiceItem, STAMP_AMOUNT } from '@/components/invoices/shared/types';
 import { generateInvoiceWithTemplate, type InvoiceTemplateData, type InvoiceItem as PDFInvoiceItem } from '@/lib/invoiceTemplates';
 import { openPdfForPrint } from '@/lib/print';
@@ -154,6 +154,19 @@ export default function DocumentViewPage({ kind }: { kind: DocumentKind }) {
         stamp_url: companySettings.stamp_url || '',
         bank_accounts: companySettings.bank_accounts || [],
       },
+      // Delivery info for bon de livraison
+      delivery: (kind === 'bon_livraison' || kind === 'bon_livraison_achat') ? {
+        delivery_address: (invoice as any).delivery_address || undefined,
+        delivery_contact: (invoice as any).delivery_contact || undefined,
+        delivery_phone: (invoice as any).delivery_phone || undefined,
+        transport_method: (invoice as any).transport_method || undefined,
+        driver_name: (invoice as any).driver_name || undefined,
+        vehicle_info: (invoice as any).vehicle_info || undefined,
+        delivery_date: (invoice as any).delivery_date || undefined,
+        package_count: (invoice as any).package_count ?? undefined,
+        total_weight: (invoice as any).total_weight ?? undefined,
+        delivery_notes: (invoice as any).delivery_notes || undefined,
+      } : undefined,
     };
 
     const pdfItems: PDFInvoiceItem[] = items.map(item => ({
@@ -316,6 +329,75 @@ export default function DocumentViewPage({ kind }: { kind: DocumentKind }) {
               <p className="font-medium">{invoice.due_date || '—'}</p>
             </div>
           </div>
+
+          {/* Delivery Info for Bon de Livraison */}
+          {(kind === 'bon_livraison' || kind === 'bon_livraison_achat') && (
+            (() => {
+              const inv = invoice as any;
+              const hasDeliveryInfo = inv.delivery_address || inv.delivery_contact || inv.transport_method || inv.driver_name || inv.delivery_date;
+              if (!hasDeliveryInfo) return null;
+              const getTransportLabel = (val: string) => transportMethods.find(m => m.value === val)?.label || val;
+              return (
+                <div className="p-4 border rounded-lg bg-muted/30 space-y-3">
+                  <p className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+                    <span>🚚</span> Informations de livraison
+                  </p>
+                  <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3 text-sm">
+                    {inv.delivery_address && (
+                      <div>
+                        <span className="text-muted-foreground">Adresse:</span> {inv.delivery_address}
+                      </div>
+                    )}
+                    {inv.delivery_date && (
+                      <div>
+                        <span className="text-muted-foreground">Date:</span> {new Date(inv.delivery_date).toLocaleString('fr-FR')}
+                      </div>
+                    )}
+                    {inv.delivery_contact && (
+                      <div>
+                        <span className="text-muted-foreground">Contact:</span> {inv.delivery_contact}
+                      </div>
+                    )}
+                    {inv.delivery_phone && (
+                      <div>
+                        <span className="text-muted-foreground">Téléphone:</span> {inv.delivery_phone}
+                      </div>
+                    )}
+                    {inv.transport_method && (
+                      <div>
+                        <span className="text-muted-foreground">Transport:</span> {getTransportLabel(inv.transport_method)}
+                      </div>
+                    )}
+                    {inv.driver_name && (
+                      <div>
+                        <span className="text-muted-foreground">Chauffeur:</span> {inv.driver_name}
+                      </div>
+                    )}
+                    {inv.vehicle_info && (
+                      <div>
+                        <span className="text-muted-foreground">Véhicule:</span> {inv.vehicle_info}
+                      </div>
+                    )}
+                    {(inv.package_count != null && inv.package_count > 0) && (
+                      <div>
+                        <span className="text-muted-foreground">Colis:</span> {inv.package_count}
+                      </div>
+                    )}
+                    {(inv.total_weight != null && inv.total_weight > 0) && (
+                      <div>
+                        <span className="text-muted-foreground">Poids:</span> {inv.total_weight} kg
+                      </div>
+                    )}
+                  </div>
+                  {inv.delivery_notes && (
+                    <div className="text-sm">
+                      <span className="text-muted-foreground">Instructions:</span> {inv.delivery_notes}
+                    </div>
+                  )}
+                </div>
+              );
+            })()
+          )}
 
           <div className="border rounded-lg overflow-hidden">
             <table className="w-full text-sm">
