@@ -25,6 +25,9 @@ import {
   type InvoiceItem,
   type Product,
   type DiscountConfig,
+  DeliveryInfoFields,
+  defaultDeliveryInfo,
+  type DeliveryInfo,
 } from '@/components/invoices/shared';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
@@ -68,6 +71,10 @@ export default function DocumentNewPage({ kind }: { kind: DocumentKind }) {
   const [stampIncluded, setStampIncluded] = useState(false);
   const [currency] = useState(companySettings?.default_currency || 'TND');
   const [discount, setDiscount] = useState<DiscountConfig>({ type: 'percent', value: 0 });
+
+  // Delivery info for bon de livraison
+  const isDeliveryNote = kind === 'bon_livraison' || kind === 'bon_livraison_achat';
+  const [deliveryInfo, setDeliveryInfo] = useState<DeliveryInfo>(defaultDeliveryInfo);
 
   const [sourceInvoiceId, setSourceInvoiceId] = useState<string>('');
   const [sourceInvoices, setSourceInvoices] = useState<SourceInvoiceOption[]>([]);
@@ -511,6 +518,19 @@ export default function DocumentNewPage({ kind }: { kind: DocumentKind }) {
         discount_type: discount.type,
         discount_value: discount.value,
         discount_amount: totals.discountAmount,
+        // Delivery info for bon de livraison
+        ...(isDeliveryNote ? {
+          delivery_address: deliveryInfo.delivery_address || null,
+          delivery_contact: deliveryInfo.delivery_contact || null,
+          delivery_phone: deliveryInfo.delivery_phone || null,
+          transport_method: deliveryInfo.transport_method || null,
+          driver_name: deliveryInfo.driver_name || null,
+          vehicle_info: deliveryInfo.vehicle_info || null,
+          delivery_date: deliveryInfo.delivery_date || null,
+          package_count: deliveryInfo.package_count,
+          total_weight: deliveryInfo.total_weight,
+          delivery_notes: deliveryInfo.delivery_notes || null,
+        } : {}),
       } as any, invoiceItems);
 
       // Handle stock movement for bon de livraison
@@ -630,6 +650,14 @@ export default function DocumentNewPage({ kind }: { kind: DocumentKind }) {
                 </Select>
               </div>
             </div>
+
+            {/* Delivery Info for Bon de Livraison */}
+            {isDeliveryNote && (
+              <DeliveryInfoFields
+                deliveryInfo={deliveryInfo}
+                onChange={setDeliveryInfo}
+              />
+            )}
 
             {/* Items table */}
             <InvoiceItemsTable

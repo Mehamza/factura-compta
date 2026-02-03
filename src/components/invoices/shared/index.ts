@@ -5,3 +5,4 @@ export { ProductSelector } from './ProductSelector';
 export { InvoiceTotals } from './InvoiceTotals';
 export { InvoiceItemRow } from './InvoiceItemRow';
 export { InvoiceItemsTable } from './InvoiceItemsTable';
+export { DeliveryInfoFields, defaultDeliveryInfo, transportMethods, type DeliveryInfo } from './DeliveryInfoFields';
