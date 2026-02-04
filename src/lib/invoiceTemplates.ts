@@ -766,6 +766,9 @@ export async function generateClassicPDF(invoice: InvoiceTemplateData, items: In
   // Client info box
   y = drawClientInfoBox(doc, pageWidth, y, invoice.client, invoice.party_type || 'client', margin);
   
+  // Delivery info box (for bon de livraison)
+  y = drawDeliveryInfoBox(doc, pageWidth, y, invoice.delivery, margin);
+  
   // Table header
   const tableTop = y;
   const [mutedR, mutedG, mutedB] = getThemeMutedRgb([240, 240, 240]);
@@ -918,6 +921,9 @@ export async function generateModernPDF(invoice: InvoiceTemplateData, items: Inv
   // Client info box
   y = drawClientInfoBox(doc, pageWidth, y, invoice.client, invoice.party_type || 'client', margin);
   
+  // Delivery info box (for bon de livraison)
+  y = drawDeliveryInfoBox(doc, pageWidth, y, invoice.delivery, margin);
+  
   // Table with blue header
   doc.setFillColor(41, 98, 255);
   doc.rect(margin, y, contentWidth, 8, 'F');
@@ -1053,6 +1059,9 @@ export async function generateMinimalPDF(invoice: InvoiceTemplateData, items: In
   
   // Client info box
   y = drawClientInfoBox(doc, pageWidth, y, invoice.client, invoice.party_type || 'client', margin);
+  
+  // Delivery info box (for bon de livraison)
+  y = drawDeliveryInfoBox(doc, pageWidth, y, invoice.delivery, margin);
   
   // Simple table header
   doc.setFontSize(8);
