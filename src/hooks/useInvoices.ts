@@ -39,6 +39,17 @@ export type InvoiceRow = {
   document_kind: string;
   clients?: any;
   suppliers?: any;
+  // Delivery / transport fields (bon de livraison)
+  delivery_address?: string | null;
+  delivery_contact?: string | null;
+  delivery_phone?: string | null;
+  transport_method?: string | null;
+  driver_name?: string | null;
+  vehicle_info?: string | null;
+  delivery_date?: string | null;
+  package_count?: number | null;
+  total_weight?: number | null;
+  delivery_notes?: string | null;
 };
 
 export type InvoiceItemRow = {
@@ -158,7 +169,19 @@ export const useInvoices = (kind: DocumentKind) => {
         discount_type: (payload as any).discount_type ?? 'percent',
         discount_value: (payload as any).discount_value ?? 0,
         discount_amount: (payload as any).discount_amount ?? 0,
+        // Delivery / transport fields (bon de livraison)
+        delivery_address: payload.delivery_address ?? null,
+        delivery_contact: payload.delivery_contact ?? null,
+        delivery_phone: payload.delivery_phone ?? null,
+        transport_method: payload.transport_method ?? null,
+        driver_name: payload.driver_name ?? null,
+        vehicle_info: payload.vehicle_info ?? null,
+        delivery_date: payload.delivery_date ?? null,
+        package_count: payload.package_count ?? null,
+        total_weight: payload.total_weight ?? null,
+        delivery_notes: payload.delivery_notes ?? null,
       };
+
       const { data: invoice, error } = await supabase
         .from('invoices')
         .insert(insertPayload)
@@ -226,6 +249,17 @@ export const useInvoices = (kind: DocumentKind) => {
           discount_type: (payload as any).discount_type,
           discount_value: (payload as any).discount_value,
           discount_amount: (payload as any).discount_amount,
+          // Delivery / transport fields (bon de livraison)
+          delivery_address: payload.delivery_address ?? null,
+          delivery_contact: payload.delivery_contact ?? null,
+          delivery_phone: payload.delivery_phone ?? null,
+          transport_method: payload.transport_method ?? null,
+          driver_name: payload.driver_name ?? null,
+          vehicle_info: payload.vehicle_info ?? null,
+          delivery_date: payload.delivery_date ?? null,
+          package_count: payload.package_count ?? null,
+          total_weight: payload.total_weight ?? null,
+          delivery_notes: payload.delivery_notes ?? null,
         })
         .eq('id', id)
         .select()
@@ -373,6 +407,17 @@ export const useInvoices = (kind: DocumentKind) => {
         discount_amount: isTargetCreditNote
           ? 0
           : (computedTotals?.discountAmount ?? (source.discount_amount ?? 0)),
+        // Copy delivery / transport fields
+        delivery_address: source.delivery_address ?? null,
+        delivery_contact: source.delivery_contact ?? null,
+        delivery_phone: source.delivery_phone ?? null,
+        transport_method: source.transport_method ?? null,
+        driver_name: source.driver_name ?? null,
+        vehicle_info: source.vehicle_info ?? null,
+        delivery_date: source.delivery_date ?? null,
+        package_count: source.package_count ?? null,
+        total_weight: source.total_weight ?? null,
+        delivery_notes: source.delivery_notes ?? null,
       };
 
       const { data: created, error: insErr } = await supabase

@@ -7,7 +7,7 @@ import { useInvoices } from '@/hooks/useInvoices';
 import { useCompanySettings } from '@/hooks/useCompanySettings';
 import type { DocumentKind } from '@/config/documentTypes';
 import { getDocumentTypeConfig, documentTypeConfig, documentKindToRoute } from '@/config/documentTypes';
-import { StatusBadge, transportMethods } from '@/components/invoices/shared';
+import { StatusBadge } from '@/components/invoices/shared';
 import { calculateTotals, type InvoiceItem, STAMP_AMOUNT } from '@/components/invoices/shared/types';
 import { generateInvoiceWithTemplate, type InvoiceTemplateData, type InvoiceItem as PDFInvoiceItem } from '@/lib/invoiceTemplates';
 import { openPdfForPrint } from '@/lib/print';
@@ -92,7 +92,23 @@ export default function DocumentViewPage({ kind }: { kind: DocumentKind }) {
     };
     const totals = calculateTotals(invoiceItems, stampIncluded, discount);
 
+    const delivery = {
+      delivery_address: invoice.delivery_address ?? null,
+      delivery_contact: invoice.delivery_contact ?? null,
+      delivery_phone: invoice.delivery_phone ?? null,
+      transport_method: invoice.transport_method ?? null,
+      driver_name: invoice.driver_name ?? null,
+      vehicle_info: invoice.vehicle_info ?? null,
+      delivery_date: invoice.delivery_date ?? null,
+      package_count: invoice.package_count ?? null,
+      total_weight: invoice.total_weight ?? null,
+      delivery_notes: invoice.delivery_notes ?? null,
+    };
+
+    const hasDeliveryInfo = Object.values(delivery).some(v => v != null && String(v).trim() !== '');
+
     const pdfData: InvoiceTemplateData = {
+      document_kind: kind,
       invoice_number: invoice.invoice_number,
       issue_date: invoice.issue_date,
       due_date: invoice.due_date || invoice.issue_date,
@@ -116,6 +132,7 @@ export default function DocumentViewPage({ kind }: { kind: DocumentKind }) {
         name: createdByProfile?.full_name || undefined,
         created_at: invoice.created_at || undefined,
       },
+      delivery: hasDeliveryInfo ? delivery : undefined,
       client: invoice.clients ? {
         id: invoice.clients.id,
         name: invoice.clients.name,
@@ -154,19 +171,6 @@ export default function DocumentViewPage({ kind }: { kind: DocumentKind }) {
         stamp_url: companySettings.stamp_url || '',
         bank_accounts: companySettings.bank_accounts || [],
       },
-      // Delivery info for bon de livraison
-      delivery: (kind === 'bon_livraison' || kind === 'bon_livraison_achat') ? {
-        delivery_address: (invoice as any).delivery_address || undefined,
-        delivery_contact: (invoice as any).delivery_contact || undefined,
-        delivery_phone: (invoice as any).delivery_phone || undefined,
-        transport_method: (invoice as any).transport_method || undefined,
-        driver_name: (invoice as any).driver_name || undefined,
-        vehicle_info: (invoice as any).vehicle_info || undefined,
-        delivery_date: (invoice as any).delivery_date || undefined,
-        package_count: (invoice as any).package_count ?? undefined,
-        total_weight: (invoice as any).total_weight ?? undefined,
-        delivery_notes: (invoice as any).delivery_notes || undefined,
-      } : undefined,
     };
 
     const pdfItems: PDFInvoiceItem[] = items.map(item => ({
@@ -330,75 +334,6 @@ export default function DocumentViewPage({ kind }: { kind: DocumentKind }) {
             </div>
           </div>
 
-          {/* Delivery Info for Bon de Livraison */}
-          {(kind === 'bon_livraison' || kind === 'bon_livraison_achat') && (
-            (() => {
-              const inv = invoice as any;
-              const hasDeliveryInfo = inv.delivery_address || inv.delivery_contact || inv.transport_method || inv.driver_name || inv.delivery_date;
-              if (!hasDeliveryInfo) return null;
-              const getTransportLabel = (val: string) => transportMethods.find(m => m.value === val)?.label || val;
-              return (
-                <div className="p-4 border rounded-lg bg-muted/30 space-y-3">
-                  <p className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-                    <span>🚚</span> Informations de livraison
-                  </p>
-                  <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3 text-sm">
-                    {inv.delivery_address && (
-                      <div>
-                        <span className="text-muted-foreground">Adresse:</span> {inv.delivery_address}
-                      </div>
-                    )}
-                    {inv.delivery_date && (
-                      <div>
-                        <span className="text-muted-foreground">Date:</span> {new Date(inv.delivery_date).toLocaleString('fr-FR')}
-                      </div>
-                    )}
-                    {inv.delivery_contact && (
-                      <div>
-                        <span className="text-muted-foreground">Contact:</span> {inv.delivery_contact}
-                      </div>
-                    )}
-                    {inv.delivery_phone && (
-                      <div>
-                        <span className="text-muted-foreground">Téléphone:</span> {inv.delivery_phone}
-                      </div>
-                    )}
-                    {inv.transport_method && (
-                      <div>
-                        <span className="text-muted-foreground">Transport:</span> {getTransportLabel(inv.transport_method)}
-                      </div>
-                    )}
-                    {inv.driver_name && (
-                      <div>
-                        <span className="text-muted-foreground">Chauffeur:</span> {inv.driver_name}
-                      </div>
-                    )}
-                    {inv.vehicle_info && (
-                      <div>
-                        <span className="text-muted-foreground">Véhicule:</span> {inv.vehicle_info}
-                      </div>
-                    )}
-                    {(inv.package_count != null && inv.package_count > 0) && (
-                      <div>
-                        <span className="text-muted-foreground">Colis:</span> {inv.package_count}
-                      </div>
-                    )}
-                    {(inv.total_weight != null && inv.total_weight > 0) && (
-                      <div>
-                        <span className="text-muted-foreground">Poids:</span> {inv.total_weight} kg
-                      </div>
-                    )}
-                  </div>
-                  {inv.delivery_notes && (
-                    <div className="text-sm">
-                      <span className="text-muted-foreground">Instructions:</span> {inv.delivery_notes}
-                    </div>
-                  )}
-                </div>
-              );
-            })()
-          )}
-
           <div className="border rounded-lg overflow-hidden">
             <table className="w-full text-sm">
               <thead className="bg-muted">
@@ -472,6 +407,38 @@ export default function DocumentViewPage({ kind }: { kind: DocumentKind }) {
               <p>{invoice.notes}</p>
             </div>
           )}
+
+          {/* Delivery info section (bon de livraison) */}
+          {(() => {
+            const deliveryFields = [
+              { label: 'Adresse de livraison', value: invoice.delivery_address },
+              { label: 'Contact', value: invoice.delivery_contact },
+              { label: 'Téléphone', value: invoice.delivery_phone },
+              { label: 'Transport', value: invoice.transport_method },
+              { label: 'Chauffeur', value: invoice.driver_name },
+              { label: 'Véhicule', value: invoice.vehicle_info },
+              { label: 'Date de livraison', value: invoice.delivery_date ? new Date(invoice.delivery_date).toLocaleDateString('fr-FR') : null },
+              { label: 'Nombre de colis', value: invoice.package_count != null ? String(invoice.package_count) : null },
+              { label: 'Poids total', value: invoice.total_weight != null ? `${invoice.total_weight} kg` : null },
+              { label: 'Instructions', value: invoice.delivery_notes },
+            ].filter(f => f.value != null && String(f.value).trim() !== '');
+
+            if (deliveryFields.length === 0) return null;
+
+            return (
+              <div className="border rounded-lg p-4 space-y-2">
+                <h3 className="font-semibold text-sm text-muted-foreground uppercase tracking-wide">Informations de livraison</h3>
+                <div className="grid gap-3 md:grid-cols-2">
+                  {deliveryFields.map((f, i) => (
+                    <div key={i}>
+                      <p className="text-xs text-muted-foreground">{f.label}</p>
+                      <p className="text-sm font-medium">{f.value}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            );
+          })()}
         </CardContent>
       </Card>
     </div>

@@ -54,18 +54,22 @@ export interface InvoiceTemplateData {
     role?: string;
     created_at?: string;
   };
-  // Delivery info for bon de livraison
+
+  /** Used to tweak rendering depending on document kind (ex: BL vs Facture) */
+  document_kind?: string;
+
+  /** Delivery/transport information (Bon de livraison / Bon de réception) */
   delivery?: {
-    delivery_address?: string;
-    delivery_contact?: string;
-    delivery_phone?: string;
-    transport_method?: string;
-    driver_name?: string;
-    vehicle_info?: string;
-    delivery_date?: string;
-    package_count?: number | null;
-    total_weight?: number | null;
-    delivery_notes?: string;
+    delivery_address?: string | null;
+    delivery_contact?: string | null;
+    delivery_phone?: string | null;
+    transport_method?: string | null;
+    driver_name?: string | null;
+    vehicle_info?: string | null;
+    delivery_date?: string | null;
+    package_count?: number | string | null;
+    total_weight?: number | string | null;
+    delivery_notes?: string | null;
   };
 }
 
@@ -300,7 +304,7 @@ function finalizeInvoicePdf(doc: jsPDF, invoiceNumber: string, options?: Invoice
 
 // Draw company logo (loads image or uses fallback)
 // For PDFs, preserve original aspect ratio (not circular)
-async function drawCompanyLogo(
+export async function drawCompanyLogo(
   doc: jsPDF,
   x: number,
   y: number,
@@ -337,12 +341,13 @@ async function drawCompanyLogo(
 }
 
 // Common header function matching Relevé Client style with logo
-async function drawProfessionalHeader(
+export async function drawProfessionalHeader(
   doc: jsPDF, 
   pageWidth: number, 
   company: InvoiceTemplateData['company'],
   title: string,
   headerDate: string | undefined,
+  metaLines: string[] | undefined,
   margin: number = 20
 ): Promise<number> {
   const headerY = 10;
@@ -408,18 +413,33 @@ async function drawProfessionalHeader(
   doc.setFont('helvetica', 'bold');
   doc.text(title, pageWidth - margin, headerY, { align: 'right' });
 
-  // Date directly under the title (top-right block)
+  // Meta lines under the title (top-right block)
   doc.setFontSize(10);
   doc.setFont('helvetica', 'normal');
   doc.setTextColor(0, 0, 0);
-  const dateToShow = headerDate ? new Date(headerDate).toLocaleDateString('fr-FR') : new Date().toLocaleDateString('fr-FR');
-  doc.text(`Le ${dateToShow}`, pageWidth - margin, headerY + 6, { align: 'right' });
+  const lines = (metaLines && metaLines.filter(Boolean)) || [];
+  if (lines.length === 0) {
+    // Fallback: keep a single date line if no meta provided
+    const dateToShow = headerDate ? new Date(headerDate).toLocaleDateString('fr-FR') : new Date().toLocaleDateString('fr-FR');
+    doc.text(dateToShow, pageWidth - margin, headerY + 6, { align: 'right' });
+  } else {
+    const startY = headerY + 6;
+    const stepY = 5;
+    for (let i = 0; i < lines.length; i++) {
+      doc.text(lines[i], pageWidth - margin, startY + i * stepY, { align: 'right' });
+    }
+  }
   
-  return Math.max(y + 4, 40);
+  const metaBottom = (() => {
+    const count = lines.length > 0 ? lines.length : 1;
+    return headerY + 6 + count * 5;
+  })();
+
+  return Math.max(y + 4, metaBottom + 6, 40);
 }
 
 // Common client info box matching Relevé Client style with full details - Two column layout
-function drawClientInfoBox(
+export function drawClientInfoBox(
   doc: jsPDF,
   pageWidth: number,
   y: number,
@@ -439,6 +459,18 @@ function drawClientInfoBox(
   doc.setDrawColor(0, 0, 0);
   doc.setLineWidth(0.3);
   doc.setFontSize(9);
+  
+  // Title row
+  const [mutedR, mutedG, mutedB] = getThemeMutedRgb([240, 240, 240]);
+  doc.setFillColor(mutedR, mutedG, mutedB);
+  doc.rect(boxX, y, boxWidth, rowHeight, 'F');
+  doc.rect(boxX, y, boxWidth, rowHeight);
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(0, 0, 0);
+  const titleLabel = partyType === 'fournisseur' ? 'INFORMATIONS DU FOURNISSEUR' : 'INFORMATIONS DU CLIENT';
+  doc.text(titleLabel, boxX + paddingX, y + 5);
+  doc.setFont('helvetica', 'normal');
+  y += rowHeight;
   
   // Row 1: Code Client | M.Fiscal
   doc.rect(boxX, y, halfWidth, rowHeight);
@@ -522,80 +554,6 @@ function drawClientInfoBox(
   return y + rowHeight + 4;
 }
 
-// Draw delivery info box for bon de livraison
-function drawDeliveryInfoBox(
-  doc: jsPDF,
-  pageWidth: number,
-  y: number,
-  delivery: InvoiceTemplateData['delivery'],
-  margin: number = 20
-): number {
-  if (!delivery) return y;
-  
-  const hasInfo = delivery.delivery_address || delivery.delivery_contact || 
-                  delivery.transport_method || delivery.driver_name || delivery.delivery_date;
-  if (!hasInfo) return y;
-
-  const boxX = margin;
-  const boxWidth = pageWidth - margin * 2;
-  const rowHeight = 6;
-  const paddingX = 3;
-
-  doc.setDrawColor(100, 100, 100);
-  doc.setLineWidth(0.2);
-  doc.setFontSize(8);
-  doc.setFont('helvetica', 'bold');
-  doc.text('INFORMATIONS DE LIVRAISON', boxX, y);
-  y += 4;
-
-  const transportLabels: Record<string, string> = {
-    'vehicule_propre': 'Véhicule propre',
-    'transporteur': 'Transporteur externe', 
-    'livraison_client': 'Enlevé par le client',
-    'autre': 'Autre'
-  };
-
-  const fields: Array<{ label: string; value: string }> = [];
-  if (delivery.delivery_address) fields.push({ label: 'Adresse', value: delivery.delivery_address });
-  if (delivery.delivery_date) fields.push({ label: 'Date', value: new Date(delivery.delivery_date).toLocaleString('fr-FR') });
-  if (delivery.delivery_contact) fields.push({ label: 'Contact', value: delivery.delivery_contact });
-  if (delivery.delivery_phone) fields.push({ label: 'Tél', value: delivery.delivery_phone });
-  if (delivery.transport_method) fields.push({ label: 'Transport', value: transportLabels[delivery.transport_method] || delivery.transport_method });
-  if (delivery.driver_name) fields.push({ label: 'Chauffeur', value: delivery.driver_name });
-  if (delivery.vehicle_info) fields.push({ label: 'Véhicule', value: delivery.vehicle_info });
-  if (delivery.package_count) fields.push({ label: 'Colis', value: String(delivery.package_count) });
-  if (delivery.total_weight) fields.push({ label: 'Poids', value: `${delivery.total_weight} kg` });
-
-  doc.setFillColor(248, 248, 248);
-  doc.rect(boxX, y, boxWidth, Math.ceil(fields.length / 3) * rowHeight + 2, 'F');
-  doc.rect(boxX, y, boxWidth, Math.ceil(fields.length / 3) * rowHeight + 2);
-  y += 1;
-
-  doc.setFont('helvetica', 'normal');
-  const colWidth = boxWidth / 3;
-  fields.forEach((f, i) => {
-    const col = i % 3;
-    const row = Math.floor(i / 3);
-    const xPos = boxX + col * colWidth + paddingX;
-    const yPos = y + row * rowHeight + 4;
-    doc.setFont('helvetica', 'bold');
-    doc.text(`${f.label}: `, xPos, yPos);
-    doc.setFont('helvetica', 'normal');
-    const labelWidth = doc.getTextWidth(`${f.label}: `);
-    doc.text(f.value.substring(0, 25), xPos + labelWidth, yPos);
-  });
-
-  y += Math.ceil(fields.length / 3) * rowHeight + 4;
-
-  if (delivery.delivery_notes) {
-    doc.setFont('helvetica', 'italic');
-    doc.text(`Instructions: ${delivery.delivery_notes.substring(0, 80)}`, boxX + paddingX, y);
-    y += 5;
-  }
-
-  return y + 2;
-}
-
 // Common invoice info box
 function drawInvoiceInfoBox(
   doc: jsPDF,
@@ -635,8 +593,121 @@ function drawInvoiceInfoBox(
   return y + boxHeight + 4;
 }
 
+function drawDeliveryInfoBox(
+  doc: jsPDF,
+  pageWidth: number,
+  y: number,
+  delivery: InvoiceTemplateData['delivery'],
+  margin: number = 20,
+): number {
+  const d = delivery;
+  const hasAny = Boolean(
+    d && (
+      d.delivery_address ||
+      d.delivery_contact ||
+      d.delivery_phone ||
+      d.transport_method ||
+      d.driver_name ||
+      d.vehicle_info ||
+      d.delivery_date ||
+      d.delivery_notes ||
+      d.package_count != null ||
+      d.total_weight != null
+    )
+  );
+
+  if (!hasAny) return y;
+
+  const boxX = margin;
+  const boxW = pageWidth - margin * 2;
+  const colW = boxW / 2;
+  const rowH = 7;
+  const labelOffsetX = 3;
+  const valueOffsetX = 30;
+
+  const formatMaybeDate = (raw?: string | null) => {
+    if (!raw) return '';
+    const dt = new Date(raw);
+    if (!Number.isFinite(dt.getTime())) return String(raw);
+    const isDateOnly = /^\d{4}-\d{2}-\d{2}$/.test(String(raw));
+    return isDateOnly ? dt.toLocaleDateString('fr-FR') : dt.toLocaleString('fr-FR');
+  };
+
+  // Collect non-empty fields as pairs for two-column layout
+  type Field = { label: string; value: string };
+  const fields: Field[] = [];
+  const pushField = (label: string, value: string) => {
+    const v = String(value ?? '').trim();
+    if (v) fields.push({ label, value: v });
+  };
+
+  pushField('Adresse:', d?.delivery_address ? String(d.delivery_address) : '');
+  pushField('Contact:', d?.delivery_contact ? String(d.delivery_contact) : '');
+  pushField('Téléphone:', d?.delivery_phone ? String(d.delivery_phone) : '');
+  pushField('Transport:', d?.transport_method ? String(d.transport_method) : '');
+  pushField('Chauffeur:', d?.driver_name ? String(d.driver_name) : '');
+  pushField('Véhicule:', d?.vehicle_info ? String(d.vehicle_info) : '');
+  pushField('Date:', formatMaybeDate(d?.delivery_date ?? null));
+  if (d?.package_count != null && String(d.package_count).trim() !== '') {
+    pushField('Colis:', String(d.package_count));
+  }
+  if (d?.total_weight != null && String(d.total_weight).trim() !== '') {
+    pushField('Poids:', `${String(d.total_weight)} kg`);
+  }
+  pushField('Instructions:', d?.delivery_notes ? String(d.delivery_notes) : '');
+
+  if (fields.length === 0) return y;
+
+  doc.setDrawColor(0, 0, 0);
+  doc.setLineWidth(0.3);
+  doc.setFontSize(9);
+
+  // Header row spanning full width
+  const [mutedR, mutedG, mutedB] = getThemeMutedRgb([240, 240, 240]);
+  doc.setFillColor(mutedR, mutedG, mutedB);
+  doc.rect(boxX, y, boxW, rowH, 'F');
+  doc.rect(boxX, y, boxW, rowH);
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(0, 0, 0);
+  doc.text('INFORMATIONS DE LIVRAISON', boxX + labelOffsetX, y + 5);
+  doc.setFont('helvetica', 'normal');
+  y += rowH;
+
+  // Draw fields in two-column grid
+  for (let i = 0; i < fields.length; i += 2) {
+    const left = fields[i];
+    const right = i + 1 < fields.length ? fields[i + 1] : null;
+
+    // Draw row cells (left column + right column)
+    doc.rect(boxX, y, colW, rowH);
+    doc.rect(boxX + colW, y, colW, rowH);
+
+    // Left cell
+    doc.setFont('helvetica', 'bold');
+    doc.text(left.label, boxX + labelOffsetX, y + 5);
+    doc.setFont('helvetica', 'normal');
+    const leftMaxW = colW - valueOffsetX - 2;
+    const leftLines = doc.splitTextToSize(left.value, leftMaxW);
+    doc.text(leftLines[0] || '', boxX + valueOffsetX, y + 5);
+
+    // Right cell
+    if (right) {
+      doc.setFont('helvetica', 'bold');
+      doc.text(right.label, boxX + colW + labelOffsetX, y + 5);
+      doc.setFont('helvetica', 'normal');
+      const rightMaxW = colW - valueOffsetX - 2;
+      const rightLines = doc.splitTextToSize(right.value, rightMaxW);
+      doc.text(rightLines[0] || '', boxX + colW + valueOffsetX, y + 5);
+    }
+
+    y += rowH;
+  }
+
+  return y + 4;
+}
+
 // Common footer matching Relevé Client style with mini logo
-async function drawProfessionalFooter(
+export async function drawProfessionalFooter(
   doc: jsPDF,
   pageWidth: number,
   pageHeight: number,
@@ -673,7 +744,7 @@ async function drawProfessionalFooter(
 }
 
 // Stamp zone function
-async function drawStampZone(
+export async function drawStampZone(
   doc: jsPDF,
   y: number,
   pageWidth: number,
@@ -727,7 +798,7 @@ async function drawStampZone(
 }
 
 // Image loader function
-function loadImage(url: string): Promise<string> {
+export function loadImage(url: string): Promise<string> {
   return new Promise((resolve, reject) => {
     const img = new Image();
     img.crossOrigin = 'anonymous';
@@ -757,54 +828,88 @@ export async function generateClassicPDF(invoice: InvoiceTemplateData, items: In
   const contentWidth = pageWidth - margin * 2;
   const currency = currencies[invoice.currency] || currencies.TND;
   
+  const metaLines: string[] = [];
+  metaLines.push(`N°: ${invoice.invoice_number}`);
+  {
+    const createdAt = invoice.created_by?.created_at;
+    const issueDateStr = invoice.issue_date ? new Date(invoice.issue_date).toLocaleDateString('fr-FR') : '';
+    const createdDateStr = createdAt ? new Date(createdAt).toLocaleDateString('fr-FR') : '';
+    if (!invoice.issue_date || (createdDateStr && issueDateStr === createdDateStr)) {
+      metaLines.push(`Date: ${createdDateStr || new Date().toLocaleDateString('fr-FR')}`);
+    } else {
+      metaLines.push(`Date d'émission: ${issueDateStr}`);
+    }
+  }
+  const showDueDate = invoice.document_kind === 'facture' || invoice.document_kind === 'facture_achat';
+  if (showDueDate && invoice.due_date) metaLines.push(`Échéance: ${new Date(invoice.due_date).toLocaleDateString('fr-FR')}`);
+
   // Professional header
-  let y = await drawProfessionalHeader(doc, pageWidth, invoice.company, invoice.document_title || 'FACTURE', invoice.issue_date, margin);
-  
-  // Invoice info box
-  y = drawInvoiceInfoBox(doc, pageWidth, y, invoice, margin);
+  let y = await drawProfessionalHeader(
+    doc,
+    pageWidth,
+    invoice.company,
+    invoice.document_title || 'FACTURE',
+    invoice.issue_date,
+    metaLines,
+    margin,
+  );
   
   // Client info box
   y = drawClientInfoBox(doc, pageWidth, y, invoice.client, invoice.party_type || 'client', margin);
-  
-  // Delivery info box (for bon de livraison)
+
+  // Delivery info (Bon de livraison)
   y = drawDeliveryInfoBox(doc, pageWidth, y, invoice.delivery, margin);
   
-  // Table header
-  const tableTop = y;
-  const [mutedR, mutedG, mutedB] = getThemeMutedRgb([240, 240, 240]);
-  doc.setFillColor(mutedR, mutedG, mutedB);
-  doc.rect(margin, tableTop, contentWidth, 8, 'F');
-  doc.setDrawColor(0, 0, 0);
-  doc.setLineWidth(0.3);
-  doc.rect(margin, tableTop, contentWidth, 8);
-  
-  doc.setFontSize(8);
-  doc.setFont('helvetica', 'bold');
-  doc.setTextColor(0, 0, 0);
-  doc.text('REF', margin + 2, tableTop + 5.5);
-  doc.text('DESIGNATION', margin + 20, tableTop + 5.5);
-  doc.text('QTE', margin + 85, tableTop + 5.5);
-  doc.text('P.U.HT', margin + 100, tableTop + 5.5);
-  // Determine if any FODEC applies
+  // --- Pagination helpers ---
+  const footerReserve = 18; // space for footer line
+  const bottomLimit = pageHeight - margin - footerReserve;
   const anyFodec = items.some(i => (i.fodec_amount || 0) > 0);
-  doc.text('TVA', anyFodec ? margin + 135 : margin + 125, tableTop + 5.5);
-  if (anyFodec) {
-    doc.text('FODEC', margin + 120, tableTop + 5.5);
-    doc.text('TOTAL HT', margin + 150, tableTop + 5.5);
-  } else {
-    doc.text('TOTAL HT', margin + 145, tableTop + 5.5);
-  }
-  
-  y = tableTop + 8;
-  doc.setFont('helvetica', 'normal');
-  
-  console.log('Drawing items table - items count:', items.length);
-  console.log('Items:', items);
-  
-  items.forEach((item) => {
+  let pageNum = 1;
+
+  const drawClassicTableHeader = (startY: number) => {
+    const [mutedR2, mutedG2, mutedB2] = getThemeMutedRgb([240, 240, 240]);
+    doc.setFillColor(mutedR2, mutedG2, mutedB2);
+    doc.rect(margin, startY, contentWidth, 8, 'F');
+    doc.setDrawColor(0, 0, 0);
+    doc.setLineWidth(0.3);
+    doc.rect(margin, startY, contentWidth, 8);
+    doc.setFontSize(8);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(0, 0, 0);
+    doc.text('REF', margin + 2, startY + 5.5);
+    doc.text('DESIGNATION', margin + 20, startY + 5.5);
+    doc.text('QTE', margin + 85, startY + 5.5);
+    doc.text('P.U.HT', margin + 100, startY + 5.5);
+    doc.text('TVA', anyFodec ? margin + 135 : margin + 125, startY + 5.5);
+    if (anyFodec) {
+      doc.text('FODEC', margin + 120, startY + 5.5);
+      doc.text('TOTAL HT', margin + 150, startY + 5.5);
+    } else {
+      doc.text('TOTAL HT', margin + 145, startY + 5.5);
+    }
+    doc.setFont('helvetica', 'normal');
+    return startY + 8;
+  };
+
+  const addNewPageClassic = async () => {
+    await drawProfessionalFooter(doc, pageWidth, pageHeight, pageNum, invoice.company, margin);
+    doc.addPage();
+    pageNum++;
+    return margin + 5;
+  };
+
+  // Table header
+  y = drawClassicTableHeader(y);
+
+  // Items with page-break awareness
+  for (const item of items) {
+    if (y + 8 > bottomLimit) {
+      y = await addNewPageClassic();
+      y = drawClassicTableHeader(y);
+    }
+    doc.setFontSize(8);
     doc.setDrawColor(200, 200, 200);
     doc.rect(margin, y, contentWidth, 8);
-    
     doc.text((item.reference || '').substring(0, 10), margin + 2, y + 5.5);
     doc.text(item.description.substring(0, 30), margin + 20, y + 5.5);
     doc.text(item.quantity.toString(), margin + 87, y + 5.5);
@@ -818,15 +923,20 @@ export async function generateClassicPDF(invoice: InvoiceTemplateData, items: In
       doc.text(formatCurrency(item.total, invoice.currency), margin + 145, y + 5.5);
     }
     y += 8;
-  });
-  
-  // Totals section
+  }
+
+  // --- Totals section (ensure enough room or start new page) ---
+  const totalsNeeded = 70; // approximate space for totals + words + stamp
+  if (y + totalsNeeded > bottomLimit) {
+    y = await addNewPageClassic();
+  }
+
   y += 4;
   doc.setFontSize(10);
+  doc.setFont('helvetica', 'normal');
   doc.text('Sous-total HT:', 130, y);
   doc.text(formatCurrency(invoice.subtotal, invoice.currency), pageWidth - margin - 5, y, { align: 'right' });
   
-  // Discount (Remise)
   if ((invoice.discount_amount || 0) > 0) {
     y += 7;
     const discountLabel = invoice.discount_type === 'percent' 
@@ -870,6 +980,7 @@ export async function generateClassicPDF(invoice: InvoiceTemplateData, items: In
   // Notes
   if (invoice.notes) {
     y += 15;
+    if (y + 10 > bottomLimit) { y = await addNewPageClassic(); }
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(9);
     doc.text('Notes:', margin, y);
@@ -877,8 +988,12 @@ export async function generateClassicPDF(invoice: InvoiceTemplateData, items: In
     doc.text(invoice.notes.substring(0, 200), margin, y);
   }
   
-  // Stamp zone
-  y = Math.max(y + 20, 220);
+  // Stamp zone (push to bottom of current page if space, else new page)
+  const stampSpace = 65;
+  if (y + stampSpace > pageHeight - footerReserve) {
+    y = await addNewPageClassic();
+  }
+  y = Math.max(y + 20, pageHeight - margin - footerReserve - 60);
   await drawStampZone(doc, y, pageWidth, invoice.company?.signature_url, invoice.company?.stamp_url, margin);
   
   // Created by info
@@ -898,8 +1013,8 @@ export async function generateClassicPDF(invoice: InvoiceTemplateData, items: In
     doc.setTextColor(0, 0, 0);
   }
   
-  // Professional footer
-  await drawProfessionalFooter(doc, pageWidth, pageHeight, 1, invoice.company, margin);
+  // Professional footer on last page
+  await drawProfessionalFooter(doc, pageWidth, pageHeight, pageNum, invoice.company, margin);
   
   return finalizeInvoicePdf(doc, invoice.invoice_number, options);
 }
@@ -912,37 +1027,78 @@ export async function generateModernPDF(invoice: InvoiceTemplateData, items: Inv
   const margin = 12;
   const contentWidth = pageWidth - margin * 2;
   
+  const metaLines: string[] = [];
+  metaLines.push(`N°: ${invoice.invoice_number}`);
+  {
+    const createdAt = invoice.created_by?.created_at;
+    const issueDateStr = invoice.issue_date ? new Date(invoice.issue_date).toLocaleDateString('fr-FR') : '';
+    const createdDateStr = createdAt ? new Date(createdAt).toLocaleDateString('fr-FR') : '';
+    if (!invoice.issue_date || (createdDateStr && issueDateStr === createdDateStr)) {
+      metaLines.push(`Date: ${createdDateStr || new Date().toLocaleDateString('fr-FR')}`);
+    } else {
+      metaLines.push(`Date d'émission: ${issueDateStr}`);
+    }
+  }
+  const showDueDate = invoice.document_kind === 'facture' || invoice.document_kind === 'facture_achat';
+  if (showDueDate && invoice.due_date) metaLines.push(`Échéance: ${new Date(invoice.due_date).toLocaleDateString('fr-FR')}`);
+
   // Professional header
-  let y = await drawProfessionalHeader(doc, pageWidth, invoice.company, invoice.document_title || 'FACTURE', invoice.issue_date, margin);
-  
-  // Invoice info box
-  y = drawInvoiceInfoBox(doc, pageWidth, y, invoice, margin);
+  let y = await drawProfessionalHeader(
+    doc,
+    pageWidth,
+    invoice.company,
+    invoice.document_title || 'FACTURE',
+    invoice.issue_date,
+    metaLines,
+    margin,
+  );
   
   // Client info box
   y = drawClientInfoBox(doc, pageWidth, y, invoice.client, invoice.party_type || 'client', margin);
-  
-  // Delivery info box (for bon de livraison)
+
+  // Delivery info (Bon de livraison)
   y = drawDeliveryInfoBox(doc, pageWidth, y, invoice.delivery, margin);
   
-  // Table with blue header
-  doc.setFillColor(41, 98, 255);
-  doc.rect(margin, y, contentWidth, 8, 'F');
-  doc.setTextColor(255, 255, 255);
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(8);
-  doc.text('REF', margin + 2, y + 5.5);
-  doc.text('DESIGNATION', margin + 20, y + 5.5);
-  doc.text('QTE', margin + 85, y + 5.5);
-  doc.text('P.U.HT', margin + 100, y + 5.5);
-  doc.text('TVA', margin + 125, y + 5.5);
-  doc.text('TOTAL HT', margin + 145, y + 5.5);
-  
-  y += 8;
-  doc.setTextColor(0, 0, 0);
-  doc.setFont('helvetica', 'normal');
-  
-  items.forEach((item, index) => {
-    if (index % 2 === 0) {
+  // --- Pagination helpers ---
+  const footerReserve = 18;
+  const bottomLimit = pageHeight - margin - footerReserve;
+  let pageNum = 1;
+
+  const drawModernTableHeader = (startY: number) => {
+    doc.setFillColor(41, 98, 255);
+    doc.rect(margin, startY, contentWidth, 8, 'F');
+    doc.setTextColor(255, 255, 255);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(8);
+    doc.text('REF', margin + 2, startY + 5.5);
+    doc.text('DESIGNATION', margin + 20, startY + 5.5);
+    doc.text('QTE', margin + 85, startY + 5.5);
+    doc.text('P.U.HT', margin + 100, startY + 5.5);
+    doc.text('TVA', margin + 125, startY + 5.5);
+    doc.text('TOTAL HT', margin + 145, startY + 5.5);
+    doc.setTextColor(0, 0, 0);
+    doc.setFont('helvetica', 'normal');
+    return startY + 8;
+  };
+
+  const addNewPageModern = async () => {
+    await drawProfessionalFooter(doc, pageWidth, pageHeight, pageNum, invoice.company, margin);
+    doc.addPage();
+    pageNum++;
+    return margin + 5;
+  };
+
+  y = drawModernTableHeader(y);
+
+  let itemIndex = 0;
+  for (const item of items) {
+    if (y + 8 > bottomLimit) {
+      y = await addNewPageModern();
+      y = drawModernTableHeader(y);
+      itemIndex = 0; // reset zebra for new page
+    }
+    doc.setFontSize(8);
+    if (itemIndex % 2 === 0) {
       doc.setFillColor(245, 247, 250);
       doc.rect(margin, y, contentWidth, 8, 'F');
     }
@@ -953,9 +1109,15 @@ export async function generateModernPDF(invoice: InvoiceTemplateData, items: Inv
     doc.text(item.vat_rate ? `${item.vat_rate}%` : 'Exo', margin + 125, y + 5.5);
     doc.text(formatCurrency(item.total, invoice.currency), margin + 145, y + 5.5);
     y += 8;
-  });
-  
-  // Totals with colored background
+    itemIndex++;
+  }
+
+  // --- Totals (ensure enough room or new page) ---
+  const totalsNeeded = 70;
+  if (y + totalsNeeded > bottomLimit) {
+    y = await addNewPageModern();
+  }
+
   y += 5;
   doc.setFillColor(245, 247, 250);
   let boxHeight = 35;
@@ -967,10 +1129,10 @@ export async function generateModernPDF(invoice: InvoiceTemplateData, items: Inv
   
   let totalsY = y + 5;
   doc.setFontSize(10);
+  doc.setFont('helvetica', 'normal');
   doc.text('Sous-total HT:', totalsBoxX + 5, totalsY);
   doc.text(formatCurrency(invoice.subtotal, invoice.currency), pageWidth - margin - 5, totalsY, { align: 'right' });
   
-  // Discount
   if ((invoice.discount_amount || 0) > 0) {
     totalsY += 8;
     const discountLabel = invoice.discount_type === 'percent' 
@@ -1004,7 +1166,8 @@ export async function generateModernPDF(invoice: InvoiceTemplateData, items: Inv
   y = totalsY;
   
   // Amount in words
-  y += 40;
+  y += 15;
+  if (y + 10 > bottomLimit) { y = await addNewPageModern(); }
   doc.setTextColor(0, 0, 0);
   doc.setFontSize(9);
   doc.setFont('helvetica', 'italic');
@@ -1012,18 +1175,21 @@ export async function generateModernPDF(invoice: InvoiceTemplateData, items: Inv
   doc.setFont('helvetica', 'bold');
   doc.text(numberToWords(invoice.total, invoice.currency), margin, y + 6);
   
-  // Notes
   if (invoice.notes) {
     y += 18;
+    if (y + 10 > bottomLimit) { y = await addNewPageModern(); }
     doc.setFont('helvetica', 'normal');
     doc.text('Notes: ' + invoice.notes.substring(0, 150), margin, y);
   }
   
   // Stamp zone
-  y = Math.max(y + 20, 210);
+  const stampSpace = 65;
+  if (y + stampSpace > pageHeight - footerReserve) {
+    y = await addNewPageModern();
+  }
+  y = Math.max(y + 20, pageHeight - margin - footerReserve - 60);
   await drawStampZone(doc, y, pageWidth, invoice.company?.signature_url, invoice.company?.stamp_url, margin);
   
-  // Created by info
   if (invoice.created_by) {
     doc.setFontSize(8);
     doc.setTextColor(100, 100, 100);
@@ -1038,8 +1204,7 @@ export async function generateModernPDF(invoice: InvoiceTemplateData, items: Inv
     doc.setTextColor(0, 0, 0);
   }
   
-  // Professional footer
-  await drawProfessionalFooter(doc, pageWidth, pageHeight, 1, invoice.company, margin);
+  await drawProfessionalFooter(doc, pageWidth, pageHeight, pageNum, invoice.company, margin);
   
   return finalizeInvoicePdf(doc, invoice.invoice_number, options);
 }
@@ -1051,38 +1216,76 @@ export async function generateMinimalPDF(invoice: InvoiceTemplateData, items: In
   const pageHeight = doc.internal.pageSize.getHeight();
   const margin = 12;
   
+  const metaLines: string[] = [];
+  metaLines.push(`N°: ${invoice.invoice_number}`);
+  {
+    const createdAt = invoice.created_by?.created_at;
+    const issueDateStr = invoice.issue_date ? new Date(invoice.issue_date).toLocaleDateString('fr-FR') : '';
+    const createdDateStr = createdAt ? new Date(createdAt).toLocaleDateString('fr-FR') : '';
+    if (!invoice.issue_date || (createdDateStr && issueDateStr === createdDateStr)) {
+      metaLines.push(`Date: ${createdDateStr || new Date().toLocaleDateString('fr-FR')}`);
+    } else {
+      metaLines.push(`Date d'émission: ${issueDateStr}`);
+    }
+  }
+  const showDueDate = invoice.document_kind === 'facture' || invoice.document_kind === 'facture_achat';
+  if (showDueDate && invoice.due_date) metaLines.push(`Échéance: ${new Date(invoice.due_date).toLocaleDateString('fr-FR')}`);
+
   // Professional header
-  let y = await drawProfessionalHeader(doc, pageWidth, invoice.company, invoice.document_title || 'FACTURE', invoice.issue_date, margin);
-  
-  // Invoice info box
-  y = drawInvoiceInfoBox(doc, pageWidth, y, invoice, margin);
+  let y = await drawProfessionalHeader(
+    doc,
+    pageWidth,
+    invoice.company,
+    invoice.document_title || 'FACTURE',
+    invoice.issue_date,
+    metaLines,
+    margin,
+  );
   
   // Client info box
   y = drawClientInfoBox(doc, pageWidth, y, invoice.client, invoice.party_type || 'client', margin);
-  
-  // Delivery info box (for bon de livraison)
+
+  // Delivery info (Bon de livraison)
   y = drawDeliveryInfoBox(doc, pageWidth, y, invoice.delivery, margin);
   
-  // Simple table header
-  doc.setFontSize(8);
-  doc.setTextColor(120, 120, 120);
-  doc.text('REF', margin + 2, y);
-  doc.text('DESCRIPTION', margin + 20, y);
-  doc.text('QTÉ', margin + 85, y);
-  doc.text('P.U.HT', margin + 100, y);
-  doc.text('TVA', margin + 125, y);
-  doc.text('TOTAL HT', pageWidth - margin - 5, y, { align: 'right' });
-  
-  y += 3;
-  doc.setDrawColor(230, 230, 230);
-  doc.setLineWidth(0.5);
-  doc.line(margin, y, pageWidth - margin, y);
-  
-  y += 8;
-  doc.setTextColor(0, 0, 0);
-  doc.setFontSize(9);
-  
-  items.forEach((item) => {
+  // --- Pagination helpers ---
+  const footerReserve = 18;
+  const bottomLimit = pageHeight - margin - footerReserve;
+  let pageNum = 1;
+
+  const drawMinimalTableHeader = (startY: number) => {
+    doc.setFontSize(8);
+    doc.setTextColor(120, 120, 120);
+    doc.text('REF', margin + 2, startY);
+    doc.text('DESCRIPTION', margin + 20, startY);
+    doc.text('QTÉ', margin + 85, startY);
+    doc.text('P.U.HT', margin + 100, startY);
+    doc.text('TVA', margin + 125, startY);
+    doc.text('TOTAL HT', pageWidth - margin - 5, startY, { align: 'right' });
+    const lineY = startY + 3;
+    doc.setDrawColor(230, 230, 230);
+    doc.setLineWidth(0.5);
+    doc.line(margin, lineY, pageWidth - margin, lineY);
+    doc.setTextColor(0, 0, 0);
+    doc.setFontSize(9);
+    return lineY + 8;
+  };
+
+  const addNewPageMinimal = async () => {
+    await drawProfessionalFooter(doc, pageWidth, pageHeight, pageNum, invoice.company, margin);
+    doc.addPage();
+    pageNum++;
+    return margin + 5;
+  };
+
+  y = drawMinimalTableHeader(y);
+
+  for (const item of items) {
+    if (y + 8 > bottomLimit) {
+      y = await addNewPageMinimal();
+      y = drawMinimalTableHeader(y);
+    }
+    doc.setFontSize(9);
     doc.text((item.reference || '').substring(0, 10), margin + 2, y);
     doc.text(item.description.substring(0, 28), margin + 20, y);
     doc.text(item.quantity.toString(), margin + 87, y);
@@ -1090,21 +1293,26 @@ export async function generateMinimalPDF(invoice: InvoiceTemplateData, items: In
     doc.text(item.vat_rate ? `${item.vat_rate}%` : 'Exo', margin + 125, y);
     doc.text(formatCurrency(item.total, invoice.currency), pageWidth - margin - 5, y, { align: 'right' });
     y += 8;
-  });
-  
+  }
+
+  // --- Totals (ensure enough room or new page) ---
+  const totalsNeeded = 70;
+  if (y + totalsNeeded > bottomLimit) {
+    y = await addNewPageMinimal();
+  }
+
   y += 5;
   doc.setDrawColor(230, 230, 230);
   doc.line(120, y, pageWidth - margin, y);
   
-  // Totals
   y += 4;
   doc.setFontSize(9);
+  doc.setFont('helvetica', 'normal');
   doc.setTextColor(120, 120, 120);
   doc.text('Sous-total HT', 140, y);
   doc.setTextColor(0, 0, 0);
   doc.text(formatCurrency(invoice.subtotal, invoice.currency), pageWidth - margin - 5, y, { align: 'right' });
   
-  // Discount
   if ((invoice.discount_amount || 0) > 0) {
     y += 7;
     doc.setTextColor(120, 120, 120);
@@ -1132,11 +1340,13 @@ export async function generateMinimalPDF(invoice: InvoiceTemplateData, items: In
   y += 4;
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(12);
+  doc.setTextColor(0, 0, 0);
   doc.text('TOTAL TTC', 140, y);
   doc.text(formatCurrency(invoice.total, invoice.currency), pageWidth - margin - 5, y, { align: 'right' });
   
   // Amount in words
   y += 15;
+  if (y + 10 > bottomLimit) { y = await addNewPageMinimal(); }
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(9);
   doc.setTextColor(120, 120, 120);
@@ -1145,9 +1355,9 @@ export async function generateMinimalPDF(invoice: InvoiceTemplateData, items: In
   doc.setFont('helvetica', 'italic');
   doc.text(numberToWords(invoice.total, invoice.currency), margin, y + 6);
   
-  // Notes
   if (invoice.notes) {
     y += 18;
+    if (y + 10 > bottomLimit) { y = await addNewPageMinimal(); }
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(9);
     doc.setTextColor(120, 120, 120);
@@ -1157,10 +1367,13 @@ export async function generateMinimalPDF(invoice: InvoiceTemplateData, items: In
   }
   
   // Stamp zone
-  y = Math.max(y + 25, 205);
+  const stampSpace = 65;
+  if (y + stampSpace > pageHeight - footerReserve) {
+    y = await addNewPageMinimal();
+  }
+  y = Math.max(y + 25, pageHeight - margin - footerReserve - 60);
   await drawStampZone(doc, y, pageWidth, invoice.company?.signature_url, invoice.company?.stamp_url, margin);
   
-  // Created by info
   if (invoice.created_by) {
     doc.setFontSize(8);
     doc.setTextColor(120, 120, 120);
@@ -1174,8 +1387,7 @@ export async function generateMinimalPDF(invoice: InvoiceTemplateData, items: In
     doc.setTextColor(0, 0, 0);
   }
   
-  // Professional footer
-  await drawProfessionalFooter(doc, pageWidth, pageHeight, 1, invoice.company, margin);
+  await drawProfessionalFooter(doc, pageWidth, pageHeight, pageNum, invoice.company, margin);
   
   return finalizeInvoicePdf(doc, invoice.invoice_number, options);
 }

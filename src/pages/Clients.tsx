@@ -479,6 +479,12 @@ export default function Clients() {
                             {
                               id: selectedClient.id,
                               name: selectedClient.name,
+                              address: selectedClient.address,
+                              city: selectedClient.city,
+                              postal_code: selectedClient.postal_code,
+                              phone: selectedClient.phone,
+                              email: selectedClient.email,
+                              siret: selectedClient.siret,
                               vat_number: selectedClient.vat_number,
                             },
                             companySettings || {},

@@ -221,16 +221,16 @@ export default function DocumentEditPage({ kind }: { kind: DocumentKind }) {
     // Load delivery info for bon de livraison
     if (isDeliveryNote) {
       setDeliveryInfo({
-        delivery_address: invAny.delivery_address || '',
-        delivery_contact: invAny.delivery_contact || '',
-        delivery_phone: invAny.delivery_phone || '',
-        transport_method: invAny.transport_method || '',
-        driver_name: invAny.driver_name || '',
-        vehicle_info: invAny.vehicle_info || '',
-        delivery_date: invAny.delivery_date ? new Date(invAny.delivery_date).toISOString().slice(0, 16) : '',
-        package_count: invAny.package_count ?? null,
-        total_weight: invAny.total_weight ?? null,
-        delivery_notes: invAny.delivery_notes || '',
+        delivery_address: invoice.delivery_address || '',
+        delivery_contact: invoice.delivery_contact || '',
+        delivery_phone: invoice.delivery_phone || '',
+        transport_method: invoice.transport_method || '',
+        driver_name: invoice.driver_name || '',
+        vehicle_info: invoice.vehicle_info || '',
+        delivery_date: invoice.delivery_date ? new Date(invoice.delivery_date).toISOString().slice(0, 16) : '',
+        package_count: invoice.package_count ?? null,
+        total_weight: invoice.total_weight ?? null,
+        delivery_notes: invoice.delivery_notes || '',
       });
     }
 
@@ -588,7 +588,7 @@ export default function DocumentEditPage({ kind }: { kind: DocumentKind }) {
           total_weight: deliveryInfo.total_weight,
           delivery_notes: deliveryInfo.delivery_notes || null,
         } : {}),
-      } as any, invoiceItems);
+      }, invoiceItems);
 
       toast({ title: 'Succès', description: `${config.label} mis à jour avec succès` });
       navigate(-1);

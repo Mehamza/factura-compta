@@ -531,7 +531,7 @@ export default function DocumentNewPage({ kind }: { kind: DocumentKind }) {
           total_weight: deliveryInfo.total_weight,
           delivery_notes: deliveryInfo.delivery_notes || null,
         } : {}),
-      } as any, invoiceItems);
+      }, invoiceItems);
 
       // Handle stock movement for bon de livraison
       if (config.affectsStock && config.stockMovementType) {
