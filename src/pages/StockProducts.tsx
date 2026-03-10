@@ -284,7 +284,19 @@ export default function StockProducts() {
       toast({ variant: 'destructive', title: 'Permission refusée', description: NO_PERMISSION_MSG });
       return;
     }
-    if (!confirm('Supprimer ce produit ?')) return;
+    
+    // Check for related stock documents
+    const { count, error: countError } = await supabase
+      .from('stock_document_items')
+      .select('*', { count: 'exact', head: true })
+      .eq('product_id', id);
+    
+    let confirmMsg = 'Supprimer ce produit ?';
+    if (count && count > 0) {
+      confirmMsg = `Ce produit est utilisé dans ${count} document(s) de stock.\nAprès suppression, ces références seront supprimées.\n\nConfirmer la suppression ?`;
+    }
+    
+    if (!confirm(confirmMsg)) return;
     const { error } = await supabase.from('products').delete().eq('company_id', activeCompanyId).eq('id', id);
     if (error) {
       toast({ variant: 'destructive', title: 'Erreur', description: error.message });
