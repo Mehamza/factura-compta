@@ -28,7 +28,7 @@ export default function Auth() {
   const mode = searchParams.get('mode');
 
   useEffect(() => {
-    if (user && mode !== 'reset') {
+    if (user && mode !== 'forget') {
       navigate('/dashboard');
     }
   }, [user, mode, navigate]);
@@ -203,7 +203,7 @@ export default function Auth() {
             </form>
           )}
 
-          {mode === 'reset' && (
+          {mode === 'forget' && (
             <form onSubmit={handleResetPassword} className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="reset-password">Nouveau mot de passe</Label>
