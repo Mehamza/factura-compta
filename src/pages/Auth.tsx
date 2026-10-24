@@ -28,10 +28,10 @@ export default function Auth() {
   const mode = searchParams.get('mode');
 
   useEffect(() => {
-    if (user) {
+    if (user && mode !== 'reset') {
       navigate('/dashboard');
     }
-  }, [user, navigate]);
+  }, [user, mode, navigate]);
 
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
