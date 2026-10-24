@@ -16,7 +16,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useInvoices } from '@/hooks/useInvoices';
 import { useCompanySettings } from '@/hooks/useCompanySettings';
 import type { DocumentKind } from '@/config/documentTypes';
-import { isCreditNoteKind } from '@/config/documentTypes';
+import { isCreditNoteKind, isInvoiceKind } from '@/config/documentTypes';
 import {
   InvoiceItemsTable,
   InvoiceTotals,
@@ -746,7 +746,7 @@ export default function DocumentEditPage({ kind }: { kind: DocumentKind }) {
                 discount={discount}
                 onDiscountChange={setDiscount}
                 currency={currency}
-                showStamp={config.module === 'ventes' && !isCreditNote}
+                showStamp={isInvoiceKind(kind) && !isCreditNote}
                 showDiscount={!isCreditNote}
               />
             </div>
