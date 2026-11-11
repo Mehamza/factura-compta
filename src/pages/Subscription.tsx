@@ -1,5 +1,5 @@
 import { FormEvent, useCallback, useEffect, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { FileText, Loader2, Upload } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -47,6 +47,7 @@ const paymentMethodLabels: Record<string, string> = {
 export default function Subscription() {
   const { activeCompanyId, user } = useAuth();
   const { toast } = useToast();
+  const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const [plans, setPlans] = useState<Plan[]>([]);
   const [requests, setRequests] = useState<PaymentRequest[]>([]);
@@ -97,6 +98,30 @@ export default function Subscription() {
   }, [loadPageData]);
 
   const pendingRequestExists = requests.some((request) => request.status === 'pending');
+  const selectedPlan = plans.find((plan) => plan.id === selectedPlanId);
+  const isFreePlanSelected = Number(selectedPlan?.price_year) === 0;
+
+  const activateFreePlan = async () => {
+    if (!activeCompanyId || !user || !selectedPlanId) return;
+    setSubmitting(true);
+    try {
+      const { error } = await supabase.rpc('activate_free_company_plan', {
+        p_company_id: activeCompanyId,
+        p_plan_id: selectedPlanId,
+      });
+
+      if (error) throw error;
+
+      window.dispatchEvent(new Event('company-access-updated'));
+      toast({ title: 'Plan Gratuit activé', description: 'Votre entreprise peut commencer à utiliser son plan Gratuit.' });
+      navigate('/dashboard', { replace: true });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Le plan Gratuit n’a pas pu être activé.';
+      toast({ variant: 'destructive', title: 'Activation impossible', description: message });
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   const submitRequest = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -173,7 +198,7 @@ export default function Subscription() {
       <div>
         <h1 className="text-3xl font-bold">Abonnement</h1>
         <p className="mt-2 text-muted-foreground">
-          Effectuez le paiement hors application, puis envoyez la preuve pour vérification.
+          Activez le plan Gratuit immédiatement ou envoyez la preuve de paiement du plan Pro.
         </p>
       </div>
 
@@ -188,9 +213,11 @@ export default function Subscription() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Envoyer une preuve de paiement</CardTitle>
+          <CardTitle>{isFreePlanSelected ? 'Activer le plan Gratuit' : 'Demander le plan Pro'}</CardTitle>
           <CardDescription>
-            Formats acceptés : PDF, JPG, PNG ou WebP, 10 Mo maximum. Votre demande reste en attente jusqu’à décision de l’administrateur.
+            {isFreePlanSelected
+              ? 'Le plan Gratuit est activé immédiatement pour votre entreprise.'
+              : 'Payez par versement ou virement, puis joignez votre preuve (PDF, JPG, PNG ou WebP, 10 Mo maximum). Hamza activera le plan après vérification.'}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -201,7 +228,7 @@ export default function Subscription() {
           ) : plans.length === 0 ? (
             <p className="text-sm text-muted-foreground">Aucun plan actif n’est disponible actuellement.</p>
           ) : (
-            <form className="space-y-5" onSubmit={submitRequest}>
+            <div className="space-y-5">
               <div className="space-y-2">
                 <Label htmlFor="subscription-plan">Plan demandé</Label>
                 <Select value={selectedPlanId} onValueChange={setSelectedPlanId} disabled={pendingRequestExists}>
@@ -209,70 +236,90 @@ export default function Subscription() {
                   <SelectContent>
                     {plans.map((plan) => (
                       <SelectItem key={plan.id} value={plan.id}>
-                        {plan.name} — {Number(plan.price_year).toLocaleString('fr-FR')} TND / {plan.duration}
+                        {plan.name} — {Number(plan.price_year).toLocaleString('fr-FR')} TND{plan.price_year > 0 ? ` / ${plan.duration}` : ''}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="payment-method">Mode de paiement</Label>
-                <Select value={paymentMethod} onValueChange={(value: 'cash_deposit' | 'bank_transfer') => setPaymentMethod(value)} disabled={pendingRequestExists}>
-                  <SelectTrigger id="payment-method"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="cash_deposit">Versement espèces</SelectItem>
-                    <SelectItem value="bank_transfer">Virement bancaire</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="payment-reference">Référence du paiement (facultatif)</Label>
-                <Input
-                  id="payment-reference"
-                  value={paymentReference}
-                  onChange={(event) => setPaymentReference(event.target.value)}
-                  disabled={pendingRequestExists}
-                  maxLength={120}
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="payment-note">Note (facultatif)</Label>
-                <Textarea
-                  id="payment-note"
-                  value={paymentNote}
-                  onChange={(event) => setPaymentNote(event.target.value)}
-                  disabled={pendingRequestExists}
-                  maxLength={500}
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="payment-proof">Preuve de paiement</Label>
-                <Input
-                  id="payment-proof"
-                  type="file"
-                  accept=".pdf,.jpg,.jpeg,.png,.webp,application/pdf,image/jpeg,image/png,image/webp"
-                  onChange={(event) => setProof(event.target.files?.[0] || null)}
-                  disabled={pendingRequestExists}
-                  required={!pendingRequestExists}
-                />
-                {proof && <p className="text-sm text-muted-foreground">{proof.name}</p>}
-              </div>
-
-              {pendingRequestExists ? (
-                <p className="rounded-md bg-muted p-3 text-sm">
-                  Une demande est déjà en cours de vérification. Vous pourrez envoyer une autre demande après sa décision.
-                </p>
+              {isFreePlanSelected ? (
+                pendingRequestExists ? (
+                  <p className="rounded-md bg-muted p-3 text-sm">
+                    Une demande Pro est en cours de vérification. Attendez la décision de Hamza avant de changer de plan.
+                  </p>
+                ) : (
+                  <div className="space-y-3">
+                    <p className="rounded-md bg-muted p-3 text-sm">
+                      Gratuit : 15 factures par mois et 1 utilisateur.
+                    </p>
+                    <Button type="button" onClick={() => void activateFreePlan()} disabled={submitting}>
+                      {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                      Activer Gratuit
+                    </Button>
+                  </div>
+                )
               ) : (
-                <Button type="submit" disabled={submitting}>
-                  {submitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Upload className="mr-2 h-4 w-4" />}
-                  Envoyer la demande
-                </Button>
+                <form className="space-y-5" onSubmit={submitRequest}>
+                  <div className="space-y-2">
+                    <Label htmlFor="payment-method">Mode de paiement</Label>
+                    <Select value={paymentMethod} onValueChange={(value: 'cash_deposit' | 'bank_transfer') => setPaymentMethod(value)} disabled={pendingRequestExists}>
+                      <SelectTrigger id="payment-method"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="cash_deposit">Versement espèces</SelectItem>
+                        <SelectItem value="bank_transfer">Virement bancaire</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="payment-reference">Référence du paiement (facultatif)</Label>
+                    <Input
+                      id="payment-reference"
+                      value={paymentReference}
+                      onChange={(event) => setPaymentReference(event.target.value)}
+                      disabled={pendingRequestExists}
+                      maxLength={120}
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="payment-note">Note (facultatif)</Label>
+                    <Textarea
+                      id="payment-note"
+                      value={paymentNote}
+                      onChange={(event) => setPaymentNote(event.target.value)}
+                      disabled={pendingRequestExists}
+                      maxLength={500}
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="payment-proof">Preuve de paiement</Label>
+                    <Input
+                      id="payment-proof"
+                      type="file"
+                      accept=".pdf,.jpg,.jpeg,.png,.webp,application/pdf,image/jpeg,image/png,image/webp"
+                      onChange={(event) => setProof(event.target.files?.[0] || null)}
+                      disabled={pendingRequestExists}
+                      required={!pendingRequestExists}
+                    />
+                    {proof && <p className="text-sm text-muted-foreground">{proof.name}</p>}
+                  </div>
+
+                  {pendingRequestExists ? (
+                    <p className="rounded-md bg-muted p-3 text-sm">
+                      Une demande est déjà en cours de vérification. Vous pourrez envoyer une autre demande après sa décision.
+                    </p>
+                  ) : (
+                    <Button type="submit" disabled={submitting}>
+                      {submitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Upload className="mr-2 h-4 w-4" />}
+                      Envoyer la demande à Hamza
+                    </Button>
+                  )}
+                </form>
               )}
-            </form>
+            </div>
           )}
         </CardContent>
       </Card>

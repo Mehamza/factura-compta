@@ -1990,6 +1990,13 @@ export type Database = {
         }
         Returns: undefined
       }
+      activate_free_company_plan: {
+        Args: {
+          p_company_id: string
+          p_plan_id: string
+        }
+        Returns: undefined
+      }
       apply_warehouse_stock_movement: {
         Args: {
           p_company_id: string

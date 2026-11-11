@@ -56,6 +56,7 @@ interface AuthContextType {
     trialDaysLeft: number;
     inTrial: boolean;
     paidActive: boolean;
+    freePlanActive: boolean;
     restricted: boolean;
     unpaidAllow: string[];
   } | null;
@@ -307,7 +308,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       try {
         const { data, error } = await supabase
           .from('company_access' as never)
-          .select('trial_ends_at,is_paid,paid_until,lifetime,restricted,unpaid_permissions')
+          .select('trial_ends_at,is_paid,paid_until,lifetime,free_plan_active,restricted,unpaid_permissions')
           .eq('company_id', activeCompanyId)
           .maybeSingle();
 
@@ -321,8 +322,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           Boolean(data.is_paid) &&
           (Boolean(data.lifetime) || (data.paid_until && new Date(data.paid_until).getTime() > Date.now()));
 
-        const inTrial = !paidActive && Date.now() < new Date(data.trial_ends_at).getTime();
-        const restricted = Boolean(data.restricted) || (!paidActive && !inTrial);
+        const freePlanActive = Boolean(data.free_plan_active);
+        const inTrial = !paidActive && !freePlanActive && Date.now() < new Date(data.trial_ends_at).getTime();
+        const restricted = !freePlanActive && (Boolean(data.restricted) || (!paidActive && !inTrial));
 
         const msLeft = new Date(String(data.trial_ends_at)).getTime() - Date.now();
         const trialDaysLeft = msLeft <= 0 ? 0 : Math.ceil(msLeft / (1000 * 60 * 60 * 24));
@@ -337,6 +339,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           trialDaysLeft,
           inTrial,
           paidActive,
+          freePlanActive,
           restricted,
           unpaidAllow,
         });
@@ -346,8 +349,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
 
     void run();
+    window.addEventListener('company-access-updated', run);
     return () => {
       cancelled = true;
+      window.removeEventListener('company-access-updated', run);
     };
   }, [activeCompanyId]);
 

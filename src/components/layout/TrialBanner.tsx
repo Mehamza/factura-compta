@@ -15,7 +15,7 @@ export function TrialBanner() {
   const info = useMemo(() => {
     const a = activeCompanyAccess;
     if (!a) return null;
-    if (a.paidActive) return null;
+    if (a.paidActive || a.freePlanActive) return null;
     if (!a.inTrial) return null;
     return a;
   }, [activeCompanyAccess]);

@@ -23,35 +23,43 @@ type PlanFeature = {
 };
 
 function getFeatureLabel(feature: PlanFeature): string {
-  const value = feature.value as { enabled?: boolean; value?: number | null };
+  const value = typeof feature.value === 'number'
+    ? { value: feature.value }
+    : feature.value as { enabled?: boolean; value?: number | null } | null;
   const enabled = value?.enabled;
   const numeric = value?.value;
 
   switch (feature.key) {
     case 'billing.invoices_unlimited':
-      return enabled ? 'Factures illimitées' : 'Nombre de factures limité';
+      return enabled ? 'Factures illimitées' : null;
+    case 'billing.max_invoices_per_month':
+      return numeric == null ? '15 factures par mois' : `${numeric} factures par mois`;
     case 'billing.max_invoices_per_day':
-      return numeric == null ? 'Limite de factures non définie' : `Maximum ${numeric} factures par jour`;
+      return numeric == null ? null : `Jusqu’à ${numeric} factures par jour`;
     case 'billing.invoice_edit':
-      return enabled ? 'Modification des factures' : 'Modification des factures non incluse';
+      return enabled ? 'Modification des factures' : null;
     case 'billing.pdf_watermark':
-      return enabled ? 'Filigrane sur les PDF' : 'PDF sans filigrane';
+      return enabled === false ? 'Export PDF sans filigrane' : null;
     case 'users.max_users':
-      return numeric == null ? 'Utilisateurs non limités' : `Jusqu’à ${numeric} utilisateurs`;
+      return numeric == null || numeric <= 0
+        ? 'Utilisateurs illimités'
+        : numeric === 1
+          ? '1 utilisateur'
+          : `${numeric} utilisateurs`;
     case 'stock.readonly':
-      return enabled ? 'Consultation du stock' : 'Consultation du stock non incluse';
+      return enabled ? 'Consultation du stock' : null;
     case 'stock.manage_products':
-      return enabled ? 'Gestion des produits' : 'Gestion des produits non incluse';
+      return enabled ? 'Gestion complète du stock et des produits' : null;
     case 'stock.stock_alerts':
-      return enabled ? 'Alertes de stock' : 'Alertes de stock non incluses';
+      return enabled ? 'Alertes de stock' : null;
     case 'export.csv':
-      return enabled ? 'Export CSV' : 'Export CSV non inclus';
+      return enabled ? 'Export CSV' : null;
     case 'reports.access':
-      return enabled ? 'Accès aux rapports' : 'Rapports non inclus';
+      return enabled ? 'Accès aux rapports' : null;
     case 'accounting.access':
-      return enabled ? 'Module comptable' : 'Module comptable non inclus';
+      return enabled ? 'Module comptable' : null;
     default:
-      return feature.key;
+      return null;
   }
 }
 
@@ -115,7 +123,6 @@ export function PlanCatalog() {
       });
 
       if (!cancelled) {
-        setPlans(planRows);
         setFeatures(grouped);
         setLoading(false);
       }
@@ -158,20 +165,23 @@ export function PlanCatalog() {
           Les tarifs sont affichés, mais certaines fonctionnalités ne peuvent pas être chargées : {featureError}
         </p>
       )}
-      <div className="grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-3">
-        {plans.map((plan, index) => {
+      <div className="mx-auto grid max-w-4xl grid-cols-1 gap-8 md:grid-cols-2">
+        {plans.map((plan) => {
+          const isFree = Number(plan.price_year) === 0;
           const requestPath = `/subscription?plan=${encodeURIComponent(plan.id)}`;
           const href = user
             ? requestPath
             : `/auth?redirectTo=${encodeURIComponent(requestPath)}`;
-          const planFeatures = features[plan.id] || [];
+          const planFeatures = (features[plan.id] || [])
+            .map((feature) => ({ feature, label: getFeatureLabel(feature) }))
+            .filter((entry): entry is { feature: PlanFeature; label: string } => Boolean(entry.label));
 
           return (
             <Card
               key={plan.id}
-              className={`relative ${index === 1 ? 'border-primary shadow-lg' : ''}`}
+              className={`relative ${!isFree ? 'border-primary shadow-lg' : ''}`}
             >
-              {index === 1 && (
+              {!isFree && (
                 <Badge className="absolute -top-3 left-1/2 -translate-x-1/2">Recommandé</Badge>
               )}
               <CardHeader className="text-center">
@@ -181,25 +191,31 @@ export function PlanCatalog() {
                   <span className="text-4xl font-bold">
                     {Number(plan.price_year).toLocaleString('fr-FR')}
                   </span>
-                  <span className="text-muted-foreground"> TND / {plan.duration}</span>
+                  <span className="text-muted-foreground">
+                    {isFree ? ' TND' : ` TND / ${plan.duration}`}
+                  </span>
                 </div>
               </CardHeader>
               <CardContent className="space-y-5">
-                {planFeatures.length > 0 && (
-                  <ul className="space-y-3">
-                    {planFeatures.map((feature) => (
-                      <li key={`${feature.plan_id}-${feature.key}`} className="flex gap-2 text-sm">
-                        <Check className="h-4 w-4 shrink-0 text-primary" />
-                        <span>{getFeatureLabel(feature)}</span>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-                <Button className="w-full" variant={index === 1 ? 'default' : 'outline'} asChild>
-                  <Link to={href}>{user ? 'Demander ce plan' : 'Se connecter pour demander'}</Link>
+                <ul className="min-h-24 space-y-3">
+                  {planFeatures.map(({ feature, label }) => (
+                    <li key={`${feature.plan_id}-${feature.key}`} className="flex gap-2 text-sm">
+                      <Check className="h-4 w-4 shrink-0 text-primary" />
+                      <span>{label}</span>
+                    </li>
+                  ))}
+                </ul>
+                <Button className="w-full" variant={!isFree ? 'default' : 'outline'} asChild>
+                  <Link to={href}>
+                    {user
+                      ? isFree ? 'Activer gratuitement' : 'Choisir Pro'
+                      : isFree ? 'Commencer gratuitement' : 'Choisir Pro'}
+                  </Link>
                 </Button>
                 <p className="text-center text-xs text-muted-foreground">
-                  Activation après vérification du paiement par l’administration.
+                  {isFree
+                    ? 'Activation immédiate après connexion.'
+                    : 'Activation après vérification du paiement par l’administration.'}
                 </p>
               </CardContent>
             </Card>
