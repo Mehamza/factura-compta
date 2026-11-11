@@ -91,8 +91,10 @@ const Warehouses = lazy(() => import("./pages/Warehouses"));
 const SuperAdminDashboard = lazy(() => import("./pages/SuperAdminDashboard"));
 const AdminUsers = lazy(() => import("./pages/AdminUsers"));
 const AdminPlans = lazy(() => import("./pages/AdminPlans"));
+const AdminSubscriptions = lazy(() => import("./pages/AdminSubscriptions"));
 const Tarif = lazy(() => import("./pages/Tarif"));
 const Contact = lazy(() => import("./pages/Contact"));
+const Subscription = lazy(() => import("./pages/Subscription"));
 
 
 
@@ -126,6 +128,7 @@ const router = createBrowserRouter(
       <Route path="/documents" element={<ProtectedRoute><PageTransition><Suspense fallback={null}><Documents /></Suspense></PageTransition></ProtectedRoute>} />
       <Route path="/settings" element={<ProtectedRoute><PageTransition><Suspense fallback={null}><Settings /></Suspense></PageTransition></ProtectedRoute>} />
       <Route path="/account" element={<ProtectedRoute><PageTransition><Suspense fallback={null}><Account /></Suspense></PageTransition></ProtectedRoute>} />
+      <Route path="/subscription" element={<ProtectedRoute><PageTransition><Suspense fallback={null}><Subscription /></Suspense></PageTransition></ProtectedRoute>} />
       <Route path="/payments" element={<ProtectedRoute><PageTransition><Suspense fallback={null}><Payments /></Suspense></PageTransition></ProtectedRoute>} />
       
       {/* Sales invoice routes */}
@@ -223,6 +226,19 @@ const router = createBrowserRouter(
             <SuperAdminRoute>
               <PageTransition>
                 <Suspense fallback={null}><AdminPlans /></Suspense>
+              </PageTransition>
+            </SuperAdminRoute>
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/hamzafacturation/abonnements"
+        element={
+          <ProtectedRoute>
+            <SuperAdminRoute>
+              <PageTransition>
+                <Suspense fallback={null}><AdminSubscriptions /></Suspense>
               </PageTransition>
             </SuperAdminRoute>
           </ProtectedRoute>

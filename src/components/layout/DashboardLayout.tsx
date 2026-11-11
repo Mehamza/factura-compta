@@ -16,6 +16,7 @@ import {
   UserCog,
   Lock,
   Users,
+  CreditCard,
 } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
@@ -36,6 +37,7 @@ import { hasAnyAccessInModule } from '@/lib/companyPermissions';
 const superAdminNavigation = [
   { name: 'Super Admin Dashboard', href: '/hamzafacturation', icon: Shield },
   { name: 'Plans', href: '/hamzafacturation/plans', icon: Users },
+  { name: 'Abonnements clients', href: '/hamzafacturation/abonnements', icon: CreditCard },
   { name: 'Utilisateurs globaux', href: '/hamzafacturation/utilisateurs', icon: UserCog },
 ];
 
@@ -62,13 +64,19 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
 
     // If the user has no company yet, force them into Settings (wizard will create it).
     if (!activeCompanyId && location.pathname !== '/settings') {
-      navigate('/settings', { replace: true });
+      navigate('/settings', {
+        replace: true,
+        state: { returnTo: `${location.pathname}${location.search}` },
+      });
       return;
     }
     if (companySettings && companySettings.is_configured === false && location.pathname !== '/settings') {
-      navigate('/settings', { replace: true });
+      navigate('/settings', {
+        replace: true,
+        state: { returnTo: `${location.pathname}${location.search}` },
+      });
     }
-  }, [activeCompanyId, authLoading, companySettings, companySettingsLoading, isSuperAdmin, location.pathname, navigate, user]);
+  }, [activeCompanyId, authLoading, companySettings, companySettingsLoading, isSuperAdmin, location.pathname, location.search, navigate, user]);
 
   // Get user initials for avatar
   const getUserInitials = () => {
@@ -366,6 +374,10 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
               ) : (
                 <>
                   {navigationConfig.map(module => renderModule(module, () => setSidebarOpen(false)))}
+                  <NavItem
+                    item={{ name: 'Abonnement', href: '/subscription', icon: CreditCard }}
+                    onClick={() => setSidebarOpen(false)}
+                  />
                 </>
               )}
             </nav>

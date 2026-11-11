@@ -12,7 +12,7 @@ import { Building2, Receipt, FileText, Plus, Trash2, Save, Upload, Image, Check 
 import { currencies } from '@/lib/numberToWords';
 import { logger } from '@/lib/logger';
 import type { Tables } from '@/integrations/supabase/types';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 
 interface VatRate {
   rate: number;
@@ -83,6 +83,7 @@ const defaultSettings: Omit<CompanySettings, 'id' | 'type' | 'is_configured'> = 
 export default function Settings() {
   const { user, activeCompanyId, setActiveCompany, loading: authLoading, globalRole } = useAuth();
   const [searchParams] = useSearchParams();
+  const location = useLocation();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -747,7 +748,11 @@ export default function Settings() {
 
       // Redirect to dashboard after successful onboarding.
       toast.success('bienvenue chez smartfin');
-      navigate('/dashboard', { replace: true });
+      const returnTo = (location.state as { returnTo?: unknown } | null)?.returnTo;
+      const destination = typeof returnTo === 'string' && returnTo.startsWith('/') && !returnTo.startsWith('//')
+        ? returnTo
+        : '/dashboard';
+      navigate(destination, { replace: true });
     } catch (e) {
       logger.error('Erreur création entreprise:', e);
       const anyErr = e as any;

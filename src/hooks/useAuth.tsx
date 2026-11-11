@@ -63,7 +63,7 @@ interface AuthContextType {
   setActiveCompany: (companyId: string | null) => void;
   loading: boolean;
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
-  signUp: (email: string, password: string, fullName: string) => Promise<{ error: Error | null }>;
+  signUp: (email: string, password: string, fullName: string, redirectTo?: string) => Promise<{ error: Error | null }>;
   requestPasswordReset: (email: string) => Promise<{ error: Error | null }>;
   updatePassword: (newPassword: string) => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
@@ -432,8 +432,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return `${origin}${path.startsWith('/') ? path : `/${path}`}`;
   };
 
-  const signUp = async (email: string, password: string, fullName: string) => {
-    const redirectUrl = `${window.location.origin}/dashboard`;
+  const signUp = async (email: string, password: string, fullName: string, redirectTo = '/dashboard') => {
+    const safeRedirectTo = redirectTo.startsWith('/') && !redirectTo.startsWith('//')
+      ? redirectTo
+      : '/dashboard';
+    const redirectUrl = `${window.location.origin}/auth/callback?redirectTo=${encodeURIComponent(safeRedirectTo)}`;
     const { error } = await supabase.auth.signUp({
       email,
       password,

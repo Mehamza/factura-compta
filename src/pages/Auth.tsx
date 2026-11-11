@@ -26,12 +26,16 @@ export default function Auth() {
   const { toast } = useToast();
 
   const mode = searchParams.get('mode');
+  const requestedRedirect = searchParams.get('redirectTo');
+  const redirectTo = requestedRedirect?.startsWith('/') && !requestedRedirect.startsWith('//')
+    ? requestedRedirect
+    : '/dashboard';
 
   useEffect(() => {
     if (user && mode !== 'forget') {
-      navigate('/dashboard');
+      navigate(redirectTo, { replace: true });
     }
-  }, [user, mode, navigate]);
+  }, [user, mode, navigate, redirectTo]);
 
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -48,7 +52,7 @@ export default function Auth() {
           : error.message
       });
     } else {
-      navigate('/dashboard');
+      navigate(redirectTo, { replace: true });
     }
     setIsLoading(false);
   };
@@ -77,7 +81,7 @@ export default function Auth() {
       return;
     }
 
-    const { error } = await signUp(email, password, fullName);
+    const { error } = await signUp(email, password, fullName, redirectTo);
     
     if (error) {
       if (error.message.includes('already registered')) {

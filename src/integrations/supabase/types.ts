@@ -399,6 +399,69 @@ export type Database = {
           },
         ]
       }
+      subscription_payment_requests: {
+        Row: {
+          company_id: string
+          created_at: string
+          id: string
+          payment_method: string
+          payment_note: string | null
+          payment_reference: string | null
+          plan_id: string
+          proof_path: string
+          requested_by: string
+          review_note: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          status: string
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          id?: string
+          payment_method: string
+          payment_note?: string | null
+          payment_reference?: string | null
+          plan_id: string
+          proof_path: string
+          requested_by: string
+          review_note?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          id?: string
+          payment_method?: string
+          payment_note?: string | null
+          payment_reference?: string | null
+          plan_id?: string
+          proof_path?: string
+          requested_by?: string
+          review_note?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "subscription_payment_requests_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "subscription_payment_requests_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "plans"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       company_status_logs: {
         Row: {
           action: string
@@ -1909,6 +1972,24 @@ export type Database = {
     }
     Functions: {
       _get_default_company_id: { Args: never; Returns: string }
+      admin_review_subscription_request: {
+        Args: {
+          p_decision: string
+          p_expires_at?: string
+          p_request_id: string
+          p_review_note?: string
+        }
+        Returns: undefined
+      }
+      admin_set_company_plan: {
+        Args: {
+          p_active: boolean
+          p_company_id: string
+          p_expires_at?: string
+          p_plan_id: string | null
+        }
+        Returns: undefined
+      }
       apply_warehouse_stock_movement: {
         Args: {
           p_company_id: string

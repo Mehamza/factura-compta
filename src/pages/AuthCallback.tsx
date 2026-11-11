@@ -12,6 +12,10 @@ export default function AuthCallback() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { toast } = useToast();
+  const requestedRedirect = searchParams.get('redirectTo');
+  const redirectTo = requestedRedirect?.startsWith('/') && !requestedRedirect.startsWith('//')
+    ? requestedRedirect
+    : '/dashboard';
 
   useEffect(() => {
     const run = async () => {
@@ -54,7 +58,7 @@ export default function AuthCallback() {
           return;
         }
 
-        navigate('/dashboard', { replace: true });
+        navigate(redirectTo, { replace: true });
       } catch (e: any) {
         toast({
           variant: 'destructive',
@@ -66,7 +70,7 @@ export default function AuthCallback() {
     };
 
     void run();
-  }, [navigate, searchParams, toast]);
+  }, [navigate, redirectTo, searchParams, toast]);
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
