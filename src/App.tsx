@@ -10,6 +10,7 @@ import { ProtectedRoute } from "@/components/layout/ProtectedRoute";
 import { SuperAdminRoute } from "@/components/layout/ProtectedRoute";
 import { ModuleProtectedRoute } from "@/components/layout/ModuleProtectedRoute";
 import { SpeedInsights } from "@vercel/speed-insights/react";
+import { Analytics } from "@vercel/analytics/react";
 import PublicLayout from "@/components/layout/PublicLayout";
 
 const queryClient = new QueryClient();
@@ -271,6 +272,7 @@ const router = createBrowserRouter(
 const App = () => (
   <>
     <SpeedInsights/>
+    <Analytics />
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
         <TooltipProvider>
